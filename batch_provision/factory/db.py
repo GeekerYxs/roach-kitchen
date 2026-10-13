@@ -297,8 +297,16 @@ def heartbeat(conn, station_id, role, char_id, status, now):
 
 
 def register_station(conn, station_id, role, char_id, account, name, pid, now):
-    """After a verified login: which character plays this station, in which process."""
+    """After a verified login: which character plays this station, in which process. When the same station id is
+    now played by another character (leader swapped in local.toml), the alts the old one still held go back to
+    their queues at once instead of waiting out the lease (up to 20 min)."""
     with _Tx(conn):
+        old = conn.execute('SELECT char_id, name FROM stations WHERE station_id=?', (station_id,)).fetchone()
+        if old is not None and old['char_id'] != char_id:
+            freed = [r['char_id'] for r in conn.execute('SELECT char_id FROM alts WHERE station_id=?', (station_id,))]
+            conn.execute('UPDATE alts SET station_id=NULL, lease_until=NULL WHERE station_id=?', (station_id,))
+            log_event(conn, now, 'station', f'换人: {old["name"]} ID={old["char_id"]} -> {name} ID={char_id}，'
+                      f'放开旧角色占着的小号 {freed}', station_id=station_id)
         heartbeat(conn, station_id, role, char_id, 'online', now)
         conn.execute('UPDATE stations SET account=?, name=?, pid=? WHERE station_id=?',
                      (account, name, pid, station_id))

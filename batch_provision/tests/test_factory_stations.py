@@ -72,6 +72,26 @@ class Prune(unittest.TestCase):
             conn.close()
 
 
+class Swap(unittest.TestCase):
+    def test_same_id_new_character_releases_old_alts(self):
+        with tempfile.TemporaryDirectory() as d:
+            conn = db.connect(Path(d) / 'f.db')
+            db.register_station(conn, 'coast1', 'coast', 9, 'qooqp7', '旧队长', 1, 1.0)
+            db.register_alt(conn, 500, 'mw301', 1, 'mw301r1', 1.0)
+            db.register_alt(conn, 501, 'mw302', 1, 'mw302r1', 1.0)
+            db.register_station(conn, 'coast2', 'coast', 11, 'qooqp8', '别的队长', 3, 1.0)
+            db.claim(conn, 'coast1', [500], 1200, 2.0)
+            db.claim(conn, 'coast2', [501], 1200, 2.0)
+            db.register_station(conn, 'coast1', 'coast', 9, 'qooqp7', '旧队长', 2, 3.0)   # same character relogged
+            self.assertEqual(db.alt(conn, 500)['station_id'], 'coast1')
+            db.register_station(conn, 'coast1', 'coast', 10, 'bb01', '新队长', 4, 4.0)    # swapped
+            self.assertIsNone(db.alt(conn, 500)['station_id'])
+            self.assertIsNone(db.alt(conn, 500)['lease_until'])
+            self.assertEqual(db.alt(conn, 501)['station_id'], 'coast2')
+            self.assertEqual(db.station_roles(conn), {10: 'coast', 11: 'coast'})
+            conn.close()
+
+
 class Migration(unittest.TestCase):
     def test_old_file_gains_new_columns_and_keeps_rows(self):
         with tempfile.TemporaryDirectory() as d:
