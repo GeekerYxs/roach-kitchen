@@ -1,0 +1,25 @@
+# 总控流水线：每个账号 登录 → 进入角色 → 新手出村(到逍遥村西区) → 关闭窗口，再换下一个账号。
+# 只会关闭本次运行自己启动的窗口；你自己开的游戏窗口不会被读取、操作或关闭。
+# 结果：state/pipeline/<账号>.json，日志 logs/pipeline_*.log，报告 logs/pipeline_report_*.md
+
+[game]
+# exe（游戏路径）每台电脑不同，写在 local.toml
+server_index = 0
+
+[batch]
+slots = [1, 2, 3, 4]           # 进入哪些角色槽，可写一个(slots = 1)或多个；按槽依次处理全部账号
+max_windows = 16             # 本工具同时最多开几个窗口（不算你自己的窗口）
+skip_done = true            # 之前已成功到逍遥村的账号跳过（改成 false 就全部重跑）
+launch_interval = 2.0       # 相邻两次拉起游戏的间隔秒数
+inject_delay_ms = 3000
+login_retries = 2           # 登录失败时（只关本工具刚启动的那个进程）重开的次数
+enter_timeout = 60
+min_free_memory_mb = 3000   # 空闲内存低于这个值就暂停开新窗口
+
+[novice]
+escape_action = 8           # 逃跑指令编号（实测确认）
+timeout = 300               # 每个角色出村最多用多少秒
+
+[accounts]
+# 号段和密码写在 local.toml（本机号段，所有小号工具共用）。
+# 只想让本工具用别的号段时，才在这里写 prefix/start/count/digits（密码仍取 local.toml）。

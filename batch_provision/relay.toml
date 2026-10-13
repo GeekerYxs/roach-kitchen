@@ -1,0 +1,33 @@
+# 阶段测试：古井队长 + 调度员 连续接力
+# 每批开 4 个小号窗口（每个账号同一时间只登录一个角色），循环做：
+#   登录进槽 → 吃小肉林 → 记录飞鞋 → 古井组队+地瓜 → 古井带练到 11 级回村 → 调度员 PP 鸡传送到平静海岸2区落点 → 关窗
+# 直到下面 [accounts] 的全部账号 × [batch] slots 的角色都传到平静海岸2区。
+# 前提：古井队长、调度员已用 一键登录工位.cmd 登录（在线、在逍遥村西区）。工序参数（超时、技能等）沿用 factory.toml。
+# 结果：每个角色一个文件 state\relay\<账号>_slot<槽>.json（ok=true 表示已到平静海岸2区），日志 logs\relay_*.log
+# 中途停：在黑窗口按 Ctrl+C。窗口保留；再次双击会接管这些窗口接着做，已完成的自动跳过。
+# 路径请用单引号（TOML 单引号字符串里的反斜杠不转义）。
+
+[game]
+# exe（游戏路径）每台电脑不同，写在 local.toml
+server_index = 0
+
+[batch]
+slots = [1, 2, 3, 4]         # 处理哪些角色槽；按槽依次处理全部账号（先所有账号的槽1，再槽2 ...）
+max_windows = 4              # 每批几个小号 = 本工具同时开的窗口数（1..4，古井队最多带 4 个）
+launch_interval = 2.0        # 相邻两次拉起游戏的间隔秒数
+inject_delay_ms = 3000
+login_retries = 2            # 登录失败时（只关本工具刚启动的那个进程）重开的次数
+enter_timeout = 60
+min_free_memory_mb = 3000    # 空闲内存低于这个值就暂停开新窗口
+
+[novice]
+escape_action = 8            # 万一角色还在菜鸟训练营，先走新手出村（逃跑指令编号，实测确认）
+timeout = 300
+
+[accounts]
+# 号段和密码写在 local.toml（本机号段，所有小号工具共用）。
+# 只想让本工具用别的号段时，才在这里写 prefix/start/count/digits（密码仍取 local.toml）。
+
+[relay]
+factory = 'factory.toml'     # 工序参数文件（和单独的一键工序共用）
+max_cycles = 3               # 一个小号连续这么多轮没有进展（地图、等级都没变）就记失败、关窗，换下一个

@@ -1,0 +1,73 @@
+# 常驻工位角色（调度员、古井队长、海岸队长、收货人）。改完保存，双击 一键登录工位.cmd。
+# 密码不写在这里：写在 local.toml 的 [passwords]（账号 = "密码"），local.toml 不上传。
+# 路径请用单引号（TOML 单引号字符串里的反斜杠不转义）。
+
+[game]
+# exe（游戏路径）每台电脑不同，写在 local.toml
+server_index = 0
+
+[batch]
+launch_interval = 2.0       # 相邻两个进程拉起的间隔秒数
+inject_delay_ms = 3000
+login_retries = 2
+enter_timeout = 60
+min_free_memory_mb = 3000
+kill_on_failure = false     # 失败时保留窗口便于排查
+
+# 每个 [[station]] 一个工位角色：
+#   id       工位名，程序和数据库里用它区分（不要重复，改了就算新工位）
+#   role     dispatcher = 调度员（给金币+传送） | well = 古井队长 | coast = 海岸队长 | receiver = 收货人
+#   account  账号（密码在 local.toml）；slot 第几个角色（1..4）
+#   name     角色名（可不填）：填了会核对登录进去的确实是它，并在它已经开在别的窗口时拒绝重复登录
+#   enabled  false = 暂不登录、不使用
+
+[[station]]
+id = 'dispatcher1'
+role = 'dispatcher'
+account = 'xq01'
+slot = 1
+name = '小强杀手一号'
+
+[[station]]
+id = 'well1'
+role = 'well'
+account = 'qooqp6'
+slot = 1
+enabled = true             # 账号定了再打开
+
+[[station]]
+id = 'coast1'
+role = 'coast'
+account = 'qooqp7'
+slot = 1
+name = '伏地魔2'
+enabled = true
+
+
+[[station]]
+id = 'coast2'
+role = 'coast'
+account = 'qooqp8'
+slot = 1
+name = '伏地魔3'
+enabled = true
+
+
+[[station]]
+id = 'receiver1'
+role = 'receiver'
+account = 'hz01'
+slot = 1
+name = '自由一号'
+enabled = true
+
+# 第二个古井队长（2026-10-13 预留，现在不启用）。要启用时：去掉下面 7 行开头的 #，填好账号、密码、槽、角色名，
+# 双击 一键登录工位.cmd 登录它，再重启总大脑。总大脑会自动让两个队长共用一个古井队列（不会把一队拆成两个半队），
+# 并把古井等待人数加倍（well_buffer × 2）。窗口会不够用，建议同时把 supervisor.toml 的 max_windows 调到 24 左右。
+# 要求和伏地魔1 一样：能打、会扫射 803、出战宠物有烈焰爆发 1504；不需要 PP鸡 权限（它不传送）。
+#[[station]]
+#id = 'well2'
+#role = 'well'
+#account = ''
+#slot = 1
+#name = ''

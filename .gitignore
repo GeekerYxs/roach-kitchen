@@ -1,0 +1,17 @@
+# 本机配置（游戏路径、号段、密码）——每台电脑自己一份，绝不上传
+batch_provision/local.toml
+
+# 运行时生成的东西：每台电脑各自一份
+batch_provision/state/
+batch_provision/logs/
+batch_provision/runtime/
+batch_provision/native/obj/
+
+# bin 里只上传现在在用的 launcher.exe 和 provision_native.dll（新电脑没有编译器）
+batch_provision/bin/*
+!batch_provision/bin/launcher.exe
+!batch_provision/bin/provision_native.dll
+
+__pycache__/
+*.pyc
+*.tmp

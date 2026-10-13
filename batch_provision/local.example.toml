@@ -1,0 +1,30 @@
+# 本机配置模板。每台电脑：复制本文件为 local.toml（同一目录），按本机情况填好。
+# local.toml 含密码，已被 .gitignore 排除，不会上传 GitHub。
+# 其它 *.toml（工序参数）是共用的、会上传；本文件里的同名设置会覆盖它们。
+# 路径请用单引号（TOML 单引号字符串里的反斜杠不转义）。
+
+[game]
+exe = 'D:\什么什么大冒险2.0免安装绿色版2.97\v2.1\win32\WaatClient.exe'
+server_index = 0
+
+# 本机使用的小号号段（建角、总大脑、删除、流水线、接力、进游戏共用）。
+# 规则：两台电脑的号段绝对不能重叠（同一账号在两边登录会互相挤下线）。
+# 一条线（1 古井 + 2 海岸，约 42 料理/小时）需要约 60 个账号 = 240 个角色槽。
+[accounts]
+prefix = "mw"
+start = 301
+count = 60                   # mw301 .. mw360
+digits = 2
+password = ""                # 小号密码
+
+# 工位大号的密码：账号 = "密码"（账号名要和 stations.toml 里的 account 一致）
+[passwords]
+xq01 = ""
+qooqp6 = ""
+qooqp7 = ""
+qooqp8 = ""
+hz01 = ""
+
+# 本机机器差异（可选）：比如内存小的电脑把小号窗口上限调低
+# [supervisor]
+# max_windows = 20
