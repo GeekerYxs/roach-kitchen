@@ -207,6 +207,26 @@ class TwoWellLeadersTest(unittest.TestCase):
                 sup.logins.shutdown()
                 sup.chores.shutdown()
 
+    def test_coast_queue_scales_with_leaders(self):
+        """2026-10-13: a third coast leader; coast_buffer / coast_backlog are per coast leader (2 leaders: 4 / 8)."""
+        for leaders, want in ((3, (6, 12)), (2, (4, 8)), (0, (2, 4))):
+            with tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / 'f.db'
+                conn = db.connect(path)
+                for i in range(1, leaders + 1):
+                    db.heartbeat(conn, f'coast{i}', 'coast', 100 + i, 'online', 0.0)
+                conn.close()
+                s = settings(path)
+                s.policy = PullPolicy(coast_buffer=2, coast_backlog=4)
+                sup = Supervisor(s, logging.getLogger('test'))
+                try:
+                    self.assertEqual((sup.policy.coast_buffer, sup.policy.coast_backlog), want)
+                    self.assertEqual(sup.policy.well_buffer, 4)
+                finally:
+                    sup.conn.close()
+                    sup.logins.shutdown()
+                    sup.chores.shutdown()
+
 
 class NextDeleteTest(unittest.TestCase):
     def test_reserves_a_free_account_only(self):

@@ -71,3 +71,15 @@ enabled = true
 #account = ''
 #slot = 1
 #name = ''
+
+# 第三个海岸队长（2026-10-13，另一台电脑用 bb01）。要启用时：去掉下面 6 行开头的 #，填好槽和角色名，
+# 密码写在 local.toml 的 [passwords]（bb01 = "密码"）。注意：local.toml 里只要写了 [[station]]，就只看 local.toml 的工位列表，
+# 那样这一段要复制到 local.toml 里。
+# 总大脑会把海岸等待人数按海岸队长数放大（coast_buffer / coast_backlog × 3 = 6 / 12）。窗口要调到 30 左右（supervisor.toml 或 local.toml 的 max_windows）。
+# 要求和伏地魔2/3 一样：能打、会扫射 803、出战宠物有烈焰爆发 1504；必须有 PP鸡 权限（它自己传送到平静海岸2区）。
+#[[station]]
+#id = 'coast3'
+#role = 'coast'
+#account = 'bb01'
+#slot = 1
+#name = ''

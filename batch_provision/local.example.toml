@@ -24,6 +24,7 @@ qooqp6 = ""
 qooqp7 = ""
 qooqp8 = ""
 hz01 = ""
+# bb01 = ""                 # 第三个海岸队长（启用 coast3 时）
 
 # 本机工位（可选）：这台电脑用的工位和 stations.toml 不一样时（比如换了收货人，或两台电脑各跑一条线），
 # 把 stations.toml 里全部 [[station]] 段复制到这里再改。这里只要写了一个 [[station]]，就完全不看 stations.toml 的工位列表。

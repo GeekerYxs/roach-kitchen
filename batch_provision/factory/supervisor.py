@@ -113,8 +113,8 @@ def load_supervisor(path):
     s = data.get('supervisor', {})
     login_settings = config.load_pipeline(path)
     factory = load_settings(ROOT / s.get('factory', 'factory.toml'))
-    policy = PullPolicy(max_windows=int(s.get('max_windows', 20)), coast_buffer=int(s.get('coast_buffer', 4)),
-                        well_buffer=int(s.get('well_buffer', 4)), coast_backlog=int(s.get('coast_backlog', 8)))
+    policy = PullPolicy(max_windows=int(s.get('max_windows', 20)), coast_buffer=int(s.get('coast_buffer', 2)),
+                        well_buffer=int(s.get('well_buffer', 4)), coast_backlog=int(s.get('coast_backlog', 4)))
     if policy.coast_buffer >= policy.coast_backlog:
         raise ValueError(f'coast_buffer ({policy.coast_buffer}) 应小于 coast_backlog ({policy.coast_backlog})')
     launch = DeleteSettings(**config._launch_common(data), max_windows=1, max_roles=0,
@@ -267,9 +267,12 @@ class Supervisor:
         self.stop = threading.Event()
         self.coast_gate = TeamGate(s.coast_max_wait)
         self.well_gate = TeamGate(s.well_max_wait)
-        # well_buffer is per well leader: two leaders need two teams' worth waiting (one leader: unchanged)
+        # well_buffer, coast_buffer and coast_backlog are per leader of that kind: more leaders, longer queues
         wells = max(1, len(self.station_rows(WELL_ROLE)))
-        self.policy = replace(s.policy, well_buffer=s.policy.well_buffer * wells)
+        coasts = max(1, len(self.station_rows(COAST)))
+        self.policy = replace(s.policy, well_buffer=s.policy.well_buffer * wells,
+                              coast_buffer=s.policy.coast_buffer * coasts,
+                              coast_backlog=s.policy.coast_backlog * coasts)
         self.last_quarantine_check = 0.0
         self.logins = ThreadPoolExecutor(max_workers=s.parallel_logins, thread_name_prefix='login')
         self.chores = ThreadPoolExecutor(max_workers=12, thread_name_prefix='chore')
