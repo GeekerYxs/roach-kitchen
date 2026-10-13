@@ -35,11 +35,15 @@ def main():
     except Exception as e:
         logger.error('配置错误 (%s): %s', cfg, e)
         return 2
-    if not stations:
-        logger.info('%s 里没有启用的工位', cfg)
-        return 0
     settings = load_settings(ROOT / 'factory.toml')
     conn = db.connect(settings.db_path)
+    for sid in db.prune_stations(conn, [s.station_id for s in stations], time.time()):
+        logger.info('工位 %s 已不在 %s 里（或 enabled = false），从数据库删除登记；重启总大脑后不再为它开工人',
+                    sid, cfg.name)
+    if not stations:
+        logger.info('%s 里没有启用的工位', cfg)
+        conn.close()
+        return 0
     online = {c.char_id: c for c in procs.discover(logger)}
     results, to_login = [], []
     for s in stations:

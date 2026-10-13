@@ -57,6 +57,21 @@ class Stations(unittest.TestCase):
             self.load(station() + station(account='xq02'))
 
 
+class Prune(unittest.TestCase):
+    def test_stations_not_in_config_are_forgotten_and_release_their_alts(self):
+        with tempfile.TemporaryDirectory() as d:
+            conn = db.connect(Path(d) / 'f.db')
+            db.register_station(conn, 'receiver1', 'receiver', 9, 'hz01', '旧收货人', 1, 1.0)
+            db.register_station(conn, 'receiver2', 'receiver', 10, 'hz02', '新收货人', 2, 1.0)
+            db.register_alt(conn, 500, 'mw301', 1, 'mw301r1', 1.0)
+            db.claim(conn, 'receiver1', [500], 600, 2.0)
+            self.assertEqual(db.prune_stations(conn, ['receiver2'], 3.0), ['receiver1'])
+            self.assertEqual(db.station_roles(conn), {10: 'receiver'})
+            self.assertIsNone(db.alt(conn, 500)['station_id'])
+            self.assertEqual(db.prune_stations(conn, ['receiver2'], 4.0), [])
+            conn.close()
+
+
 class Migration(unittest.TestCase):
     def test_old_file_gains_new_columns_and_keeps_rows(self):
         with tempfile.TemporaryDirectory() as d:

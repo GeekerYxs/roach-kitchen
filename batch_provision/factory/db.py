@@ -305,6 +305,20 @@ def register_station(conn, station_id, role, char_id, account, name, pid, now):
         log_event(conn, now, 'station', f'{role} 上线: {name} ID={char_id} pid={pid}', station_id=station_id)
 
 
+def prune_stations(conn, keep_ids, now):
+    """Forget stations no longer enabled in stations.toml (renamed id, removed, enabled = false), so the
+    supervisor does not start an idle worker for them; alts they still held go back to their queues.
+    -> the removed station ids."""
+    gone = [r['station_id'] for r in conn.execute('SELECT station_id FROM stations')
+            if r['station_id'] not in set(keep_ids)]
+    with _Tx(conn):
+        for sid in gone:
+            conn.execute('UPDATE alts SET station_id=NULL, lease_until=NULL WHERE station_id=?', (sid,))
+            conn.execute('DELETE FROM stations WHERE station_id=?', (sid,))
+            log_event(conn, now, 'station', f'{sid} 已不在 stations.toml 里，删除登记', station_id=sid)
+    return gone
+
+
 def station(conn, station_id):
     return conn.execute('SELECT * FROM stations WHERE station_id=?', (station_id,)).fetchone()
 

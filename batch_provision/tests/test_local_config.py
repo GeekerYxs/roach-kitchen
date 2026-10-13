@@ -35,6 +35,13 @@ class Merge(unittest.TestCase):
         out = merge_local({'station': [{'account': 'xq01'}, {'account': 'nobody'}]}, LOCAL)
         self.assertEqual([x['password'] for x in out['station']], ['big', ''])
 
+    def test_local_stations_replace_the_shared_list(self):
+        local = {**LOCAL, 'station': [{'id': 'receiver1', 'account': 'xq01'}]}
+        out = merge_local({'station': [{'id': 'receiver1', 'account': 'hz01'}, {'id': 'well1', 'account': 'q'}]},
+                          local)
+        self.assertEqual(out['station'], [{'id': 'receiver1', 'account': 'xq01', 'password': 'big'}])
+        self.assertNotIn('station', merge_local({'batch': {}}, local))
+
     def test_other_sections_only_override_existing_ones(self):
         local = {**LOCAL, 'supervisor': {'max_windows': 12}}
         self.assertEqual(merge_local({'supervisor': {'max_windows': 20, 'fresh': True}}, local)['supervisor'],

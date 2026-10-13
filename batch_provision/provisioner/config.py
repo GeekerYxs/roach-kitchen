@@ -142,8 +142,12 @@ def merge_local(data, local):
       ([game] is always applied: the exe path is per machine);
     - [accounts] (this machine's alt range + password) fills every key the tool's own [accounts] does not set,
       so an empty or missing tool [accounts] means "this machine's range";
-    - [passwords] (account = password) fills [[station]] entries and [accounts] list items without a password."""
+    - [passwords] (account = password) fills [[station]] entries and [accounts] list items without a password;
+    - [[station]] in local (only applied to files that have stations) replaces the shared list: this machine's own
+      stations, so changing e.g. the receiver never edits a file that git pull updates."""
     out = {k: dict(v) if isinstance(v, dict) else v for k, v in data.items()}
+    if 'station' in local and 'station' in out:
+        out['station'] = list(local['station'])
     for section, values in local.items():
         if section in ('accounts', 'passwords') or not isinstance(values, dict):
             continue
