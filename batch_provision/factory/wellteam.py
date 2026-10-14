@@ -280,7 +280,8 @@ class WellTeamRun:
                         self.drop(m, f'{self.s.well_form_timeout:.0f}s 内没有完成')
                 break
             self._alive()
-            db.renew(self.conn, self.station['station_id'], self.s.well_lease, time.time())
+            db.renew(self.conn, self.station['station_id'], [m.c.char_id for m in self.members.values()
+                                                             if m.state != 'dropped'], self.s.well_lease, time.time())
             leader_world, leader_team = read_world(self.lmem), read_team(self.lmem)
             for m in self.members.values():
                 if m.state == 'joining':

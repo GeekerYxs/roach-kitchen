@@ -273,10 +273,27 @@ def held(conn, station_id, now):
                         (station_id, now)).fetchall()
 
 
-def renew(conn, station_id, lease_seconds, now):
-    """Keep the lease alive while the station is working; call it every tick or heartbeat."""
-    return conn.execute('UPDATE alts SET lease_until=? WHERE station_id=? AND lease_until>=?',
-                        (now + lease_seconds, station_id, now)).rowcount
+def renew(conn, station_id, char_ids, lease_seconds, now):
+    """Keep the lease of the batch's own members alive while the station is working. Only these: renewing every
+    alt the station holds kept the members of a batch that had failed held forever (2026-10-14 runner: 10 of 30
+    windows idle for over an hour, the station's later batches renewed them every 10 s)."""
+    n = 0
+    with _Tx(conn):
+        for cid in char_ids:
+            n += conn.execute('UPDATE alts SET lease_until=? WHERE char_id=? AND station_id=? AND lease_until>=?',
+                              (now + lease_seconds, cid, station_id, now)).rowcount
+    return n
+
+
+def release_station(conn, station_id, now, why):
+    """Free every alt a station holds (its batch failed, or the station starts afresh). Its next batch claims again
+    whoever it still carries (claim takes free alts)."""
+    with _Tx(conn):
+        freed = [r['char_id'] for r in conn.execute('SELECT char_id FROM alts WHERE station_id=?', (station_id,))]
+        if freed:
+            conn.execute('UPDATE alts SET station_id=NULL, lease_until=NULL WHERE station_id=?', (station_id,))
+            log_event(conn, now, 'release', f'{why}: 放开 {freed}', station_id=station_id)
+    return freed
 
 
 def release(conn, station_id, char_ids, now):

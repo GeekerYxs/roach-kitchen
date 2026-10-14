@@ -375,7 +375,7 @@ class CoastRun:
             return
         self.last_observe = now
         wall = time.time()
-        db.renew(self.conn, self.sid(), self.s.coast_lease, wall)
+        db.renew(self.conn, self.sid(), [m.c.char_id for m in self.active()], self.s.coast_lease, wall)
         db.heartbeat(self.conn, self.sid(), COAST, self.leader.char_id, status, wall)
         roles = db.station_roles(self.conn)
         for m in self.active():

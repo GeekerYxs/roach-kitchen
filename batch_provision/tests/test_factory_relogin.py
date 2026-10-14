@@ -220,5 +220,30 @@ class SupervisorReloginTest(unittest.TestCase):
                 close(sup)
 
 
+
+class FailedBatchReleaseTest(unittest.TestCase):
+    def test_failed_batch_members_go_back_to_their_queue(self):
+        """2026-10-14 runner: after the 35 min stall every batch timed out; its members stayed held for hours."""
+        with tempfile.TemporaryDirectory() as tmp:
+            sup = make_sup(tmp, [WELL1])
+            try:
+                for cid in (1, 2):
+                    db.register_alt(sup.conn, cid, 'mw09', cid, f'mw09r{cid}', 0.0)
+                    sup.conn.execute("UPDATE alts SET phase='queue_coast' WHERE char_id=?", (cid,))
+                me = SimpleNamespace(session=SimpleNamespace(pid=4242))
+
+                def body(conn, st, leader, lg):
+                    db.claim(conn, 'well1', [1, 2], 1200, time.time())
+                    sup.stop.set()
+                    raise RuntimeError('1800s 内没有完成')
+
+                with mock.patch.object(sup, 'scan', return_value={ME: me}),                         mock.patch('factory.supervisor.native.alive', return_value=True):
+                    sup.worker(dict(db.station(sup.conn, 'well1')), body)
+                self.assertEqual(db.held(sup.conn, 'well1', time.time()), [])
+                self.assertEqual(len(db.waiting(sup.conn, 'queue_coast', time.time())), 2)
+            finally:
+                close(sup)
+
+
 if __name__ == '__main__':
     unittest.main()

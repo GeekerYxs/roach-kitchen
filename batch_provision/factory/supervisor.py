@@ -364,6 +364,9 @@ class Supervisor:
         lg = log.for_account(st['name'] or sid)
         conn = db.connect(self.s.factory.db_path)
         fails, warned = 0, 0.0
+        # a fresh start holds nobody: what an earlier run held is free again (the batch still carried is re-claimed)
+        if freed := db.release_station(conn, sid, time.time(), '工位开工'):
+            lg.info('开工：放开上次运行占着的 %d 个小号 %s', len(freed), freed)
         try:
             while not self.stop.is_set():
                 st = db.station(conn, sid) or st         # pid / name change after a relogin
@@ -385,6 +388,9 @@ class Supervisor:
                 except Exception as e:
                     fails += 1
                     lg.error('工位出错（连续 %d 次）: %s', fails, e, exc_info=not isinstance(e, RuntimeError))
+                    # the failed batch's members go back to their queues now (they used to stay held forever)
+                    if freed := db.release_station(conn, sid, time.time(), f'工位出错: {e}'):
+                        lg.warning('放开这一批的 %d 个小号 %s，它们按各自进度回队列', len(freed), freed)
                     # window closed (by the watcher, or crashed): straight to the relogin, no back-off
                     self.stop.wait(2 if not native.alive(me.session.pid) else min(60, 10 * fails))
         finally:
