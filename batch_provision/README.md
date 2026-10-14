@@ -39,6 +39,7 @@ DLL 命令 106 = 在游戏窗口线程调用任意游戏函数（RVA + 寄存器
 | `factory/gold.py` + `一键发金币.cmd` | 工序 3：调度员给村里金币不足 190 的小号 500 金币，逐笔串行，只看小号余额够不够（不对账） |
 | `stations.toml` + `一键登录工位.cmd`（`factory/stations.py`） | 常驻工位角色（调度员/古井/海岸/收货人）的账号、密码、槽位；登录后登记到 factory.db。同一角色已开在非本工具窗口时拒绝登录（防挤号） |
 | `factory/wipe.py` + `wipe.toml` + `一键清空小号.cmd` | 一键清空：按号段（如 mw301..mw380）删掉每个小号的全部角色，先关总大脑；数据库同步记已删，约 3.2 小时后总大脑自动重建。报告 `logs/wipe_report_*.md` + `wipe_roles_*.csv` |
+| `provisioner/cleanlogs.py` + `一键清空日志.cmd` | 清空本机 `logs/` 和 `runtime/`（可保留最近 N 小时；有游戏窗口在运行时不清 runtime；被占用的文件跳过），不碰 `state/` |
 | `factory/runner.py`、`factory/config.py`、`factory.toml` | 工序共用：找窗口、并发、汇总；配置 |
 | `factory/db.py` | `factory.db`（SQLite）：小号、工位、事件；排队、认领租约、失败 3 次隔离 |
 | `provisioner/__main__.py` | 并发调度、汇总 |
