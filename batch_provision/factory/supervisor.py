@@ -689,8 +689,12 @@ class Supervisor:
 
     # ---- window manager
     def known(self):
+        """factory.db roles of the CONFIGURED accounts only: after switching this machine to another range
+        (e.g. mw301..380 -> mw201..280) the old range's rows stay in the db, and pulling one would fail (no password)."""
         out = {}
         for r in self.conn.execute('SELECT * FROM alts'):
+            if r['account'] not in self.accounts:
+                continue
             obs = db.last_observation(self.conn, r['char_id']) if r['obs_json'] else None
             out[r['name']] = Known(r['name'], r['account'], r['phase'], obs.level if obs else None,
                                    bool(r['quarantined']), r['deleted_at'] is not None, r['phase_since'])

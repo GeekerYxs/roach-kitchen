@@ -21,6 +21,19 @@ def settings(db_path):
         not_served=frozenset())
 
 
+class KnownTest(unittest.TestCase):
+    def test_roles_of_other_accounts_are_ignored(self):
+        """Range switched (mw301..380 -> mw201..280) without clearing factory.db: the old rows must not be pulled."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'f.db'
+            sup = Supervisor(settings(path), logging.getLogger('test'))
+            db.register_alt(sup.conn, 1, 'mw09', 1, 'mw09r1', 1.0)
+            db.register_alt(sup.conn, 2, 'mw301', 1, 'mw301r1', 1.0)
+            sup.conn.execute("UPDATE alts SET phase='queue_coast'")
+            self.assertEqual(sorted(sup.known()), ['mw09r1'])
+            sup.conn.close()
+
+
 class AddFromThreadTest(unittest.TestCase):
     def test_login_thread_registers_with_its_own_connection(self):
         """2026-10-13 live: every login thread used the main thread's sqlite connection -> ProgrammingError,
