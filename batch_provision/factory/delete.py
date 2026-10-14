@@ -170,7 +170,7 @@ class AccountDeleteJob:
             reader = TapReader(self.runtime, session.pid)
             reader.poll()
             context, roster = read_session(session, self.account.name, self.log)
-            result.update(self._delete(conn, session, reader, context, roster, cid, name))
+            result.update(self.delete_listed(conn, session, reader, context, roster, cid, name))
         except Refused as e:
             result['error'] = f'不删: {e}'
             self.log.warning('%s 不删: %s', name, e)
@@ -202,7 +202,8 @@ class AccountDeleteJob:
                       native.close(client.session, timeout=self.s.close_timeout), self.s.close_settle)
         time.sleep(self.s.close_settle)
 
-    def _delete(self, conn, session, reader, context, roster, cid, name):
+    def delete_listed(self, conn, session, reader, context, roster, cid, name):
+        """Delete one role from the selection screen this session shows (also used by factory/wipe.py)."""
         index, problem = find_entry(roster, cid, name)
         if problem:
             raise RuntimeError(problem)

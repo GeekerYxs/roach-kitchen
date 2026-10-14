@@ -218,6 +218,16 @@ def mark_deleted(conn, char_id, now, release_ms):
         log_event(conn, now, 'deleted', f'服务器接受删除，报告 {release_ms} ms 后释放', char_id=char_id)
 
 
+def mark_gone(conn, char_id, now):
+    """The role is not in the server's role list any more (deleted earlier, slot already released): same record as a
+    delete, so the supervisor rebuilds its successor."""
+    with _Tx(conn):
+        conn.execute('UPDATE alts SET phase=?, phase_since=?, reason=?, deleted_at=COALESCE(deleted_at, ?), '
+                     'pending_action=NULL, pending_at=NULL, station_id=NULL, lease_until=NULL, failures=0, '
+                     'last_error=NULL WHERE char_id=?', (DELETED, now, '已不在选角列表里', now, char_id))
+        log_event(conn, now, 'gone', '选角列表里已没有这个角色，记为已删除', char_id=char_id)
+
+
 def received(conn, char_id):
     """True when stage 9 verified that this alt's 料理 reached the receiver."""
     return conn.execute("SELECT 1 FROM events WHERE kind='receive' AND char_id=? LIMIT 1",
