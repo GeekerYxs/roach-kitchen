@@ -1,0 +1,33 @@
+# 一键清空小号：把一个号段（例如 mw301 .. mw380）所有小号的全部角色删掉，并出报告。
+# 用法：双击 一键清空小号.cmd，按提示输入起始号、结束号、模式（1 只检测 / 2 检测并删除），删除要输入 DELETE 确认。
+# 也可以命令行：python -X utf8 -m factory.wipe wipe.toml 301 380 [--check 只检测] [--yes 不问确认]
+#
+# 每个账号：登录到选角界面 → 读角色列表 → 删一个 → 关窗口 → 再登录删下一个（DLL 规定一个进程只能删一次）。
+# 数据库（state/factory.db）同步记成"已删除"，约 3.2 小时后槽位释放，一键总大脑 会自动重建 r(N+4) 并继续生产，
+# 不用再跑 一键建角（空账号除外，报告里会列出来）。重复运行是安全的：删过的跳过，失败的再试。
+# 工位大号（stations.toml / local.toml 里的账号）永远不删。总大脑在运行时拒绝删除（先关掉它）。
+# 账号前缀、本机号段和小号密码都取 local.toml 的 [accounts]，这里不写密码。
+# 结果：logs\wipe_report_*.md（看这个）、logs\wipe_roles_*.csv（Excel 打开）、logs\wipe_*.log。
+
+[game]
+# exe 写在 local.toml
+server_index = 0
+
+[batch]
+max_windows = 8              # 同时最多开几个游戏窗口（= 同时处理几个账号）。内存小就调低
+launch_interval = 2.0        # 相邻两次启动游戏的间隔秒数
+inject_delay_ms = 3000
+login_retries = 2            # 登录失败重试次数
+min_free_memory_mb = 3000    # 空闲内存低于这个值就暂停开新窗口
+
+[accounts]
+# 号段和密码在 local.toml
+
+[wipe]
+factory = 'factory.toml'     # 数据库位置
+reply_timeout = 15           # 发出删除请求后等服务器回复的秒数（没回复 = 结果不明，不重发，报告里列出来）
+close_timeout = 3            # 关窗口：先请它正常关闭，这么多秒没关就强制结束
+close_settle = 3             # 关窗口后等几秒再登录下一次（让服务器先把旧连接下线）
+release_hours = 3.2          # 删除后多久槽位释放（用户实测约 3 小时），只用于报告里的预计时间
+supervisor_quiet = 120       # 这么多秒内有工位心跳 = 总大脑还在运行，拒绝删除
+close_open_windows = true    # 号段里还开着的小号游戏窗口：删除前强制关掉（反正登录也会把它挤掉）
