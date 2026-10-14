@@ -62,11 +62,29 @@ class FactoryDb(unittest.TestCase):
     def test_expired_lease_frees_the_alts(self):
         self.queue_all()
         db.claim(self.conn, 'well1', [1, 2], 60, now=20.0)
-        self.assertEqual(db.renew(self.conn, 'well1', 60, now=70.0), 2)     # alive: extended to 130
+        self.assertEqual(db.renew(self.conn, 'well1', [1, 2], 60, now=70.0), 2)     # alive: extended to 130
         self.assertEqual(len(db.held(self.conn, 'well1', now=129.0)), 2)
         # station died: no renew after 130
         self.assertEqual(db.claim(self.conn, 'well2', [1, 2], 60, now=131.0), [1, 2])
-        self.assertEqual(db.renew(self.conn, 'well1', 60, now=132.0), 0)
+        self.assertEqual(db.renew(self.conn, 'well1', [1, 2], 60, now=132.0), 0)
+
+    def test_renew_only_the_current_batch(self):
+        """2026-10-14 runner: members of a failed batch stayed held, the station's next batches renewed them every
+        10 s and 10 of 30 windows idled for over an hour. Only the batch's own members are renewed now."""
+        self.queue_all()
+        db.claim(self.conn, 'well1', [1, 2], 60, now=20.0)      # batch 1 fails, 1 and 2 are not released
+        db.claim(self.conn, 'well1', [3], 60, now=30.0)         # batch 2
+        self.assertEqual(db.renew(self.conn, 'well1', [3], 60, now=70.0), 1)
+        self.assertEqual([r['char_id'] for r in db.waiting(self.conn, P.QUEUE_WELL, now=81.0)][:2], [1, 2])
+
+    def test_release_station(self):
+        self.queue_all()
+        db.claim(self.conn, 'well1', [1, 2], 60, now=20.0)
+        db.claim(self.conn, 'coast1', [3], 60, now=20.0)
+        self.assertEqual(sorted(db.release_station(self.conn, 'well1', 21.0, 'test')), [1, 2])
+        self.assertEqual(db.held(self.conn, 'well1', now=22.0), [])
+        self.assertEqual([r['char_id'] for r in db.held(self.conn, 'coast1', now=22.0)], [3])
+        self.assertEqual(db.release_station(self.conn, 'well1', 23.0, 'test'), [])
 
     def test_release(self):
         self.queue_all()

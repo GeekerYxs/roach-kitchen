@@ -230,7 +230,7 @@ class TransportRun:
         for m in self.active():
             if not native.alive(m.c.session.pid):
                 self.drop(m, '游戏进程已退出')
-        db.renew(self.conn, self.sid(), self.s.transport_lease, time.time())
+        db.renew(self.conn, self.sid(), [m.c.char_id for m in self.active()], self.s.transport_lease, time.time())
 
     def active(self):
         return [m for m in self.members.values() if m.state != 'dropped']

@@ -397,7 +397,7 @@ class WellTrainRun:
         self.last_observe = now
         wall = time.time()
         sid = self.station['station_id']
-        db.renew(self.conn, sid, self.s.well_lease, wall)
+        db.renew(self.conn, sid, [m.c.char_id for m in self.active()], self.s.well_lease, wall)
         db.heartbeat(self.conn, sid, WELL, self.leader.char_id, 'training', wall)
         roles = db.station_roles(self.conn)
         for m in self.active():
