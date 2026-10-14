@@ -1,0 +1,65 @@
+[
+  {
+    "station": "dispatcher1",
+    "ok": true,
+    "name": "小强杀手一号",
+    "char_id": 202231,
+    "pid": 5448,
+    "map_id": 1,
+    "error": null
+  },
+  {
+    "station": "well1",
+    "ok": true,
+    "name": "海岸女队长一号",
+    "char_id": 204409,
+    "pid": 23040,
+    "map_id": 651,
+    "error": null
+  },
+  {
+    "station": "coast1",
+    "ok": false,
+    "name": null,
+    "char_id": null,
+    "pid": 12828,
+    "map_id": null,
+    "error": "RuntimeError: 槽1 没有角色（这个号只有 0 个角色），不进入"
+  },
+  {
+    "station": "coast2",
+    "ok": false,
+    "name": null,
+    "char_id": null,
+    "pid": 12748,
+    "map_id": null,
+    "error": "RuntimeError: 槽1 没有角色（这个号只有 0 个角色），不进入"
+  },
+  {
+    "station": "coast3",
+    "ok": true,
+    "name": "bb01",
+    "char_id": 201852,
+    "pid": 22024,
+    "map_id": 1,
+    "error": null
+  },
+  {
+    "station": "receiver1",
+    "ok": true,
+    "name": "小强杀手二号",
+    "char_id": 202232,
+    "pid": 3152,
+    "map_id": 81,
+    "error": null
+  },
+  {
+    "station": "well2",
+    "ok": true,
+    "name": "小强杀手三号",
+    "char_id": 202233,
+    "pid": 17672,
+    "map_id": 1,
+    "error": null
+  }
+]
