@@ -1,0 +1,38 @@
+[
+  {
+    "station": "dispatcher1",
+    "ok": true,
+    "already_online": true,
+    "name": "小强杀手一号"
+  },
+  {
+    "station": "well1",
+    "ok": true,
+    "already_online": true,
+    "name": "伏地魔1"
+  },
+  {
+    "station": "coast1",
+    "ok": true,
+    "already_online": true,
+    "name": "伏地魔2"
+  },
+  {
+    "station": "coast2",
+    "ok": true,
+    "already_online": true,
+    "name": "伏地魔3"
+  },
+  {
+    "station": "receiver1",
+    "ok": true,
+    "already_online": true,
+    "name": "小强杀手二号"
+  },
+  {
+    "station": "well2",
+    "ok": true,
+    "already_online": true,
+    "name": "小强杀手三号"
+  }
+]

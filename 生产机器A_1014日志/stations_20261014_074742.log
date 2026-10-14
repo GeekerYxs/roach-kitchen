@@ -1,0 +1,63 @@
+07:47:42.314 INFO  [main  ] 日志文件: D:\roach-kitchen\batch_provision\logs\stations_20261014_074742.log
+07:47:42.340 INFO  [main  ] 发现 mw335r21 pid=8188 角色ID=204879 地图=81 坐标=(1075,2779)
+07:47:42.340 INFO  [main  ] 发现 mw358r18 pid=9252 角色ID=204895 地图=1 坐标=(1087,1099)
+07:47:42.342 INFO  [main  ] 发现 mw337r21 pid=20224 角色ID=204884 地图=81 坐标=(1032,2812)
+07:47:42.344 INFO  [main  ] 发现 mw327r15 pid=27868 角色ID=204861 地图=81 坐标=(593,1838)
+07:47:42.346 INFO  [main  ] 发现 mw347r21 pid=30556 角色ID=204877 地图=1 坐标=(942,1036)
+07:47:42.346 INFO  [main  ] 发现 mw344r21 pid=30864 角色ID=204873 地图=651 坐标=(2216,1652)
+07:47:42.350 INFO  [main  ] 发现 mw355r18 pid=33296 角色ID=204894 地图=1 坐标=(1079,1096)
+07:47:42.350 INFO  [main  ] 发现 mw323r15 pid=34256 角色ID=204858 地图=81 坐标=(1064,2788)
+07:47:42.350 INFO  [main  ] 发现 mw351r18 pid=34320 角色ID=204893 地图=1 坐标=(1032,1076)
+07:47:42.353 INFO  [main  ] 发现 mw345r21 pid=38476 角色ID=204892 地图=651 坐标=(2204,1638)
+07:47:42.353 INFO  [main  ] 发现 mw348r21 pid=43416 角色ID=204875 地图=651 坐标=(2168,1588)
+07:47:42.355 INFO  [main  ] 发现 mw342r21 pid=46268 角色ID=204885 地图=81 坐标=(1035,2809)
+07:47:42.355 INFO  [main  ] 发现 mw313r18 pid=51436 角色ID=204865 地图=81 坐标=(578,1816)
+07:47:42.355 INFO  [main  ] 发现 小强杀手一号 pid=53140 角色ID=202231 地图=1 坐标=(1338,1155)
+07:47:42.355 INFO  [main  ] 发现 mw356r18 pid=53788 角色ID=204896 地图=651 坐标=(2136,1540)
+07:47:42.361 INFO  [main  ] 发现 mw326r15 pid=56884 角色ID=204867 地图=81 坐标=(539,1835)
+07:47:42.363 INFO  [main  ] 发现 mw317r12 pid=67452 角色ID=204891 地图=651 坐标=(2151,1566)
+07:47:42.363 INFO  [main  ] 发现 伏地魔2 pid=90348 角色ID=199367 地图=81 坐标=(1750,1300)
+07:47:42.363 INFO  [main  ] 发现 小强杀手二号 pid=91316 角色ID=202232 地图=81 坐标=(1752,1364)
+07:47:42.363 INFO  [main  ] 发现 伏地魔1 pid=95516 角色ID=199366 地图=1 坐标=(1266,1174)
+07:47:42.363 INFO  [main  ] 发现 小强杀手三号 pid=96720 角色ID=202233 地图=651 坐标=(2100,1500)
+07:47:42.363 INFO  [main  ] 发现 伏地魔3 pid=96728 角色ID=199368 地图=81 坐标=(1750,1300)
+07:47:42.363 INFO  [main  ] dispatcher1(调度员（给金币+传送）) 已在线: 小强杀手一号 pid=53140，不重新登录
+07:47:42.367 INFO  [main  ] well1(古井队长) 已在线: 伏地魔1 pid=95516，不重新登录
+07:47:42.369 INFO  [main  ] coast1(海岸队长) 已在线: 伏地魔2 pid=90348，不重新登录
+07:47:42.369 INFO  [main  ] coast2(海岸队长) 已在线: 伏地魔3 pid=96728，不重新登录
+07:47:42.387 INFO  [main  ] receiver1(收货人) 已在线: 小强杀手二号 pid=91316，不重新登录
+07:47:42.388 INFO  [main  ] well2(古井队长) 已在线: 小强杀手三号 pid=96720，不重新登录
+07:47:42.388 INFO  [main  ] 需要登录的工位: coast3(海岸队长)=bb01(槽1)
+07:47:42.388 INFO  [main  ] 提示: 如果这些号已经在别的（非本工具启动的）窗口里在线，请先关掉，否则会互相挤号
+07:47:42.390 INFO  [bb01  ] == 登录 ==
+07:47:42.390 INFO  [bb01  ] 启动游戏并登录 (第 1/3 次)
+07:47:42.390 DEBUG [bb01  ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game D:\什么什么大冒险2.0免安装绿色版2.97\v2.1\win32\WaatClient.exe --inject-delay 3000 --result D:\roach-kitchen\batch_provision\runtime\launch_bb01_1.json
+07:47:50.476 DEBUG [bb01  ] launcher> PID 81568, slot 1
+07:47:50.476 DEBUG [bb01  ] launcher> Stage 1, error 0
+07:47:50.476 DEBUG [bb01  ] launcher> Stage 3, error 0
+07:47:50.476 DEBUG [bb01  ] launcher> Stage 4, error 0
+07:47:50.476 DEBUG [bb01  ] launcher> Stage 5, error 0
+07:47:50.476 DEBUG [bb01  ] launcher> Stage 9, error 0
+07:47:50.476 DEBUG [bb01  ] launcher> Login checkpoint reached.
+07:47:50.479 INFO  [bb01  ] 登录结果: exit=0(成功到达选角界面) stage=9(停在选角界面) error=0(无) pid=81568 elapsed=8000ms, 用时 8.1s
+07:47:50.479 INFO  [bb01  ] 已到选角界面 pid=81568 hwnd=0x9f0c86 base=0x4f0000
+07:47:50.479 INFO  [bb01  ] == 读取选角列表 ==
+07:47:51.711 INFO  [bb01  ] 会话上下文=0xdc1c4c (定位+读列表 1.2s)
+07:47:51.711 INFO  [bb01  ] 选角列表 槽1: bb01  ID=201852  54级
+07:47:51.711 INFO  [bb01  ] == 进入槽1: bb01 (ID=201852, 54级) ==
+07:47:51.724 DEBUG [bb01  ] DLL stage=6(选角) error=0 enter_messages=2
+07:47:51.925 DEBUG [bb01  ] DLL stage=7(进入世界中) error=0 enter_messages=4
+07:47:53.332 DEBUG [bb01  ] DLL stage=8(已进入世界) error=0 enter_messages=11
+07:47:53.332 INFO  [bb01  ] 世界指针已出现（DLL 用时 3734ms，按回车 11 次）
+07:47:53.332 INFO  [bb01  ] == 核验已进入游戏 ==
+07:47:54.835 INFO  [bb01  ] 已在游戏中: bb01 ID=201852 地图=81 坐标=(1750,1300)
+07:47:54.835 INFO  [bb01  ] 结束: 成功 用时 12.4s
+07:47:54.841 INFO  [main  ] ============================================================
+07:47:54.841 INFO  [main  ] dispatcher1  在线 小强杀手一号 （原本就在线）
+07:47:54.841 INFO  [main  ] well1        在线 伏地魔1 （原本就在线）
+07:47:54.841 INFO  [main  ] coast1       在线 伏地魔2 （原本就在线）
+07:47:54.841 INFO  [main  ] coast2       在线 伏地魔3 （原本就在线）
+07:47:54.841 INFO  [main  ] receiver1    在线 小强杀手二号 （原本就在线）
+07:47:54.843 INFO  [main  ] well2        在线 小强杀手三号 （原本就在线）
+07:47:54.843 INFO  [main  ] coast3       在线 bb01 
+07:47:54.843 INFO  [main  ] 完成 7/7。汇总: D:\roach-kitchen\batch_provision\logs\stations_summary_20261014_074742.json

@@ -1,0 +1,53 @@
+11:43:25.762 INFO  [main  ] 日志文件: D:\roach-kitchen\batch_provision\logs\stations_20261013_114325.log
+11:43:25.778 INFO  [main  ] 发现 伏地魔1 pid=164 角色ID=199366 地图=651 坐标=(2214,1653)
+11:43:25.779 INFO  [main  ] 发现 mw352r1 pid=756 角色ID=204015 地图=81 坐标=(1032,2812)
+11:43:25.779 INFO  [main  ] 发现 伏地魔2 pid=2768 角色ID=199367 地图=81 坐标=(1000,2700)
+11:43:25.779 INFO  [main  ] 发现 mw360r1 pid=3112 角色ID=204047 地图=1 坐标=(1266,1174)
+11:43:25.780 INFO  [main  ] 发现 mw349r1 pid=3932 角色ID=204001 地图=81 坐标=(1035,2737)
+11:43:25.780 INFO  [main  ] 发现 mw357r1 pid=4184 角色ID=204033 地图=1 坐标=(1266,1174)
+11:43:25.786 INFO  [main  ] 发现 mw350r1 pid=6580 角色ID=204006 地图=81 坐标=(984,2788)
+11:43:25.786 INFO  [main  ] 发现 伏地魔3 pid=9712 角色ID=199368 地图=81 坐标=(1750,1300)
+11:43:25.786 INFO  [main  ] 发现 mw358r1 pid=10680 角色ID=204038 地图=1 坐标=(1266,1174)
+11:43:25.787 INFO  [main  ] 发现 小强杀手一号 pid=12564 角色ID=202231 地图=1 坐标=(1338,1155)
+11:43:25.787 INFO  [main  ] 发现 mw351r1 pid=13224 角色ID=204009 地图=651 坐标=(2185,1611)
+11:43:25.788 INFO  [main  ] 发现 mw355r1 pid=14260 角色ID=204025 地图=651 坐标=(2168,1588)
+11:43:25.788 INFO  [main  ] 发现 mw359r1 pid=16712 角色ID=204041 地图=1 坐标=(1266,1174)
+11:43:25.789 INFO  [main  ] 发现 mw301r2 pid=16728 角色ID=203812 地图=1 坐标=(1266,1174)
+11:43:25.789 INFO  [main  ] 发现 mw356r1 pid=19396 角色ID=204031 地图=651 坐标=(2214,1653)
+11:43:25.790 INFO  [main  ] 发现 mw353r1 pid=19808 角色ID=204018 地图=81 坐标=(1062,2798)
+11:43:25.790 INFO  [main  ] 发现 mw354r1 pid=22900 角色ID=204022 地图=651 坐标=(2216,1652)
+11:43:25.792 INFO  [main  ] dispatcher1(调度员（给金币+传送）) 已在线: 小强杀手一号 pid=12564，不重新登录
+11:43:25.794 INFO  [main  ] well1(古井队长) 已在线: 伏地魔1 pid=164，不重新登录
+11:43:25.794 INFO  [main  ] coast1(海岸队长) 已在线: 伏地魔2 pid=2768，不重新登录
+11:43:25.795 INFO  [main  ] coast2(海岸队长) 已在线: 伏地魔3 pid=9712，不重新登录
+11:43:25.807 INFO  [main  ] 需要登录的工位: receiver1(收货人)=xq02(槽1)
+11:43:25.808 INFO  [main  ] 提示: 如果这些号已经在别的（非本工具启动的）窗口里在线，请先关掉，否则会互相挤号
+11:43:25.809 INFO  [xq02  ] == 登录 ==
+11:43:25.809 INFO  [xq02  ] 启动游戏并登录 (第 1/3 次)
+11:43:25.810 DEBUG [xq02  ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game D:\什么什么大冒险2.0免安装绿色版2.97\v2.1\win32\WaatClient.exe --inject-delay 3000 --result D:\roach-kitchen\batch_provision\runtime\launch_xq02_1.json
+11:43:31.710 DEBUG [xq02  ] launcher> PID 22344, slot 1
+11:43:31.710 DEBUG [xq02  ] launcher> Stage 1, error 0
+11:43:31.710 DEBUG [xq02  ] launcher> Stage 4, error 0
+11:43:31.710 DEBUG [xq02  ] launcher> Stage 5, error 0
+11:43:31.710 DEBUG [xq02  ] launcher> Stage 9, error 0
+11:43:31.710 DEBUG [xq02  ] launcher> Login checkpoint reached.
+11:43:31.710 INFO  [xq02  ] 登录结果: exit=0(成功到达选角界面) stage=9(停在选角界面) error=0(无) pid=22344 elapsed=5828ms, 用时 5.9s
+11:43:31.711 INFO  [xq02  ] 已到选角界面 pid=22344 hwnd=0xf0bf8 base=0x4f0000
+11:43:31.711 INFO  [xq02  ] == 读取选角列表 ==
+11:43:32.898 INFO  [xq02  ] 会话上下文=0xdc1ed4 (定位+读列表 1.2s)
+11:43:32.898 INFO  [xq02  ] 选角列表 槽1: 小强杀手二号  ID=202232  44级
+11:43:32.898 INFO  [xq02  ] == 进入槽1: 小强杀手二号 (ID=202232, 44级) ==
+11:43:32.903 DEBUG [xq02  ] DLL stage=6(选角) error=0 enter_messages=2
+11:43:33.103 DEBUG [xq02  ] DLL stage=7(进入世界中) error=0 enter_messages=4
+11:43:34.508 DEBUG [xq02  ] DLL stage=8(已进入世界) error=0 enter_messages=11
+11:43:34.508 INFO  [xq02  ] 世界指针已出现（DLL 用时 3656ms，按回车 11 次）
+11:43:34.508 INFO  [xq02  ] == 核验已进入游戏 ==
+11:43:35.509 INFO  [xq02  ] 已在游戏中: 小强杀手二号 ID=202232 地图=81 坐标=(1752,1364)
+11:43:35.509 INFO  [xq02  ] 结束: 成功 用时 9.7s
+11:43:35.514 INFO  [main  ] ============================================================
+11:43:35.514 INFO  [main  ] dispatcher1  在线 小强杀手一号 （原本就在线）
+11:43:35.514 INFO  [main  ] well1        在线 伏地魔1 （原本就在线）
+11:43:35.514 INFO  [main  ] coast1       在线 伏地魔2 （原本就在线）
+11:43:35.514 INFO  [main  ] coast2       在线 伏地魔3 （原本就在线）
+11:43:35.514 INFO  [main  ] receiver1    在线 小强杀手二号 
+11:43:35.514 INFO  [main  ] 完成 5/5。汇总: D:\roach-kitchen\batch_provision\logs\stations_summary_20261013_114325.json

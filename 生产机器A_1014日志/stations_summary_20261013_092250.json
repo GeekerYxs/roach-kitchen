@@ -1,0 +1,47 @@
+[
+  {
+    "station": "dispatcher1",
+    "ok": true,
+    "name": "小强杀手一号",
+    "char_id": 202231,
+    "pid": 12564,
+    "map_id": 1,
+    "error": null
+  },
+  {
+    "station": "well1",
+    "ok": true,
+    "name": "伏地魔1",
+    "char_id": 199366,
+    "pid": 164,
+    "map_id": 651,
+    "error": null
+  },
+  {
+    "station": "coast1",
+    "ok": true,
+    "name": "伏地魔2",
+    "char_id": 199367,
+    "pid": 2768,
+    "map_id": 81,
+    "error": null
+  },
+  {
+    "station": "coast2",
+    "ok": true,
+    "name": "伏地魔3",
+    "char_id": 199368,
+    "pid": 9712,
+    "map_id": 81,
+    "error": null
+  },
+  {
+    "station": "receiver1",
+    "ok": true,
+    "name": "自由一号",
+    "char_id": 201743,
+    "pid": 19624,
+    "map_id": 81,
+    "error": null
+  }
+]
