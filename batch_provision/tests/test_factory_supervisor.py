@@ -98,7 +98,7 @@ class WaitForTeamTest(unittest.TestCase):
         def body():
             conn = db.connect(self.path)
             try:
-                self.sup.wait_for_team(conn, self.st, 'queue_well', 4, max_wait, logging.getLogger('test'))
+                self.sup.wait_for_team(conn, self.st, 'queue_well', 4, max_wait, logging.getLogger('test'), self.me.pid)
                 done.set()
             except Exception:       # noqa: BLE001 - Stopped when the test ends the wait
                 pass
@@ -123,6 +123,15 @@ class WaitForTeamTest(unittest.TestCase):
         self.queue(1, time.time())
         self.queue(2, time.time())
         self.assertFalse(self.wait(90))
+
+    def test_station_process_gone_stops_waiting(self):
+        """Stage A: a station closed as lost while waiting for a team must not wait on (its worker logs it in)."""
+        conn = db.connect(self.path)
+        try:
+            with self.assertRaises(RuntimeError):
+                self.sup.wait_for_team(conn, self.st, 'queue_well', 4, 90, logging.getLogger('test'), 0)
+        finally:
+            conn.close()
 
     def test_partial_team_goes_after_max_wait(self):
         import time

@@ -17,6 +17,7 @@ from provisioner.login import LaunchThrottle
 
 from . import db
 from .config import ROOT, load_settings
+from .relogin import RELOGIN_STATUS, other_login_running
 
 
 def foreign_windows(name):
@@ -55,6 +56,10 @@ def main():
             logger.info('%s 已在线: %s pid=%d，不重新登录', s.label, c.name, c.session.pid)
             results.append({'station': s.station_id, 'ok': True, 'already_online': True, 'name': c.name})
             continue
+        if known and other_login_running(known['status'], known['heartbeat_at'], time.time()):
+            logger.error('%s: 总大脑正在自动重登这个工位，这次不登（免得两边同时登录互相挤号）', s.label)
+            results.append({'station': s.station_id, 'ok': False, 'error': '总大脑正在自动重登'})
+            continue
         name = s.name or (known['name'] if known else '')
         if name and (pids := foreign_windows(name)):
             logger.error('%s: %s 已在别的窗口登录 (pid=%s，不是本工具启动的)。请先关掉那个窗口再运行，'
@@ -66,6 +71,11 @@ def main():
         logger.info('需要登录的工位: %s', ', '.join(f'{s.label}={s.account.name}(槽{s.account.slot})' for s in to_login))
         logger.info('提示: 如果这些号已经在别的（非本工具启动的）窗口里在线，请先关掉，否则会互相挤号')
         throttle = LaunchThrottle(enter_settings.launch_interval, enter_settings.min_free_memory_mb)
+        known = {s.station_id: db.station(conn, s.station_id) for s in to_login}
+        for s in to_login:              # a running supervisor sees this and does not log the same station in
+            if known[s.station_id]:
+                k = known[s.station_id]
+                db.heartbeat(conn, s.station_id, k['role'], k['char_id'], RELOGIN_STATUS, time.time())
         jobs = [(s, EnterJob(enter_settings, s.account, throttle)) for s in to_login]
         with ThreadPoolExecutor(max_workers=len(jobs), thread_name_prefix='station') as pool:
             summaries = list(pool.map(lambda sj: sj[1].run(), jobs))
@@ -76,6 +86,9 @@ def main():
             if r['ok']:
                 db.register_station(conn, s.station_id, s.role, r['char_id'], s.account.name, r['role'], r['pid'],
                                     time.time())
+            elif known[s.station_id]:
+                k = known[s.station_id]
+                db.heartbeat(conn, s.station_id, k['role'], k['char_id'], 'offline', time.time())
             results.append({'station': s.station_id, 'ok': r['ok'], 'name': r.get('role'), 'char_id': r.get('char_id'),
                             'pid': r.get('pid'), 'map_id': r.get('map_id'), 'error': r.get('error')})
     conn.close()

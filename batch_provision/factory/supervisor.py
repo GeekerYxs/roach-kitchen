@@ -18,6 +18,8 @@ One process, several threads:
   - window manager (main thread): reap dead / disconnected windows, close finished / quarantined ones and ones whose
     phase has no worker yet, and pull the next role by name when a queue is short (decide_pull + pick_roles)
 Stage 11c runs the whole line except delete (11d): roles waiting for delete are neither pulled nor kept open.
+Stage A (factory/relogin.py): a station whose window shows no character for `station_lost_seconds` is closed, and a
+station whose process is gone is logged in again from stations.toml (`station_relogin`).
 Ctrl+C stops; windows stay open and the next start adopts them (roles of the configured accounts with our DLL).
 """
 import logging
@@ -30,7 +32,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from provisioner import config, log, native, procs
-from provisioner.enter import enter_role, verify_in_world
+from provisioner.enter import EnterJob, enter_role, verify_in_world
 from provisioner.game import Game, NotSent
 from provisioner.login import LaunchThrottle, login, read_session
 from provisioner.memory import ProcessMemory
@@ -43,6 +45,9 @@ from .coast import CoastRun
 from .config import load_settings
 from .delete import AccountDeleteJob, DeleteSettings
 from .rebuild import RebuildJob
+from .relogin import (KILL_SETTLE, RELOGIN_STATUS, Watch, check_entered, decide_watch, may_kill,
+                      other_login_running, probe, relogin_delay, relogin_due)
+from .stations import foreign_windows
 from .handin import HandinJob
 from .home import HomeJob
 from .meat import MeatJob
@@ -106,6 +111,28 @@ class SupSettings:
     rebuild_after: float | None = None  # rebuild a deleted role's slot this long after the delete; None = off (11e)
     rebuild_retry: float = 1200.0       # slot not released yet / failed: try that account again after this long
     quarantine_retry: float = 7200.0    # release a quarantined role once, this long after; 0 = never
+    relogin: object = None              # Relogin (stage A), None = stations are not logged in again
+    relogin_error: str | None = None    # why relogin is off although configured on
+
+
+@dataclass(frozen=True)
+class Relogin:
+    enter: object           # provisioner.config.EnterSettings from stations.toml (kill_on_failure forced on)
+    stations: dict          # station_id -> provisioner.config.Station
+    lost_after: float       # a station window showing no character this long is closed
+
+
+def load_relogin(s):
+    """[supervisor] station_relogin / stations / station_lost_seconds -> (Relogin or None, error or None)."""
+    if not bool(s.get('station_relogin', True)):
+        return None, None
+    path = ROOT / s.get('stations', 'stations.toml')
+    try:
+        enter, stations = config.load_stations(path)
+    except Exception as e:      # noqa: BLE001 - the supervisor still runs, without relogin
+        return None, f'{path.name}: {e}'
+    return Relogin(replace(enter, kill_on_failure=True), {x.station_id: x for x in stations},
+                   float(s.get('station_lost_seconds', 30))), None
 
 
 def load_supervisor(path):
@@ -122,12 +149,13 @@ def load_supervisor(path):
                             close_settle=float(s.get('delete_close_settle', 3)),
                             close_timeout=float(s.get('delete_close_timeout', 3)), factory=factory)
     rebuild_after = float(s.get('rebuild_after_hours', 3.2)) * 3600 if bool(s.get('rebuild', True)) else None
+    relogin, relogin_error = load_relogin(s)
     return SupSettings(login_settings, factory, policy, float(s.get('coast_max_wait', 90)),
                        max(1, int(s.get('parallel_logins', 4))), float(s.get('idle_close', 60)), NOT_SERVED,
                        float(s.get('well_max_wait', 90)), float(s.get('transport_max_wait', 30)),
                        bool(s.get('fresh', True)), launch if bool(s.get('delete', True)) else None, launch,
                        rebuild_after, float(s.get('rebuild_retry_minutes', 20)) * 60,
-                       float(s.get('quarantine_retry_hours', 2)) * 3600)
+                       float(s.get('quarantine_retry_hours', 2)) * 3600, relogin, relogin_error)
 
 
 # ---- the run --------------------------------------------------------------------------------------------
@@ -274,6 +302,8 @@ class Supervisor:
                               coast_buffer=s.policy.coast_buffer * coasts,
                               coast_backlog=s.policy.coast_backlog * coasts)
         self.last_quarantine_check = 0.0
+        self.relogin = getattr(s, 'relogin', None)
+        self.watches = {}               # station_id -> relogin.Watch
         self.logins = ThreadPoolExecutor(max_workers=s.parallel_logins, thread_name_prefix='login')
         self.chores = ThreadPoolExecutor(max_workers=12, thread_name_prefix='chore')
         self.quiet = logging.LoggerAdapter(logging.getLogger('prov.scan'), {'account': 'scan'})
@@ -328,19 +358,24 @@ class Supervisor:
 
     # ---- station workers
     def worker(self, st, body):
-        """Keep one station working; its window missing or an error only pauses this station."""
-        lg = log.for_account(st['name'] or st['station_id'])
+        """Keep one station working; its window missing or an error only pauses this station. Missing with its
+        process gone -> log it in again (stage A); missing with the process alive -> the watcher closes it first."""
+        sid = st['station_id']
+        lg = log.for_account(st['name'] or sid)
         conn = db.connect(self.s.factory.db_path)
         fails, warned = 0, 0.0
         try:
             while not self.stop.is_set():
+                st = db.station(conn, sid) or st         # pid / name change after a relogin
                 me = self.scan().get(st['char_id'])
                 if me is None:
+                    if self.relogin and self.try_relogin(conn, st, lg):
+                        continue
                     if time.monotonic() - warned > 60:
-                        lg.warning('工位 %s %s (ID=%d) 不在线，这个工位暂停；用 一键登录工位.cmd 登上后自动继续',
-                                   st['station_id'], st['name'], st['char_id'])
+                        lg.warning('工位 %s %s (ID=%d) 不在线，这个工位暂停；%s', sid, st['name'], st['char_id'],
+                                   self.offline_hint(sid))
                         warned = time.monotonic()
-                    self.stop.wait(10)
+                    self.stop.wait(5 if self.relogin else 10)
                     continue
                 try:
                     body(conn, st, me, lg)
@@ -350,9 +385,103 @@ class Supervisor:
                 except Exception as e:
                     fails += 1
                     lg.error('工位出错（连续 %d 次）: %s', fails, e, exc_info=not isinstance(e, RuntimeError))
-                    self.stop.wait(min(60, 10 * fails))
+                    # window closed (by the watcher, or crashed): straight to the relogin, no back-off
+                    self.stop.wait(2 if not native.alive(me.session.pid) else min(60, 10 * fails))
         finally:
             conn.close()
+
+    # ---- stage A: lost stations are closed (watch_stations, main thread) and logged in again (try_relogin)
+    def watch(self, sid):
+        with self.lock:
+            return self.watches.setdefault(sid, Watch())
+
+    def offline_hint(self, sid):
+        if not self.relogin:
+            err = getattr(self.s, 'relogin_error', None)
+            return '用 一键登录工位.cmd 登上后自动继续' + (f'（自动重登没开：{err}）' if err else '')
+        w = self.watch(sid)
+        if w.blocked:
+            return f'不自动重登：{w.blocked}'
+        left = w.next_try - time.monotonic()
+        return f'{left:.0f} 秒后再试自动重登' if left > 0 else '准备自动重登'
+
+    def watch_stations(self):
+        """A station process alive but showing no character of its own for lost_after s -> close it, so the batch
+        it is running fails at once and the worker logs it in again."""
+        now = time.monotonic()
+        for st in self.station_rows():
+            sid, w = st['station_id'], self.watch(st['station_id'])
+            h, hwnd = probe(st['pid'], st['char_id'])
+            d = decide_watch(h, w.lost_since, now, self.relogin.lost_after)
+            lg = log.for_account(st['name'] or sid)
+            if d == 'ok':
+                if w.lost_since is not None:
+                    lg.info('工位又能读到角色了（%.0fs）', now - w.lost_since)
+                w.hwnd, w.lost_since = hwnd, None
+            elif d == 'lost':
+                w.lost_since = now
+                lg.warning('工位 pid=%d 读不到角色（掉线回到登录界面？），%.0f 秒后仍读不到就关窗重登',
+                           st['pid'], self.relogin.lost_after)
+            elif d == 'kill':
+                w.lost_since = None
+                if sid not in self.relogin.stations:
+                    lg.error('工位 pid=%d 读不到角色，但它不在工位配置里，不能自动重登，所以不关；请人工处理', st['pid'])
+                    continue
+                if not may_kill(w.hwnd, hwnd, self.own.owns(st['pid'])):
+                    lg.error('工位 pid=%d 读不到角色，但窗口身份对不上（pid 可能被系统复用），不关；请人工看一下', st['pid'])
+                    continue
+                native.kill(st['pid'])
+                w.next_try = max(w.next_try, now + KILL_SETTLE)
+                lg.warning('工位 pid=%d %.0f 秒读不到角色，已关窗，准备自动重登', st['pid'], self.relogin.lost_after)
+                db.log_event(self.conn, time.time(), 'station', f'掉线关窗 pid={st["pid"]}', station_id=sid)
+            elif d in ('gone', 'foreign'):
+                w.lost_since = None
+
+    def try_relogin(self, conn, st, lg):
+        """Log the station in again when its process is gone. True = a login was attempted."""
+        sid, w, now = st['station_id'], self.watch(st['station_id']), time.monotonic()
+        h, _ = probe(st['pid'], st['char_id'])
+        if not relogin_due(h, w, now):
+            return False
+        cfg = self.relogin.stations.get(sid)
+        if cfg is None:
+            w.blocked = '不在 stations.toml / local.toml 的工位列表里（或 enabled = false）'
+            return False
+        name = cfg.name or st['name'] or ''
+        if name and (pids := foreign_windows(name)):
+            w.fails += 1
+            w.next_try = now + relogin_delay(w.fails)
+            lg.error('%s 开在不是本工具启动的窗口里 (pid=%s)，自动重登会把它挤下线，不登；关掉那个窗口后会自动再试',
+                     name, pids)
+            return False
+        if other_login_running(st['status'], st['heartbeat_at'], time.time()):
+            w.next_try = now + 30
+            lg.info('一键登录工位.cmd 正在登录这个工位，等它登完')
+            return False
+        if self.stop.is_set():
+            return False
+        db.heartbeat(conn, sid, st['role'], st['char_id'], RELOGIN_STATUS, time.time())
+        lg.warning('工位不在线，自动重登 %s 槽%d（第 %d 次）', cfg.account.name, cfg.account.slot, w.fails + 1)
+        r = EnterJob(self.relogin.enter, cfg.account, self.throttle).run()
+        err, permanent = check_entered(r, st['char_id'], name)
+        if err is None:
+            db.register_station(conn, sid, st['role'], r['char_id'], cfg.account.name, r['role'], r['pid'],
+                                time.time())
+            w.fails, w.next_try, w.hwnd, w.lost_since = 0, 0.0, r.get('hwnd'), None
+            lg.info('工位重登成功: %s pid=%d 地图 %s，接着干活', r['role'], r['pid'], r.get('map_id'))
+            return True
+        if r.get('pid') and native.alive(r['pid']):
+            native.kill(r['pid'])           # the window we just started; never left half-logged-in
+        db.heartbeat(conn, sid, st['role'], st['char_id'], 'offline', time.time())
+        if permanent:
+            w.blocked = err
+            lg.error('工位重登进错了角色，已关掉那个窗口，本次运行不再自动重登: %s', err)
+        else:
+            w.fails += 1
+            w.next_try = time.monotonic() + relogin_delay(w.fails)
+            lg.error('工位重登失败（连续 %d 次），%.0f 秒后再试: %s', w.fails, relogin_delay(w.fails), err)
+        db.log_event(conn, time.time(), 'station', f'自动重登失败: {err}', station_id=sid)
+        return True
 
     def coast_body(self, conn, st, leader, lg):
         with ProcessMemory(leader.session.pid, leader.session.base) as mem:
@@ -400,10 +529,13 @@ class Supervisor:
             finally:
                 rgame.close()
 
-    def wait_for_team(self, conn, st, phase, size, max_wait, lg):
-        """Block until team_ready() for the station's queue (only the open, readable alt windows count)."""
+    def wait_for_team(self, conn, st, phase, size, max_wait, lg, pid):
+        """Block until team_ready() for the station's queue (only the open, readable alt windows count).
+        pid: the station's own process; gone (closed as lost) -> stop waiting."""
         last = None
         while not self.stop.is_set():
+            if not native.alive(pid):
+                raise RuntimeError(f'工位游戏进程 {pid} 已退出')
             alts, wall = self.snapshot(), time.time()
             rows = [r for r in db.waiting(conn, phase, wall) if r['char_id'] in alts]
             oldest = wall - rows[0]['phase_since'] if rows else 0.0
@@ -423,7 +555,8 @@ class Supervisor:
             if w is None or team is None:
                 raise RuntimeError('读不到古井队长的状态')
             if w.map_id == VILLAGE_MAP and len(team.members) <= 1:
-                self.wait_for_team(conn, st, QUEUE_WELL, fs.well_team_size, self.s.well_max_wait, lg)
+                self.wait_for_team(conn, st, QUEUE_WELL, fs.well_team_size, self.s.well_max_wait, lg,
+                                   leader.session.pid)
                 db.heartbeat(conn, st['station_id'], WELL_ROLE, leader.char_id, 'forming', time.time())
                 run = GatedWellTeamRun(conn, st, leader, mem, self.snapshot(), self.well_gate, fs, lg)
                 try:
@@ -450,7 +583,8 @@ class Supervisor:
             if w is None:
                 raise RuntimeError('读不到调度员的状态')
             if w.map_id != COAST_MAP:
-                self.wait_for_team(conn, st, QUEUE_TRANSPORT, fs.transport_team_size, self.s.transport_max_wait, lg)
+                self.wait_for_team(conn, st, QUEUE_TRANSPORT, fs.transport_team_size, self.s.transport_max_wait, lg,
+                                   disp.session.pid)
             db.heartbeat(conn, st['station_id'], DISPATCHER, disp.char_id, 'transporting', time.time())
             run = TransportRun(conn, st, disp, mem, self.snapshot(), fs, lg)
             try:
@@ -557,6 +691,8 @@ class Supervisor:
         return out
 
     def manage(self):
+        if self.relogin:
+            self.watch_stations()
         now = time.monotonic()
         if now - self.last_quarantine_check >= QUARANTINE_CHECK_EVERY:
             self.last_quarantine_check = now
@@ -814,6 +950,13 @@ class Supervisor:
         threads.append(threading.Thread(target=self.chores_loop, name='chores', daemon=True))
         self.log.info('工人: %s；小号窗口上限 %d，同时登录 %d 个', ', '.join(t.name for t in threads),
                       self.s.policy.max_windows, self.s.parallel_logins)
+        if self.relogin:
+            self.log.info('工位掉线自动重登: 开（读不到角色 %.0f 秒就关窗重登；配置里的工位 %s）', self.relogin.lost_after,
+                          ', '.join(self.relogin.stations))
+        elif getattr(self.s, 'relogin_error', None):
+            self.log.error('工位掉线自动重登没开: %s', self.s.relogin_error)
+        else:
+            self.log.info('工位掉线自动重登: 关（supervisor.toml station_relogin = false）')
         for t in threads:
             t.start()
         last_status = 0.0
