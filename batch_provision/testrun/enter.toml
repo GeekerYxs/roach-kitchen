@@ -1,0 +1,21 @@
+# 批量登录并进入角色 配置。改完保存，双击 一键进游戏.cmd 即可。
+# 路径请用单引号（TOML 单引号字符串里的反斜杠不转义）。
+
+[game]
+# exe（游戏路径）每台电脑不同，写在 local.toml
+server_index = 0            # 服务器序号，原启动器默认 0
+
+[batch]
+slot = 1                    # 进入第几个角色（1..4），所有账号默认用这个
+max_windows = 8             # 进游戏的窗口会一直开着，账号数超过这个值就拒绝运行（防内存爆）
+launch_interval = 2.0       # 相邻两个进程拉起的间隔秒数
+inject_delay_ms = 3000      # 进程启动后多久注入 DLL；多开时启动慢，可调大
+login_retries = 2           # 登录失败时杀进程重开的次数（进入角色前）
+enter_timeout = 60          # 选好角色后等待进入世界的秒数
+min_free_memory_mb = 3000   # 空闲内存低于这个值(MB)就暂停开新窗口
+kill_on_failure = false     # 失败时是否关掉该窗口（false = 保留现场便于排查）
+
+[accounts]
+# 号段和密码写在 local.toml（本机号段，所有小号工具共用）。
+# 只想让本工具用别的号段时，才在这里写 prefix/start/count/digits（密码仍取 local.toml）。
+count = 1                   # 只进本机号段的前 8 个（窗口会一直开着）；没写的 prefix/start/密码取 local.toml

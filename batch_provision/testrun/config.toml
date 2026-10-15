@@ -1,0 +1,26 @@
+# 批量登录 + 建角 配置。改完保存，双击 一键建角.cmd 即可。
+# 路径请用单引号（TOML 单引号字符串里的反斜杠不转义）。
+
+[game]
+# exe（游戏路径）每台电脑不同，写在 local.toml
+server_index = 0            # 服务器序号，原启动器默认 0
+
+[batch]
+parallel = 1                # 同时最多开着几个游戏窗口（几开）
+keep_windows_open = "auto"  # 建完后窗口留在选角界面吗？
+                            #   "auto" = 账号数 <= parallel 时保留；否则每号建完就关窗口，再开下一个
+                            #   false  = 总是关；true = 总是留（账号数不能超过 parallel）
+min_free_memory_mb = 3000   # 空闲内存低于这个值(MB)就暂停开新窗口，等内存够了再开
+launch_interval = 2.0       # 相邻两个进程拉起的间隔秒数，防止同时启动卡死
+inject_delay_ms = 3000      # 进程启动后多久注入 DLL；多开时启动慢，可调大
+login_retries = 2           # 登录在“未提交建角前”失败时，杀进程重开的次数
+roles_per_account = 2       # 每个账号建几个角色（最多 4 槽）
+role_suffix = "r"           # 角色名 = 账号 + 后缀 + 序号，例如 mw01r1..mw01r4
+create_interval = 1.5       # 同一账号两次建角之间的间隔秒数
+create_timeout = 15         # 等服务器建角回包的超时秒数
+relogin_after_create = true # 建完后正常退出再登录一次，刷新选角列表并核验角色名
+kill_on_failure = false     # 失败时是否关掉该窗口（false = 保留现场便于排查）
+
+[accounts]
+# 号段和密码写在 local.toml（本机号段，所有小号工具共用）。
+# 只想让本工具用别的号段时，才在这里写 prefix/start/count/digits（密码仍取 local.toml）。

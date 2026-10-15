@@ -1,5 +1,6 @@
 # 本机配置（游戏路径、号段、密码）——每台电脑自己一份，绝不上传
 batch_provision/local.toml
+batch_provision/testrun/local.toml
 
 # 运行时生成的东西：每台电脑各自一份
 batch_provision/state/
