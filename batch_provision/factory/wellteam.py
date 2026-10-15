@@ -5,7 +5,7 @@ The well leader is the station registered with role 'well' (一键登录工位.c
   1. leader walks to the spawn point (1266,1174) and stands still
   2. alts on map 1 whose derived phase is queue_well (level < 11, meat eaten, shoe recorded, no team) are
      claimed (lease in factory.db), oldest first, up to 4; alts already in the leader's team are kept
-  3. invite (leader, request 0x30) -> accept (alt, client function 0x21d000) -> both rosters agree
+  3. invite (leader, request 0x30) -> accept (alt, client function 0x21f590) -> both rosters agree
   4. each member eats one 地瓜 32004 unless it ate one less than 55 min ago (phase.should_eat_potato)
 Stage 4b (walk to the well, train to 11, return) picks the team up from here.
 

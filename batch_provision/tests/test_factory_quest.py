@@ -141,7 +141,7 @@ def sentinel(root, size, nil_at):
 
 
 def fake_client(active_keys, done_keys, steps=b''):
-    session, session_ptr = 0x100000, 0x400000 + 0x6390F4
+    session, session_ptr = 0x100000, 0x400000 + 0x64B1B4
     p = session + 0x1658
     blocks = {session_ptr: struct.pack('<I', session), p + 0x1B6A4: struct.pack('<I', 0x200000),
               p + 0x1B6B4: struct.pack('<I', 0x300000)}
