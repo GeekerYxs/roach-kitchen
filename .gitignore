@@ -15,3 +15,7 @@ batch_provision/bin/*
 __pycache__/
 *.pyc
 *.tmp
+*.bak
+
+# 大冒险2_自动答题器_原生无感关窗版 运行时生成日志与报表
+大冒险2_自动答题器_原生无感关窗版/logs/
