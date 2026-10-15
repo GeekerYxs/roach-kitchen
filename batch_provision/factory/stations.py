@@ -36,7 +36,9 @@ def main():
     except Exception as e:
         logger.error('配置错误 (%s): %s', cfg, e)
         return 2
-    settings = load_settings(ROOT / 'factory.toml')
+    # [stations] factory = '...' picks another database (testrun/ uses its own); default = the shared factory.toml
+    factory_cfg = config._read(cfg).get('stations', {}).get('factory', 'factory.toml')
+    settings = load_settings(ROOT / factory_cfg)
     conn = db.connect(settings.db_path)
     for sid in db.prune_stations(conn, [s.station_id for s in stations], time.time()):
         logger.info('工位 %s 已不在 %s 里（或 enabled = false），从数据库删除登记；重启总大脑后不再为它开工人',

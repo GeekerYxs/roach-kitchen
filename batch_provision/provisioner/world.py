@@ -168,11 +168,23 @@ def read_dialog(mem):
         raise RuntimeError(f'NPC 对话文本长度异常 len={length} cap={capacity}')
     data = raw[:length] if capacity < 16 else mem.read(struct.unpack_from('<I', raw)[0], length)
     text = data.decode('gbk', 'replace')
+    return Dialog(text, parse_options(text))
+
+
+# Client 2.97 wrote options as [URL]label[/URL] (select id = position, 1-based); 2.98 writes [URL opt=N]label[/URL]
+# (live 2026-10-15, 新手传送师: '[URL opt=1]逍遥村[/URL]'). The client's own pattern is \[URL(?:\s(.*?))?\](.*?)\[/URL\].
+_OPTION = re.compile(r'\[URL(?:\s+([^\]]*))?\](.*?)\[/URL\]', re.S)
+_OPT_ID = re.compile(r'(?<![A-Za-z0-9_])opt\s*=\s*(\d+)')
+
+
+def parse_options(text):
+    """Dialog text -> ((select_id, label), ...); select_id = opt=N when given, else the position; 离开 = 0."""
     options = []
-    for index, label in enumerate(re.findall(r'\[URL\](.*?)\[/URL\]', text, re.S), 1):
+    for index, (attrs, label) in enumerate(_OPTION.findall(text), 1):
         label = re.sub(r'#[0-9a-fA-F]{6}#', '', label).lstrip('★⊙').strip()
-        options.append((0 if label == '离开' else index, label))
-    return Dialog(text, tuple(options))
+        m = _OPT_ID.search(attrs or '')
+        options.append((0 if label == '离开' else int(m.group(1)) if m else index, label))
+    return tuple(options)
 
 
 def read_world(mem):
