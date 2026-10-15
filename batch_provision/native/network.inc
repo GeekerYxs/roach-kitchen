@@ -39,11 +39,11 @@ static bool arm(){
     tap_file=_wfopen((prefix+L".jsonl").c_str(),L"wb");if(!tap_file)return false;
     FILE* codec=_wfopen((prefix+L"_codec.json").c_str(),L"wb");if(!codec)return false;
     fprintf(codec,"{");
-    for(int k=0;k<2;++k){fprintf(codec,"%s\"%s\":[",k?",":"",k?"decode":"encode");for(int i=0;i<10;++i){DWORD ptr=read32(base+(k?0x515d94:0x515d6c)+i*4);unsigned char bytes[256];SIZE_T n=0;if(!ReadProcessMemory(GetCurrentProcess(),(void*)ptr,bytes,256,&n)||n!=256){fclose(codec);return false;}fprintf(codec,"%s\"",i?",":"");for(int j=0;j<256;++j)fprintf(codec,"%02x",bytes[j]);fprintf(codec,"\"");}fprintf(codec,"]");}fprintf(codec,"}");fclose(codec);
+    for(int k=0;k<2;++k){fprintf(codec,"%s\"%s\":[",k?",":"",k?"decode":"encode");for(int i=0;i<10;++i){DWORD ptr=read32(base+(k?0x527de4:0x527dbc)+i*4);unsigned char bytes[256];SIZE_T n=0;if(!ReadProcessMemory(GetCurrentProcess(),(void*)ptr,bytes,256,&n)||n!=256){fclose(codec);return false;}fprintf(codec,"%s\"",i?",":"");for(int j=0;j<256;++j)fprintf(codec,"%02x",bytes[j]);fprintf(codec,"\"");}fprintf(codec,"]");}fprintf(codec,"}");fclose(codec);
     InitializeCriticalSection(&tap_lock);
     if(MH_Initialize()!=MH_OK)return false;
     HMODULE ws=GetModuleHandleW(L"ws2_32.dll");
-    if(MH_CreateHook((void*)(base+0x310850),(void*)tap_entry,&send_trampoline)!=MH_OK)return false;
+    if(MH_CreateHook((void*)(base+0x312220),(void*)tap_entry,&send_trampoline)!=MH_OK)return false;
     if(MH_CreateHook((void*)GetProcAddress(ws,"send"),(void*)tap_send,(void**)&original_send)!=MH_OK)return false;
     if(MH_CreateHook((void*)GetProcAddress(ws,"recv"),(void*)tap_recv,(void**)&original_recv)!=MH_OK)return false;
     if(MH_CreateHook((void*)GetProcAddress(ws,"WSASend"),(void*)tap_wsasend,(void**)&original_wsasend)!=MH_OK)return false;
@@ -108,11 +108,11 @@ static LRESULT provision_command(const COPYDATASTRUCT* copy){
         if(!armed||header[0]!=2||header[1]!=292)return FALSE;
         const unsigned char* body=(const unsigned char*)(header+2);
         if(!body[275]||!memchr(body+275,0,16))return FALSE;
-        DWORD manager=read32(base+0x6390f8);
+        DWORD manager=read32(base+0x64b1b8);
         if(!manager||read32(manager+0x20)==0xffffffff)return FALSE;
         if(InterlockedIncrement(&create_count)>MAX_CREATES)return FALSE;
         uintptr_t result=(uintptr_t)body;
-        uintptr_t function=base+0x310850;
+        uintptr_t function=base+0x312220;
         // Actual sender ABI: ESI=connection, EBX=opcode, EDI=length, stack=body; ret 4.
         __asm__ __volatile__("pushl %%eax\n call *%%edx\n" : "+a"(result) : "d"(function),"S"(manager),"b"(2),"D"(292) : "ecx","memory","cc");
         return TRUE; // dispatch only; require 0x4003 and an actual role-list observation.
@@ -124,11 +124,11 @@ static LRESULT provision_command(const COPYDATASTRUCT* copy){
         if(!armed||header[0]!=3||header[1]!=286)return FALSE;
         const unsigned char* body=(const unsigned char*)(header+2);
         if(!(body[265]|body[266]|body[267]|body[268]))return FALSE;  // char_id must not be 0
-        DWORD manager=read32(base+0x6390f8);
+        DWORD manager=read32(base+0x64b1b8);
         if(!manager||read32(manager+0x20)==0xffffffff)return FALSE;
         if(InterlockedIncrement(&delete_count)>1)return FALSE;
         uintptr_t result=(uintptr_t)body;
-        uintptr_t function=base+0x310850;
+        uintptr_t function=base+0x312220;
         __asm__ __volatile__("pushl %%eax\n call *%%edx\n" : "+a"(result) : "d"(function),"S"(manager),"b"(3),"D"(286) : "ecx","memory","cc");
         return TRUE; // dispatch only; Python waits for 0x4004.
     }

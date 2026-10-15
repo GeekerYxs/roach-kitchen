@@ -3,8 +3,8 @@ import ctypes
 import struct
 from ctypes import wintypes as W
 
-SESSION_VTABLE_RVA = 0x490464   # vtable of the login/session context object
-NETWORK_MANAGER_RVA = 0x6390F8  # global pointer to the connection object
+SESSION_VTABLE_RVA = 0x4A1A54   # vtable of the login/session context object
+NETWORK_MANAGER_RVA = 0x64B1B8  # global pointer to the connection object
 CONTEXT_NETWORK_OFFSET = 0x150  # context+0x150 == *NETWORK_MANAGER
 
 

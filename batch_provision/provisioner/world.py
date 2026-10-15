@@ -2,7 +2,7 @@
 
 Offsets: earlier Gemini/Codex research (core/player_memory.py, pp_runtime/probe.py, runtime/game_state.py)
 plus static analysis of WaatClient.exe on 2026-10-12:
-  GetFighter(pos)  RVA 0x12C00: fighter = [base+0x6390F0] + 0x1DC0 + pos*0x510 (pos 0..19)
+  GetFighter(pos)  RVA 0x12C00: fighter = [base+0x64B1B0] + 0x1DC0 + pos*0x510 (pos 0..19)
   GetMyPos()       RVA 0x130F0: real pos [battle+0x917C] (0xFF = none), side flag [battle+0x9178]
   TFightNpcData.SP Lua getter 0x43E010 reads int32 at fighter+0xF4
 """
@@ -11,20 +11,20 @@ import struct
 import time
 from dataclasses import dataclass, field
 
-PLAYER_PTR_RVA = 0x638578    # [base+RVA] -> own player object
+PLAYER_PTR_RVA = 0x64A638    # [base+RVA] -> own player object
 PLAYER_CHAR_ID = 0x34C       # +0x34C char_id, +0x350 x, +0x354 y (int32; can lag behind motion)
-SESSION_MGR_RVA = 0x6390F4   # [base+RVA] -> session manager
+SESSION_MGR_RVA = 0x64B1B4   # [base+RVA] -> session manager
 SESSION_MAP_ID = 0x688
 SCENE_INDEX, SCENE_FIRST, SCENE_LAST, SCENE_ROW = 0x24670, 0xE34, 0xE38, 0x2A8
 ROW_ENTITY, ROW_FLAGS = 0x8, 0x148
 ENTITY_MOTION = 0x18C        # float x, y, ?, ?, target_x, target_y
 FLAG_IN_BATTLE = 0x8
-BUSY_MASK_RVAS = (0x5176E4, 0x5176FC, 0x517704, 0x51772C, 0x51771C, 0x51770C, 0x517714)
-UI_RVA = 0x6390EC
+BUSY_MASK_RVAS = (0x529734, 0x52974C, 0x529754, 0x52977C, 0x52976C, 0x52975C, 0x529764)  # 2.98; 2.97 was 0x5176E4..
+UI_RVA = 0x64B1AC
 UI_NAV_MGR, NAV_OBJECT, NAV_ACTIVE, NAV_READY = 0xDA4, 0x8, 0x1D4, 0x1A8
 UI_QUESTION, QUESTION_ACTIVE = 0x10C4, 0x1C
 UI_DIALOG, DIALOG_VISIBLE, DIALOG_CTRL_FIRST, DIALOG_CTRL_LAST = 0xE90, 0x1C, 0xEC, 0xF0
-BATTLE_RVA = 0x6390F0
+BATTLE_RVA = 0x64B1B0
 BATTLE_FIGHTERS, FIGHTER_SIZE, FIGHTER_SP = 0x1DC0, 0x510, 0xF4
 BATTLE_REAL_POS, BATTLE_SIDE = 0x917C, 0x9178
 # Own level: TGamePlayer object at session+0xE90, Lua property 'Grade' at +0x70 (RVA 0xf41e registration;
@@ -43,7 +43,7 @@ BAG_GOLD = 0x87F0
 # Team object = [ui+0xDA0] (Codex rogue184.team_roster, pp_runtime/bridge.py opcodes 9/10; re-read live
 # 2026-10-12: 0 rows and inviter 0 on every client without a team). +0xC -> roster vector {first,last,cap},
 # rows of 72 bytes, +0 char_id, +4 level (first row = the leader, per the old 5-member verification).
-# +0xA8 = char_id of the last team invitation received (the accept function 0x21d000 answers that one).
+# +0xA8 = char_id of the last team invitation received (the accept function 0x21f590 answers that one).
 UI_TEAM, TEAM_ROSTER, TEAM_INVITER, ROSTER_ROW, ROSTER_MAX = 0xDA0, 0xC, 0xA8, 72, 5
 # Byte the client puts into its own team invitation (session+0x135C; 255 on new alts, 50 on a level-44 role).
 SESSION_INVITE_BYTE = 0x135C
