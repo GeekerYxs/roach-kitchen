@@ -7,7 +7,7 @@
 #include <string>
 #include <cstring>
 
-static const char* CLIENT_HASH="d2dd483cc7315c905d98568d87c23a99b42e1a40d43c5ed65ffa6e3aed8613a4";
+static const char* CLIENT_HASH="500cf8f165cfbbf6f8f28ddb01648dbee3de10a1a8068f51b359598560958c27";
 static std::wstring own_dir() { wchar_t p[MAX_PATH];GetModuleFileNameW(nullptr,p,MAX_PATH);std::wstring s=p;return s.substr(0,s.find_last_of(L"\\/")); }
 static bool valid_build(const std::wstring& file) {
     HANDLE f=CreateFileW(file.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);
