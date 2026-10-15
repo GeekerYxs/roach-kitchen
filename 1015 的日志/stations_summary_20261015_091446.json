@@ -1,0 +1,65 @@
+[
+  {
+    "station": "dispatcher1",
+    "ok": true,
+    "name": "小强杀手一号",
+    "char_id": 202231,
+    "pid": 17832,
+    "map_id": 1,
+    "error": null
+  },
+  {
+    "station": "well1",
+    "ok": true,
+    "name": "海岸女队长一号",
+    "char_id": 204409,
+    "pid": 22596,
+    "map_id": 651,
+    "error": null
+  },
+  {
+    "station": "coast1",
+    "ok": true,
+    "name": "海岸女队长二号",
+    "char_id": 204410,
+    "pid": 22776,
+    "map_id": 81,
+    "error": null
+  },
+  {
+    "station": "coast2",
+    "ok": true,
+    "name": "bb02",
+    "char_id": 201853,
+    "pid": 23120,
+    "map_id": 81,
+    "error": null
+  },
+  {
+    "station": "coast3",
+    "ok": true,
+    "name": "bb01",
+    "char_id": 201852,
+    "pid": 23460,
+    "map_id": 81,
+    "error": null
+  },
+  {
+    "station": "receiver1",
+    "ok": true,
+    "name": "小强杀手二号",
+    "char_id": 202232,
+    "pid": 4516,
+    "map_id": 81,
+    "error": null
+  },
+  {
+    "station": "well2",
+    "ok": true,
+    "name": "小强杀手三号",
+    "char_id": 202233,
+    "pid": 19216,
+    "map_id": 651,
+    "error": null
+  }
+]
