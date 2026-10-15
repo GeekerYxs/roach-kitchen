@@ -14,6 +14,7 @@ from pathlib import Path
 from provisioner import config, log, native, procs
 from provisioner.enter import EnterJob
 from provisioner.login import LaunchThrottle
+from provisioner.minimize import Minimizer, minimize_ours
 
 from . import db
 from .config import ROOT, load_settings
@@ -37,7 +38,18 @@ def main():
         logger.error('配置错误 (%s): %s', cfg, e)
         return 2
     # [stations] factory = '...' picks another database (testrun/ uses its own); default = the shared factory.toml
-    factory_cfg = config._read(cfg).get('stations', {}).get('factory', 'factory.toml')
+    data = config._read(cfg)
+    factory_cfg = data.get('stations', {}).get('factory', 'factory.toml')
+    minimizer = Minimizer(logger).start() if data.get('batch', {}).get('minimize', False) else None
+    try:
+        return _run(cfg, log_path, logger, enter_settings, stations, factory_cfg)
+    finally:
+        if minimizer:
+            minimizer.stop()
+            minimize_ours()             # the last window may have appeared after the thread's final pass
+
+
+def _run(cfg, log_path, logger, enter_settings, stations, factory_cfg):
     settings = load_settings(ROOT / factory_cfg)
     conn = db.connect(settings.db_path)
     for sid in db.prune_stations(conn, [s.station_id for s in stations], time.time()):

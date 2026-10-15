@@ -36,6 +36,7 @@ from provisioner.enter import EnterJob, enter_role, verify_in_world
 from provisioner.game import Game, NotSent
 from provisioner.login import LaunchThrottle, login, read_session
 from provisioner.memory import ProcessMemory
+from provisioner.minimize import Minimizer
 from provisioner.novice import NoviceJob, NoviceSettings
 from provisioner.pipeline import OwnWindows, online_elsewhere, remember_roster
 from provisioner.world import read_team, read_world
@@ -113,6 +114,7 @@ class SupSettings:
     quarantine_retry: float = 7200.0    # release a quarantined role once, this long after; 0 = never
     relogin: object = None              # Relogin (stage A), None = stations are not logged in again
     relogin_error: str | None = None    # why relogin is off although configured on
+    minimize: bool = False              # [batch] minimize: keep this tool's game windows minimized (provisioner/minimize)
 
 
 @dataclass(frozen=True)
@@ -155,7 +157,8 @@ def load_supervisor(path):
                        float(s.get('well_max_wait', 90)), float(s.get('transport_max_wait', 30)),
                        bool(s.get('fresh', True)), launch if bool(s.get('delete', True)) else None, launch,
                        rebuild_after, float(s.get('rebuild_retry_minutes', 20)) * 60,
-                       float(s.get('quarantine_retry_hours', 2)) * 3600, relogin, relogin_error)
+                       float(s.get('quarantine_retry_hours', 2)) * 3600, relogin, relogin_error,
+                       bool(data.get('batch', {}).get('minimize', False)))
 
 
 # ---- the run --------------------------------------------------------------------------------------------
@@ -967,6 +970,8 @@ class Supervisor:
             self.log.error('工位掉线自动重登没开: %s', self.s.relogin_error)
         else:
             self.log.info('工位掉线自动重登: 关（supervisor.toml station_relogin = false）')
+        if self.s.minimize:
+            Minimizer(self.log, self.stop).start()
         for t in threads:
             t.start()
         last_status = 0.0

@@ -12,6 +12,7 @@ inject_delay_ms = 3000
 login_retries = 2
 enter_timeout = 60
 min_free_memory_mb = 3000
+minimize = false             # true = 本工具开的游戏窗口自动最小化（省 CPU 和内存；实测不影响任何工序）。只想本机开：在 local.toml 写 [batch] minimize = true
 kill_on_failure = false     # 失败时保留窗口便于排查
 
 # 每个 [[station]] 一个工位角色：
