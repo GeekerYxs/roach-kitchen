@@ -12,8 +12,14 @@ where the alts already stand after the hand-in: map 81 next to 海子, factory.t
      (the leftover invite dialog lands on the disposable alt), the ALT offers first (the order the dispatcher's
      gold trades verified: the giving side offers and confirms, then the other side offers nothing and confirms)
   4. verified when the alt has one 料理 less AND the receiver one more; 5 s without it -> re-read and trade again
-     (3 tries, then quarantine). The alt is then phase delete (stage 10).
-decide() is pure (tests/test_factory_receiver.py).
+     (3 tries, then quarantine).
+  5. then all the alt's gold (user, 2026-10-15: ~1100-1700 after quest 78, collected before the delete) in a trade
+     of its own, same order: the alt offers <IqI>(0, all its gold, 0) and confirms, the receiver offers nothing and
+     confirms (live 2026-10-15, 2.98: 1753 gold arrived exactly, no fee, 3.2 s). Verified when the alt has 0 AND
+     the receiver exactly that much more; 5 s without it -> re-read and trade again (3 tries, then quarantine).
+     The alt is then phase delete (stage 10). phase.derive_phase keeps an alt with quest 78 done and gold left in
+     queue_receiver, so a crash between the two trades comes back here, not to the delete.
+decide() / decide_gold() are pure (tests/test_factory_receiver.py).
 
 Item offer 0x63 <IqIII>(0, 0, 1, bag slot, quantity) comes from the old runtime's UI capture (Gemini mwxqll_game
 reference_runtime/item_trade.py); the step order with the receiver inviting is new.
@@ -28,7 +34,7 @@ from pathlib import Path
 from provisioner import log, native, procs
 from provisioner.game import Game, NotSent
 from provisioner.memory import ProcessMemory
-from provisioner.world import read_bag, read_team, read_world
+from provisioner.world import read_bag, read_gold, read_team, read_world
 
 from . import db
 from .coast import CoastRun
@@ -39,6 +45,7 @@ from .phase import COAST_MAP, DISH_ITEM, QUEUE_RECEIVER, RECEIVER, derive_phase
 from .runner import ROLE_NAME
 
 ACTION = 'receive_dish'
+GOLD_ACTION = 'receive_gold'
 POST_NEAR = 30                  # the 飞鞋 point counts as at the post this close (record exact after ~1 s still)
 CONFIRM_WAIT = 5.0
 NAV_RETRY = 2.0
@@ -54,7 +61,7 @@ class Decision:
 @dataclass
 class Memo:
     sent_at: float | None = None
-    alt_before: int | None = None
+    alt_before: int | None = None       # 料理 or gold, whichever this trade moves
     recv_before: int | None = None
     last_nav: float = -1e9
 
@@ -82,6 +89,30 @@ def decide(alt, alt_team, alt_dishes, slot, recv, recv_dishes, memo, now):
         return Decision('wait', '加载中')
     if alt_dishes == 0:
         return Decision('done', '背包里没有料理')
+    return _ready(alt, alt_team, recv, memo, now) or Decision('trade', f'收料理 ×{slot[1]}（背包第 {slot[0]} 格）', slot)
+
+
+def decide_gold(alt, alt_team, alt_gold, recv, recv_gold, memo, now):
+    """Step 5, after the 料理: all the alt's gold. *_gold: int | None."""
+    if memo.sent_at is not None:
+        expect = memo.recv_before + memo.alt_before
+        if alt_gold == 0 and recv_gold == expect:
+            return Decision('verified', f'金币 小号 {memo.alt_before} -> 0，收货人 {memo.recv_before} -> {recv_gold}')
+        if now - memo.sent_at < CONFIRM_WAIT:
+            return Decision('wait', '等金币到收货人')
+        if alt_gold == 0:       # gone from the alt but not the exact amount at the receiver: do not trade again
+            return Decision('fail', f'小号金币已清零，但收货人 {memo.recv_before} -> {recv_gold}，'
+                                    f'不等于 +{memo.alt_before}')
+        return Decision('unconfirmed', f'{CONFIRM_WAIT:.0f}s 内金币没过去（小号 {alt_gold}，收货人 {recv_gold}）')
+    if alt is None or recv is None or alt_team is None or alt_gold is None or recv_gold is None:
+        return Decision('wait', '加载中')
+    if alt_gold == 0:
+        return Decision('done', '身上没有金币')
+    return _ready(alt, alt_team, recv, memo, now) or Decision('trade', f'收金币 {alt_gold}', alt_gold)
+
+
+def _ready(alt, alt_team, recv, memo, now):
+    """None when both stand idle next to each other on map 81; otherwise what to do first."""
     if alt.map_id != COAST_MAP or recv.map_id != COAST_MAP:
         return Decision('fail', f'不都在平静海岸2区（小号地图 {alt.map_id}，收货人地图 {recv.map_id}）')
     if alt_team.members:
@@ -93,13 +124,21 @@ def decide(alt, alt_team, alt_dishes, slot, recv, recv_dishes, memo, now):
         return Decision('navigate', f'离收货人 {distance:.0f}，小号走过去', (COAST_MAP, round(recv.x), round(recv.y)))
     if not _idle(alt) or not _idle(recv):
         return Decision('wait', '小号或收货人忙/战斗/移动/验证中')
-    return Decision('trade', f'收料理 ×{slot[1]}（背包第 {slot[0]} 格，距离 {distance:.0f}）', slot)
+    return None
 
 
 def trade_dish(recv_game, recv_id, alt_game, alt_id, slot, quantity, gap):
-    """The six requests of one item trade, each from the side that owns it, `gap` seconds apart."""
+    _trade(recv_game, recv_id, alt_game, alt_id, (alt_game.trade_offer_item, (slot, quantity)), gap)
+
+
+def trade_all_gold(recv_game, recv_id, alt_game, alt_id, amount, gap):
+    _trade(recv_game, recv_id, alt_game, alt_id, (alt_game.trade_offer_gold, (amount,)), gap)
+
+
+def _trade(recv_game, recv_id, alt_game, alt_id, alt_offer, gap):
+    """The six requests of one trade alt -> receiver, each from the side that owns it, `gap` seconds apart."""
     steps = ((recv_game.trade_invite, (alt_id,)), (alt_game.trade_accept, (recv_id,)),
-             (alt_game.trade_offer_item, (slot, quantity)), (alt_game.trade_confirm, ()),
+             alt_offer, (alt_game.trade_confirm, ()),
              (recv_game.trade_offer_gold, (0,)), (recv_game.trade_confirm, ()))
     for i, (step, args) in enumerate(steps):
         if i:
@@ -150,7 +189,7 @@ class ReceiveJob:
         started = time.monotonic()
         cid = self.alt.char_id
         result = {'name': self.alt.name, 'char_id': cid, 'ok': False}
-        memo, last_reason = Memo(), None
+        memo, last_reason, gold_step = Memo(), None, False     # 料理 first, then the gold
         try:
             with ProcessMemory(self.alt.session.pid, self.alt.session.base) as mem:
                 game = Game(self.alt.session, mem)
@@ -168,25 +207,34 @@ class ReceiveJob:
                         row = db.alt(self.conn, cid)
                         if row['quarantined']:
                             raise RuntimeError(f'已隔离: {row["last_error"]}')
-                        bag, rbag = read_bag(mem), read_bag(self.rmem)
-                        alt_dishes, recv_dishes = dish_count(bag), dish_count(rbag)
-                        d = decide(alt_w, read_team(mem), alt_dishes, dish_slot(bag), recv_w, recv_dishes, memo, now)
+                        if not gold_step:
+                            bag, rbag = read_bag(mem), read_bag(self.rmem)
+                            alt_has, recv_has = dish_count(bag), dish_count(rbag)
+                            d = decide(alt_w, read_team(mem), alt_has, dish_slot(bag), recv_w, recv_has, memo, now)
+                        else:
+                            alt_has, recv_has = read_gold(mem), read_gold(self.rmem)
+                            d = decide_gold(alt_w, read_team(mem), alt_has, recv_w, recv_has, memo, now)
                         if d.reason != last_reason:
                             self.log.info('%s', d.reason)
                         last_reason = d.reason
-                        if d.kind == 'done':
-                            if row['pending_action'] == ACTION:
+                        action, key = (GOLD_ACTION, 'gold') if gold_step else (ACTION, 'dish')
+                        if d.kind in ('done', 'verified'):
+                            if d.kind == 'verified':
                                 db.complete_action(self.conn, cid, time.time())
-                            result.update(ok=True, skipped=True, receiver_dishes=recv_dishes)
-                            break
-                        if d.kind == 'verified':
-                            db.complete_action(self.conn, cid, time.time())
-                            db.log_event(self.conn, time.time(), 'receive', d.reason, char_id=cid,
-                                         station_id=self.sid)
-                            result.update(ok=True, receiver_dishes=recv_dishes,
-                                          seconds_to_verify=round(now - memo.sent_at, 2))
-                            time.sleep(SETTLE_GAP)
-                            break
+                                db.log_event(self.conn, time.time(), 'receive_gold' if gold_step else 'receive',
+                                             d.reason, char_id=cid, station_id=self.sid)
+                                result[key] = {'moved': memo.alt_before, 'receiver': recv_has,
+                                               'seconds_to_verify': round(now - memo.sent_at, 2)}
+                                time.sleep(SETTLE_GAP)
+                            else:
+                                if row['pending_action'] == action:
+                                    db.complete_action(self.conn, cid, time.time())
+                                result[key] = {'skipped': True, 'receiver': recv_has}
+                            if gold_step:
+                                result['ok'] = True
+                                break
+                            gold_step, memo = True, Memo()
+                            continue
                         if d.kind == 'fail':
                             raise RuntimeError(d.reason)
                         if d.kind == 'unconfirmed':
@@ -198,10 +246,12 @@ class ReceiveJob:
                             game.navigate(*d.arg)
                             memo.last_nav = now
                         elif d.kind == 'trade':
-                            memo = Memo(alt_before=alt_dishes, recv_before=recv_dishes)
-                            db.mark_pending(self.conn, cid, ACTION, time.time())
+                            memo = Memo(alt_before=alt_has, recv_before=recv_has)
+                            db.mark_pending(self.conn, cid, action, time.time())
+                            trade = trade_all_gold if gold_step else trade_dish
+                            args = (d.arg,) if gold_step else d.arg
                             try:
-                                trade_dish(self.rgame, self.recv.char_id, game, cid, *d.arg, self.s.trade_step_gap)
+                                trade(self.rgame, self.recv.char_id, game, cid, *args, self.s.trade_step_gap)
                             except NotSent as e:
                                 raise RuntimeError(f'交易请求没发出: {e}') from e
                             memo.sent_at = time.monotonic()
@@ -222,7 +272,7 @@ class ReceiveJob:
         plan = derive_phase(obs, db.ledger(self.conn, self.alt.char_id), db.station_roles(self.conn))
         db.save_observation(self.conn, obs, plan, time.time())
         result['phase_after'] = plan.phase
-        self.log.info('料理 %d 个 阶段=%s（%s）', obs.dishes, plan.phase, plan.reason)
+        self.log.info('料理 %d 个 金币 %s 阶段=%s（%s）', obs.dishes, obs.gold, plan.phase, plan.reason)
 
 
 def refresh(conn, alts, logger):
@@ -290,7 +340,7 @@ def main():
                     db.release(conn, st['station_id'], [cid], time.time())
         finally:
             rgame.close()
-        total = dish_count(read_bag(rmem))
+        total, gold = dish_count(read_bag(rmem)), read_gold(rmem)
     db.heartbeat(conn, st['station_id'], RECEIVER, recv.char_id, 'idle', time.time())
     conn.close()
     out = ROOT / 'logs' / (log_path.stem.replace('receive_', 'receive_summary_') + '.json')
@@ -298,9 +348,9 @@ def main():
     logger.info('=' * 60)
     for r in results:
         logger.info('%-8s %s %s', r['name'], '完成' if r['ok'] else '失败',
-                    r.get('error', '没有料理' if r.get('skipped') else ''))
+                    r.get('error', f"金币 {r.get('gold', {}).get('moved') or 0}"))
     ok = sum(r['ok'] for r in results)
-    logger.info('完成 %d/%d，收货人背包料理 %s 个。汇总: %s', ok, len(results), total, out)
+    logger.info('完成 %d/%d，收货人背包料理 %s 个、金币 %s。汇总: %s', ok, len(results), total, gold, out)
     return 0 if ok == len(results) else 1
 
 

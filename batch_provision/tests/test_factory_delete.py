@@ -78,7 +78,7 @@ class Bodies(unittest.TestCase):
         self.assertEqual(reply_outcome(3), 'rejected')
 
 
-DONE_OBS = AltObs(char_id=1, map_id=81, level=12, gold=2000, team_leader=0, quest=QUEST_DONE)
+DONE_OBS = AltObs(char_id=1, map_id=81, level=12, gold=0, team_leader=0, quest=QUEST_DONE)
 ROW = {'quarantined': 0, 'last_error': None, 'pending_action': None, 'phase': DELETE}
 
 
@@ -93,6 +93,7 @@ class Gate(unittest.TestCase):
         self.assertIn('观察', gate(ROW, None, True))
         self.assertIn('任务', gate(ROW, AltObs(1, 81, 12, 0, 0, QUEST_ACTIVE), True))
         self.assertIn('料理', gate(ROW, AltObs(1, 81, 12, 0, 0, QUEST_DONE, dishes=1), True))
+        self.assertIn('金币', gate(ROW, AltObs(1, 81, 12, 1753, 0, QUEST_DONE), True))
         self.assertIn('收货', gate(ROW, DONE_OBS, False))
 
 
