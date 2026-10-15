@@ -3,7 +3,7 @@ import struct
 import unittest
 from dataclasses import replace
 
-from factory.receiver import CONFIRM_WAIT, NAV_RETRY, Memo, decide, dish_count, dish_slot
+from factory.receiver import CONFIRM_WAIT, NAV_RETRY, Memo, decide, decide_gold, dish_count, dish_slot
 from provisioner.game import trade_item_offer_body
 from provisioner.world import BagSlot, Team, WorldState
 
@@ -50,6 +50,40 @@ class Decide(unittest.TestCase):
         self.assertEqual(run(alt_dishes=0, recv_dishes=4, memo=memo, now=10.5).kind, 'verified')
         self.assertEqual(run(alt_dishes=0, recv_dishes=3, memo=memo, now=10.5).kind, 'wait')
         self.assertEqual(run(alt_dishes=1, recv_dishes=3, memo=memo, now=10.0 + CONFIRM_WAIT).kind, 'unconfirmed')
+
+
+def gold(alt=ALT, team=SOLO, alt_gold=1753, recv=RECV, recv_gold=5000, memo=None, now=0.0):
+    return decide_gold(alt, team, alt_gold, recv, recv_gold, memo or Memo(), now)
+
+
+class DecideGold(unittest.TestCase):
+    def test_trade_all_gold(self):
+        d = gold()
+        self.assertEqual((d.kind, d.arg), ('trade', 1753))
+
+    def test_no_gold_is_done(self):
+        self.assertEqual(gold(alt_gold=0).kind, 'done')
+
+    def test_same_preconditions_as_the_dish(self):
+        self.assertEqual(gold(alt=replace(ALT, x=1152.0, y=932.0)).kind, 'navigate')
+        self.assertEqual(gold(recv=replace(RECV, busy=True)).kind, 'wait')
+        self.assertEqual(gold(team=Team((9, 1), (70, 12), 9)).kind, 'fail')
+        self.assertEqual(gold(alt_gold=None).kind, 'wait')
+
+    def test_verified_needs_exact_amount(self):
+        memo = Memo(sent_at=10.0, alt_before=1753, recv_before=5000)
+        self.assertEqual(gold(alt_gold=0, recv_gold=6753, memo=memo, now=13.2).kind, 'verified')
+        self.assertEqual(gold(alt_gold=0, recv_gold=6700, memo=memo, now=11.0).kind, 'wait')
+        self.assertEqual(gold(alt_gold=1753, recv_gold=5000, memo=memo, now=11.0).kind, 'wait')
+
+    def test_not_arrived_trades_again(self):
+        memo = Memo(sent_at=10.0, alt_before=1753, recv_before=5000)
+        self.assertEqual(gold(alt_gold=1753, recv_gold=5000, memo=memo, now=10.0 + CONFIRM_WAIT).kind,
+                         'unconfirmed')
+
+    def test_wrong_amount_at_receiver_fails_without_retrading(self):
+        memo = Memo(sent_at=10.0, alt_before=1753, recv_before=5000)
+        self.assertEqual(gold(alt_gold=0, recv_gold=6700, memo=memo, now=10.0 + CONFIRM_WAIT).kind, 'fail')
 
 
 class Bag(unittest.TestCase):

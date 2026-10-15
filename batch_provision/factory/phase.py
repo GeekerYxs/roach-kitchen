@@ -109,7 +109,11 @@ def derive_phase(obs, ledger, stations):
             return Plan(QUEUE_RECEIVER, f'有料理 {obs.dishes} 个，排队交给收货人')
         return _to_coast(obs, leader_role, gold, '有料理但不在海岸')
     if obs.quest == QUEST_DONE:
-        return Plan(DELETE, '任务已完成、料理已交出，删除角色')
+        if obs.gold != 0 and obs.map_id == COAST_MAP:     # None = unread: the receiver reads it and skips at 0
+            if obs.team_leader:
+                return Plan(LEAVE_TEAM, '有金币待收回但还在队里')
+            return Plan(QUEUE_RECEIVER, f'料理已交出，金币 {obs.gold} 排队交给收货人')
+        return Plan(DELETE, '任务已完成、料理和金币已交出，删除角色')
 
     if obs.level < TARGET_LEVEL:
         if leader_role == WELL:

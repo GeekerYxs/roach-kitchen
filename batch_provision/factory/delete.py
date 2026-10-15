@@ -70,6 +70,8 @@ def gate(row, obs, got_dish):
         return f'任务 78 状态是 {obs.quest}，不是已完成'
     if obs.dishes:
         return f'背包里还有料理 {obs.dishes} 个'
+    if obs.gold:
+        return f'身上还有金币 {obs.gold}'
     if not got_dish:
         return '没有收货人收到料理的记录'
     return None

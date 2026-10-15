@@ -139,8 +139,22 @@ class Finish(unittest.TestCase):
         obs = replace(AT_11, quest=P.QUEST_DONE, dishes=1)
         self.assertEqual(phase(obs).phase, P.QUEUE_TRANSPORT)
 
-    def test_dish_handed_over_deletes(self):
-        self.assertEqual(phase(replace(FARMING, quest=P.QUEST_DONE)).phase, P.DELETE)
+    def test_dish_and_gold_handed_over_deletes(self):
+        self.assertEqual(phase(replace(FARMING, quest=P.QUEST_DONE, gold=0)).phase, P.DELETE)
+
+    def test_gold_left_goes_back_to_receiver(self):
+        # crash between the 料理 trade and the gold trade: not the delete yet
+        p = phase(replace(FARMING, quest=P.QUEST_DONE, gold=1753))
+        self.assertEqual(p.phase, P.QUEUE_RECEIVER)
+        self.assertIn('1753', p.reason)
+        self.assertEqual(phase(replace(FARMING, quest=P.QUEST_DONE, gold=None)).phase, P.QUEUE_RECEIVER)
+
+    def test_gold_left_in_team_leaves_first(self):
+        obs = replace(FARMING, quest=P.QUEST_DONE, gold=1753, team_leader=COAST_LEADER)
+        self.assertEqual(phase(obs).phase, P.LEAVE_TEAM)
+
+    def test_gold_left_off_the_coast_deletes(self):
+        self.assertEqual(phase(replace(AT_11, quest=P.QUEST_DONE, gold=900)).phase, P.DELETE)
 
 
 class ReturnHome(unittest.TestCase):
