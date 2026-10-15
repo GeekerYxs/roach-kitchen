@@ -2,7 +2,9 @@
 
 Python version, local.toml, game exe, bin files, every tool config, station passwords, memory, which accounts
 of this machine's range still need 一键建角.cmd, and whether state/factory.db holds alts of another range."""
+import hashlib
 import json
+import re
 import sqlite3
 import sys
 from pathlib import Path
@@ -42,6 +44,21 @@ def role_status(state_dir, accounts, per_account=4, suffix='r'):
     return ready, todo, foreign
 
 
+def expected_client_hash(launcher_source=ROOT / 'native' / 'launcher.cpp'):
+    """The game exe SHA256 launcher.exe accepts (CLIENT_HASH in its source); None if the source is missing."""
+    p = Path(launcher_source)
+    m = re.search(r'CLIENT_HASH="([0-9a-f]{64})"', p.read_text('utf-8')) if p.is_file() else None
+    return m.group(1) if m else None
+
+
+def file_sha256(path):
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for chunk in iter(lambda: f.read(1 << 20), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def main():
     r = Report()
     v = sys.version_info
@@ -62,6 +79,14 @@ def main():
     except Exception as e:
         r.line(BAD, f'supervisor.toml + local.toml 读不出来：{e}')
         return 1
+    want = expected_client_hash()
+    if not Path(login.game_exe).is_file():
+        r.line(BAD, f'游戏程序不存在：{login.game_exe}')
+    elif want and file_sha256(login.game_exe) != want:
+        r.line(BAD, '游戏版本和代码不匹配（SHA256 不同）：游戏更新过的话，要先重新定位基址、改 launcher.cpp 的 '
+                    'CLIENT_HASH 并重新编译；或者这台电脑的游戏还没更新')
+    elif want:
+        r.line(OK, '游戏版本与代码匹配（SHA256）')
     names = [a.name for a in login.accounts]
     if any(not a.password for a in login.accounts):
         r.line(BAD, 'local.toml [accounts] 的小号密码还没填')
