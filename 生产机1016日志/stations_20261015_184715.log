@@ -1,0 +1,175 @@
+18:47:15.754 INFO  [main  ] 日志文件: C:\codes\roach-kitchen\batch_provision\logs\stations_20261015_184715.log
+18:47:15.770 INFO  [main  ] 发现 mw204r1 pid=2520 角色ID=205984 地图=1 坐标=(1266,1174)
+18:47:15.771 INFO  [main  ] 发现 mw205r1 pid=3144 角色ID=205988 地图=1 坐标=(1266,1174)
+18:47:15.772 INFO  [main  ] 发现 mw202r1 pid=3664 角色ID=205978 地图=1 坐标=(1266,1174)
+18:47:15.773 WARNING [main  ] pid=4164 没有加载本工具的 DLL（不是用本工具启动的），跳过
+18:47:15.774 INFO  [main  ] 发现 mw201r1 pid=7428 角色ID=205976 地图=1 坐标=(1266,1174)
+18:47:15.779 INFO  [main  ] 发现 mw203r1 pid=10064 角色ID=205981 地图=1 坐标=(1266,1174)
+18:47:15.822 INFO  [main  ] 需要登录的工位: dispatcher1(调度员（给金币+传送）)=xq01(槽1), well1(古井队长)=ha01(槽1), coast1(海岸队长)=ha02(槽1), coast2(海岸队长)=bb02(槽1), coast3(海岸队长)=bb01(槽1), receiver1(收货人)=xq02(槽1), well2(古井队长)=xq03(槽1)
+18:47:15.822 INFO  [main  ] 提示: 如果这些号已经在别的（非本工具启动的）窗口里在线，请先关掉，否则会互相挤号
+18:47:15.824 INFO  [xq01  ] == 登录 ==
+18:47:15.824 INFO  [xq01  ] 启动游戏并登录 (第 1/3 次)
+18:47:15.825 DEBUG [xq01  ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_xq01_1.json
+18:47:15.825 INFO  [ha02  ] == 登录 ==
+18:47:15.825 INFO  [ha01  ] == 登录 ==
+18:47:15.826 INFO  [bb02  ] == 登录 ==
+18:47:15.827 INFO  [bb01  ] == 登录 ==
+18:47:15.828 INFO  [xq02  ] == 登录 ==
+18:47:15.828 INFO  [xq03  ] == 登录 ==
+18:47:17.826 INFO  [ha02  ] 启动游戏并登录 (第 1/3 次)
+18:47:17.827 DEBUG [ha02  ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_ha02_1.json
+18:47:19.826 INFO  [ha01  ] 启动游戏并登录 (第 1/3 次)
+18:47:19.827 DEBUG [ha01  ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_ha01_1.json
+18:47:21.791 DEBUG [xq01  ] launcher> PID 7656, slot 1
+18:47:21.792 DEBUG [xq01  ] launcher> Stage 1, error 0
+18:47:21.792 DEBUG [xq01  ] launcher> Stage 3, error 0
+18:47:21.792 DEBUG [xq01  ] launcher> Stage 4, error 0
+18:47:21.792 DEBUG [xq01  ] launcher> Stage 5, error 0
+18:47:21.792 DEBUG [xq01  ] launcher> Stage 9, error 0
+18:47:21.792 DEBUG [xq01  ] launcher> Login checkpoint reached.
+18:47:21.792 INFO  [xq01  ] 登录结果: exit=0(成功到达选角界面) stage=9(停在选角界面) error=0(无) pid=7656 elapsed=5844ms, 用时 6.0s
+18:47:21.793 INFO  [xq01  ] 已到选角界面 pid=7656 hwnd=0x1503d4 base=0xd80000
+18:47:21.793 INFO  [xq01  ] == 读取选角列表 ==
+18:47:21.829 INFO  [bb02  ] 启动游戏并登录 (第 1/3 次)
+18:47:21.829 DEBUG [bb02  ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_bb02_1.json
+18:47:23.113 INFO  [xq01  ] 会话上下文=0x18f1d84 (定位+读列表 1.3s)
+18:47:23.114 INFO  [xq01  ] 选角列表 槽1: 小强杀手一号  ID=202231  44级
+18:47:23.114 INFO  [xq01  ] == 进入槽1: 小强杀手一号 (ID=202231, 44级) ==
+18:47:23.144 DEBUG [xq01  ] DLL stage=6(选角) error=0 enter_messages=2
+18:47:23.345 DEBUG [xq01  ] DLL stage=7(进入世界中) error=0 enter_messages=4
+18:47:23.830 INFO  [bb01  ] 启动游戏并登录 (第 1/3 次)
+18:47:23.830 DEBUG [bb01  ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_bb01_1.json
+18:47:24.750 DEBUG [xq01  ] DLL stage=8(已进入世界) error=0 enter_messages=11
+18:47:24.750 INFO  [xq01  ] 世界指针已出现（DLL 用时 3829ms，按回车 11 次）
+18:47:24.751 INFO  [xq01  ] == 核验已进入游戏 ==
+18:47:25.830 INFO  [xq02  ] 启动游戏并登录 (第 1/3 次)
+18:47:25.831 DEBUG [xq02  ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_xq02_1.json
+18:47:26.686 DEBUG [ha02  ] launcher> PID 4912, slot 1
+18:47:26.686 DEBUG [ha02  ] launcher> Stage 1, error 0
+18:47:26.686 DEBUG [ha02  ] launcher> Stage 4, error 0
+18:47:26.686 DEBUG [ha02  ] launcher> Stage 5, error 0
+18:47:26.687 DEBUG [ha02  ] launcher> Stage 9, error 0
+18:47:26.687 DEBUG [ha02  ] launcher> Login checkpoint reached.
+18:47:26.687 INFO  [ha02  ] 登录结果: exit=0(成功到达选角界面) stage=9(停在选角界面) error=0(无) pid=4912 elapsed=8735ms, 用时 8.9s
+18:47:26.688 INFO  [ha02  ] 已到选角界面 pid=4912 hwnd=0x190406 base=0xd80000
+18:47:26.688 INFO  [ha02  ] == 读取选角列表 ==
+18:47:26.757 INFO  [xq01  ] 已在游戏中: 小强杀手一号 ID=202231 地图=1 坐标=(1338,1155)
+18:47:26.757 INFO  [xq01  ] 结束: 成功 用时 10.9s
+18:47:27.830 INFO  [xq03  ] 启动游戏并登录 (第 1/3 次)
+18:47:27.831 DEBUG [xq03  ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_xq03_1.json
+18:47:28.107 INFO  [ha02  ] 会话上下文=0x6f2174 (定位+读列表 1.4s)
+18:47:28.108 INFO  [ha02  ] 选角列表 槽1: 海岸女队长二号  ID=204410  43级
+18:47:28.108 INFO  [ha02  ] == 进入槽1: 海岸女队长二号 (ID=204410, 43级) ==
+18:47:28.124 DEBUG [ha02  ] DLL stage=6(选角) error=0 enter_messages=2
+18:47:28.325 DEBUG [ha02  ] DLL stage=7(进入世界中) error=0 enter_messages=4
+18:47:28.771 DEBUG [ha01  ] launcher> PID 3308, slot 1
+18:47:28.771 DEBUG [ha01  ] launcher> Stage 1, error 0
+18:47:28.771 DEBUG [ha01  ] launcher> Stage 4, error 0
+18:47:28.771 DEBUG [ha01  ] launcher> Stage 5, error 0
+18:47:28.771 DEBUG [ha01  ] launcher> Stage 9, error 0
+18:47:28.771 DEBUG [ha01  ] launcher> Login checkpoint reached.
+18:47:28.772 INFO  [ha01  ] 登录结果: exit=0(成功到达选角界面) stage=9(停在选角界面) error=0(无) pid=3308 elapsed=8813ms, 用时 8.9s
+18:47:28.772 INFO  [ha01  ] 已到选角界面 pid=3308 hwnd=0x2103ae base=0xd80000
+18:47:28.773 INFO  [ha01  ] == 读取选角列表 ==
+18:47:29.736 DEBUG [ha02  ] DLL stage=8(已进入世界) error=0 enter_messages=11
+18:47:29.736 INFO  [ha02  ] 世界指针已出现（DLL 用时 3938ms，按回车 11 次）
+18:47:29.737 INFO  [ha02  ] == 核验已进入游戏 ==
+18:47:30.219 INFO  [ha01  ] 会话上下文=0xcf1f9c (定位+读列表 1.4s)
+18:47:30.220 INFO  [ha01  ] 选角列表 槽1: 海岸女队长一号  ID=204409  43级
+18:47:30.220 INFO  [ha01  ] == 进入槽1: 海岸女队长一号 (ID=204409, 43级) ==
+18:47:30.230 DEBUG [ha01  ] DLL stage=9(停在选角界面) error=0 enter_messages=2
+18:47:30.430 DEBUG [ha01  ] DLL stage=7(进入世界中) error=0 enter_messages=4
+18:47:30.740 DEBUG [bb02  ] launcher> PID 10948, slot 1
+18:47:30.740 DEBUG [bb02  ] launcher> Stage 1, error 0
+18:47:30.740 DEBUG [bb02  ] launcher> Stage 4, error 0
+18:47:30.740 DEBUG [bb02  ] launcher> Stage 5, error 0
+18:47:30.740 DEBUG [bb02  ] launcher> Stage 9, error 0
+18:47:30.740 DEBUG [bb02  ] launcher> Login checkpoint reached.
+18:47:30.741 INFO  [bb02  ] 登录结果: exit=0(成功到达选角界面) stage=9(停在选角界面) error=0(无) pid=10948 elapsed=8765ms, 用时 8.9s
+18:47:30.741 INFO  [bb02  ] 已到选角界面 pid=10948 hwnd=0x15032c base=0xd80000
+18:47:30.741 INFO  [bb02  ] == 读取选角列表 ==
+18:47:31.248 INFO  [ha02  ] 已在游戏中: 海岸女队长二号 ID=204410 地图=81 坐标=(1750,1300)
+18:47:31.250 INFO  [ha02  ] 结束: 成功 用时 15.4s
+18:47:31.850 DEBUG [ha01  ] DLL stage=8(已进入世界) error=0 enter_messages=11
+18:47:31.850 INFO  [ha01  ] 世界指针已出现（DLL 用时 3953ms，按回车 11 次）
+18:47:31.850 INFO  [ha01  ] == 核验已进入游戏 ==
+18:47:32.158 INFO  [bb02  ] 会话上下文=0x18f207c (定位+读列表 1.4s)
+18:47:32.159 INFO  [bb02  ] 选角列表 槽1: bb02  ID=201853  54级
+18:47:32.159 INFO  [bb02  ] == 进入槽1: bb02 (ID=201853, 54级) ==
+18:47:32.187 DEBUG [bb02  ] DLL stage=9(停在选角界面) error=0 enter_messages=2
+18:47:32.388 DEBUG [bb02  ] DLL stage=7(进入世界中) error=0 enter_messages=4
+18:47:32.826 DEBUG [bb01  ] launcher> PID 3228, slot 1
+18:47:32.827 DEBUG [bb01  ] launcher> Stage 1, error 0
+18:47:32.827 DEBUG [bb01  ] launcher> Stage 3, error 0
+18:47:32.827 DEBUG [bb01  ] launcher> Stage 4, error 0
+18:47:32.827 DEBUG [bb01  ] launcher> Stage 5, error 0
+18:47:32.827 DEBUG [bb01  ] launcher> Stage 9, error 0
+18:47:32.827 DEBUG [bb01  ] launcher> Login checkpoint reached.
+18:47:32.828 INFO  [bb01  ] 登录结果: exit=0(成功到达选角界面) stage=9(停在选角界面) error=0(无) pid=3228 elapsed=8828ms, 用时 9.0s
+18:47:32.830 INFO  [bb01  ] 已到选角界面 pid=3228 hwnd=0x2504b0 base=0xd80000
+18:47:32.830 INFO  [bb01  ] == 读取选角列表 ==
+18:47:33.360 INFO  [ha01  ] 已在游戏中: 海岸女队长一号 ID=204409 地图=1 坐标=(1338,1155)
+18:47:33.362 INFO  [ha01  ] 结束: 成功 用时 17.5s
+18:47:33.790 DEBUG [xq03  ] launcher> PID 9664, slot 1
+18:47:33.790 DEBUG [xq03  ] launcher> Stage 1, error 0
+18:47:33.790 DEBUG [xq03  ] launcher> Stage 4, error 0
+18:47:33.790 DEBUG [xq03  ] launcher> Stage 5, error 0
+18:47:33.790 DEBUG [xq03  ] launcher> Stage 9, error 0
+18:47:33.790 DEBUG [xq03  ] launcher> Login checkpoint reached.
+18:47:33.791 INFO  [xq03  ] 登录结果: exit=0(成功到达选角界面) stage=9(停在选角界面) error=0(无) pid=9664 elapsed=5844ms, 用时 6.0s
+18:47:33.791 INFO  [xq03  ] 已到选角界面 pid=9664 hwnd=0x40b90 base=0xd80000
+18:47:33.791 INFO  [xq03  ] == 读取选角列表 ==
+18:47:33.803 DEBUG [bb02  ] DLL stage=8(已进入世界) error=0 enter_messages=11
+18:47:33.804 INFO  [bb02  ] 世界指针已出现（DLL 用时 3921ms，按回车 11 次）
+18:47:33.806 INFO  [bb02  ] == 核验已进入游戏 ==
+18:47:34.200 INFO  [bb01  ] 会话上下文=0x18f1a2c (定位+读列表 1.4s)
+18:47:34.202 INFO  [bb01  ] 选角列表 槽1: bb01  ID=201852  54级
+18:47:34.204 INFO  [bb01  ] == 进入槽1: bb01 (ID=201852, 54级) ==
+18:47:34.229 DEBUG [bb01  ] DLL stage=6(选角) error=0 enter_messages=2
+18:47:34.432 DEBUG [bb01  ] DLL stage=7(进入世界中) error=0 enter_messages=4
+18:47:34.918 DEBUG [xq02  ] launcher> PID 11976, slot 1
+18:47:34.918 DEBUG [xq02  ] launcher> Stage 1, error 0
+18:47:34.918 DEBUG [xq02  ] launcher> Stage 3, error 0
+18:47:34.918 DEBUG [xq02  ] launcher> Stage 4, error 0
+18:47:34.918 DEBUG [xq02  ] launcher> Stage 5, error 0
+18:47:34.918 DEBUG [xq02  ] launcher> Stage 9, error 0
+18:47:34.918 DEBUG [xq02  ] launcher> Login checkpoint reached.
+18:47:34.919 INFO  [xq02  ] 登录结果: exit=0(成功到达选角界面) stage=9(停在选角界面) error=0(无) pid=11976 elapsed=8906ms, 用时 9.1s
+18:47:34.919 INFO  [xq02  ] 已到选角界面 pid=11976 hwnd=0x40bac base=0xd80000
+18:47:34.920 INFO  [xq02  ] == 读取选角列表 ==
+18:47:35.175 INFO  [xq03  ] 会话上下文=0xaf1f5c (定位+读列表 1.4s)
+18:47:35.176 INFO  [xq03  ] 选角列表 槽1: 小强杀手三号  ID=202233  44级
+18:47:35.177 INFO  [xq03  ] == 进入槽1: 小强杀手三号 (ID=202233, 44级) ==
+18:47:35.186 DEBUG [xq03  ] DLL stage=6(选角) error=0 enter_messages=2
+18:47:35.391 DEBUG [xq03  ] DLL stage=7(进入世界中) error=0 enter_messages=4
+18:47:35.813 INFO  [bb02  ] 已在游戏中: bb02 ID=201853 地图=81 坐标=(1000,2700)
+18:47:35.813 INFO  [bb02  ] 结束: 成功 用时 20.0s
+18:47:35.844 DEBUG [bb01  ] DLL stage=8(已进入世界) error=0 enter_messages=11
+18:47:35.844 INFO  [bb01  ] 世界指针已出现（DLL 用时 3937ms，按回车 11 次）
+18:47:35.844 INFO  [bb01  ] == 核验已进入游戏 ==
+18:47:36.283 INFO  [xq02  ] 会话上下文=0x18f1d04 (定位+读列表 1.4s)
+18:47:36.284 INFO  [xq02  ] 选角列表 槽1: 小强杀手二号  ID=202232  44级
+18:47:36.284 INFO  [xq02  ] == 进入槽1: 小强杀手二号 (ID=202232, 44级) ==
+18:47:36.307 DEBUG [xq02  ] DLL stage=6(选角) error=0 enter_messages=2
+18:47:36.508 DEBUG [xq02  ] DLL stage=7(进入世界中) error=0 enter_messages=4
+18:47:36.799 DEBUG [xq03  ] DLL stage=8(已进入世界) error=0 enter_messages=11
+18:47:36.799 INFO  [xq03  ] 世界指针已出现（DLL 用时 3922ms，按回车 11 次）
+18:47:36.799 INFO  [xq03  ] == 核验已进入游戏 ==
+18:47:36.847 INFO  [bb01  ] 已在游戏中: bb01 ID=201852 地图=81 坐标=(1017,2719)
+18:47:36.847 INFO  [bb01  ] 结束: 成功 用时 21.0s
+18:47:37.802 INFO  [xq03  ] 已在游戏中: 小强杀手三号 ID=202233 地图=1 坐标=(1338,1155)
+18:47:37.802 INFO  [xq03  ] 结束: 成功 用时 22.0s
+18:47:37.914 DEBUG [xq02  ] DLL stage=8(已进入世界) error=0 enter_messages=11
+18:47:37.914 INFO  [xq02  ] 世界指针已出现（DLL 用时 3906ms，按回车 11 次）
+18:47:37.915 INFO  [xq02  ] == 核验已进入游戏 ==
+18:47:39.919 INFO  [xq02  ] 已在游戏中: 小强杀手二号 ID=202232 地图=81 坐标=(1752,1364)
+18:47:39.919 INFO  [xq02  ] 结束: 成功 用时 24.1s
+18:47:39.967 INFO  [main  ] ============================================================
+18:47:39.967 INFO  [main  ] dispatcher1  在线 小强杀手一号 
+18:47:39.968 INFO  [main  ] well1        在线 海岸女队长一号 
+18:47:39.968 INFO  [main  ] coast1       在线 海岸女队长二号 
+18:47:39.968 INFO  [main  ] coast2       在线 bb02 
+18:47:39.968 INFO  [main  ] coast3       在线 bb01 
+18:47:39.968 INFO  [main  ] receiver1    在线 小强杀手二号 
+18:47:39.968 INFO  [main  ] well2        在线 小强杀手三号 
+18:47:39.968 INFO  [main  ] 完成 7/7。汇总: C:\codes\roach-kitchen\batch_provision\logs\stations_summary_20261015_184715.json

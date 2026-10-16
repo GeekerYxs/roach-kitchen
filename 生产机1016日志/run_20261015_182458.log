@@ -1,0 +1,662 @@
+18:24:58.064 INFO  [main  ] 日志文件: C:\codes\roach-kitchen\batch_provision\logs\run_20261015_182458.log
+18:24:58.066 INFO  [main  ] 账号 80 个: mw201, mw202, mw203, mw204, mw205, mw206, mw207, mw208, mw209, mw210, mw211, mw212, mw213, mw214, mw215, mw216, mw217, mw218, mw219, mw220, mw221, mw222, mw223, mw224, mw225, mw226, mw227, mw228, mw229, mw230, mw231, mw232, mw233, mw234, mw235, mw236, mw237, mw238, mw239, mw240, mw241, mw242, mw243, mw244, mw245, mw246, mw247, mw248, mw249, mw250, mw251, mw252, mw253, mw254, mw255, mw256, mw257, mw258, mw259, mw260, mw261, mw262, mw263, mw264, mw265, mw266, mw267, mw268, mw269, mw270, mw271, mw272, mw273, mw274, mw275, mw276, mw277, mw278, mw279, mw280；同时最多 8 个窗口；每号 4 个角色；重登核验=True；建完保留窗口=False；空闲内存下限 3000MB
+18:24:58.098 INFO  [mw201 ] == 登录 ==
+18:24:58.099 INFO  [mw201 ] 启动游戏并登录 (第 1/3 次)
+18:24:58.099 INFO  [mw202 ] == 登录 ==
+18:24:58.100 DEBUG [mw201 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw201_1.json
+18:24:58.100 INFO  [mw203 ] == 登录 ==
+18:24:58.101 INFO  [mw204 ] == 登录 ==
+18:24:58.101 INFO  [mw205 ] == 登录 ==
+18:24:58.102 INFO  [mw206 ] == 登录 ==
+18:24:58.104 INFO  [mw208 ] == 登录 ==
+18:24:58.103 INFO  [mw207 ] == 登录 ==
+18:25:00.099 INFO  [mw202 ] 启动游戏并登录 (第 1/3 次)
+18:25:00.100 DEBUG [mw202 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw202_1.json
+18:25:02.100 INFO  [mw203 ] 启动游戏并登录 (第 1/3 次)
+18:25:02.101 DEBUG [mw203 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw203_1.json
+18:25:04.101 INFO  [mw204 ] 启动游戏并登录 (第 1/3 次)
+18:25:04.102 DEBUG [mw204 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw204_1.json
+18:25:06.102 INFO  [mw205 ] 启动游戏并登录 (第 1/3 次)
+18:25:06.103 DEBUG [mw205 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw205_1.json
+18:25:08.103 INFO  [mw206 ] 启动游戏并登录 (第 1/3 次)
+18:25:08.104 DEBUG [mw206 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw206_1.json
+18:25:10.104 INFO  [mw208 ] 启动游戏并登录 (第 1/3 次)
+18:25:10.104 DEBUG [mw208 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw208_1.json
+18:25:12.104 INFO  [mw207 ] 启动游戏并登录 (第 1/3 次)
+18:25:12.105 DEBUG [mw207 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw207_1.json
+18:25:15.314 DEBUG [mw201 ] launcher> PID 11848, slot 1
+18:25:15.314 DEBUG [mw201 ] launcher> Stage 1, error 0
+18:25:15.314 DEBUG [mw201 ] launcher> Stage 4, error 0
+18:25:15.314 DEBUG [mw201 ] launcher> Stage 5, error 0
+18:25:15.315 DEBUG [mw201 ] launcher> Stage -1, error 107
+18:25:15.315 DEBUG [mw201 ] launcher> Stopped; no automatic login retry.
+18:25:15.315 INFO  [mw201 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=11848 elapsed=17031ms, 用时 17.2s
+18:25:15.315 ERROR [mw201 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=11848 elapsed=17031ms
+18:25:15.316 WARNING [mw201 ] 关闭失败的进程 pid=11848 后重试
+18:25:16.136 DEBUG [mw202 ] launcher> PID 1776, slot 1
+18:25:16.136 DEBUG [mw202 ] launcher> Stage 1, error 0
+18:25:16.136 DEBUG [mw202 ] launcher> Stage 4, error 0
+18:25:16.136 DEBUG [mw202 ] launcher> Stage 5, error 0
+18:25:16.136 DEBUG [mw202 ] launcher> Stage -1, error 107
+18:25:16.136 DEBUG [mw202 ] launcher> Stopped; no automatic login retry.
+18:25:16.137 INFO  [mw202 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=1776 elapsed=15938ms, 用时 16.0s
+18:25:16.137 ERROR [mw202 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=1776 elapsed=15938ms
+18:25:16.137 WARNING [mw202 ] 关闭失败的进程 pid=1776 后重试
+18:25:17.358 INFO  [mw201 ] 启动游戏并登录 (第 2/3 次)
+18:25:17.359 DEBUG [mw201 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw201_2.json
+18:25:18.378 DEBUG [mw203 ] launcher> PID 2212, slot 1
+18:25:18.378 DEBUG [mw203 ] launcher> Stage 1, error 0
+18:25:18.378 DEBUG [mw203 ] launcher> Stage 4, error 0
+18:25:18.378 DEBUG [mw203 ] launcher> Stage 5, error 0
+18:25:18.378 DEBUG [mw203 ] launcher> Stage -1, error 107
+18:25:18.378 DEBUG [mw203 ] launcher> Stopped; no automatic login retry.
+18:25:18.378 INFO  [mw203 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=2212 elapsed=16031ms, 用时 16.3s
+18:25:18.379 ERROR [mw203 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=2212 elapsed=16031ms
+18:25:18.379 WARNING [mw203 ] 关闭失败的进程 pid=2212 后重试
+18:25:19.359 INFO  [mw202 ] 启动游戏并登录 (第 2/3 次)
+18:25:19.359 DEBUG [mw202 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw202_2.json
+18:25:20.282 DEBUG [mw204 ] launcher> PID 10964, slot 1
+18:25:20.282 DEBUG [mw204 ] launcher> Stage 1, error 0
+18:25:20.282 DEBUG [mw204 ] launcher> Stage 4, error 0
+18:25:20.282 DEBUG [mw204 ] launcher> Stage 5, error 0
+18:25:20.282 DEBUG [mw204 ] launcher> Stage -1, error 107
+18:25:20.282 DEBUG [mw204 ] launcher> Stopped; no automatic login retry.
+18:25:20.283 INFO  [mw204 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=10964 elapsed=16047ms, 用时 16.2s
+18:25:20.283 ERROR [mw204 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=10964 elapsed=16047ms
+18:25:20.283 WARNING [mw204 ] 关闭失败的进程 pid=10964 后重试
+18:25:21.359 INFO  [mw203 ] 启动游戏并登录 (第 2/3 次)
+18:25:21.360 DEBUG [mw203 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw203_2.json
+18:25:22.288 DEBUG [mw205 ] launcher> PID 7440, slot 1
+18:25:22.289 DEBUG [mw205 ] launcher> Stage 1, error 0
+18:25:22.289 DEBUG [mw205 ] launcher> Stage 4, error 0
+18:25:22.289 DEBUG [mw205 ] launcher> Stage 5, error 0
+18:25:22.289 DEBUG [mw205 ] launcher> Stage -1, error 107
+18:25:22.289 DEBUG [mw205 ] launcher> Stopped; no automatic login retry.
+18:25:22.290 INFO  [mw205 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=7440 elapsed=16063ms, 用时 16.2s
+18:25:22.290 ERROR [mw205 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=7440 elapsed=16063ms
+18:25:22.290 WARNING [mw205 ] 关闭失败的进程 pid=7440 后重试
+18:25:23.360 INFO  [mw204 ] 启动游戏并登录 (第 2/3 次)
+18:25:23.360 DEBUG [mw204 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw204_2.json
+18:25:24.271 DEBUG [mw206 ] launcher> PID 10712, slot 1
+18:25:24.271 DEBUG [mw206 ] launcher> Stage 1, error 0
+18:25:24.271 DEBUG [mw206 ] launcher> Stage 4, error 0
+18:25:24.272 DEBUG [mw206 ] launcher> Stage 5, error 0
+18:25:24.272 DEBUG [mw206 ] launcher> Stage -1, error 107
+18:25:24.272 DEBUG [mw206 ] launcher> Stopped; no automatic login retry.
+18:25:24.272 INFO  [mw206 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=10712 elapsed=16047ms, 用时 16.2s
+18:25:24.272 ERROR [mw206 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=10712 elapsed=16047ms
+18:25:24.272 WARNING [mw206 ] 关闭失败的进程 pid=10712 后重试
+18:25:25.361 INFO  [mw205 ] 启动游戏并登录 (第 2/3 次)
+18:25:25.361 DEBUG [mw205 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw205_2.json
+18:25:26.309 DEBUG [mw208 ] launcher> PID 10708, slot 1
+18:25:26.309 DEBUG [mw208 ] launcher> Stage 1, error 0
+18:25:26.309 DEBUG [mw208 ] launcher> Stage 3, error 0
+18:25:26.309 DEBUG [mw208 ] launcher> Stage 4, error 0
+18:25:26.309 DEBUG [mw208 ] launcher> Stage 5, error 0
+18:25:26.309 DEBUG [mw208 ] launcher> Stage -1, error 107
+18:25:26.309 DEBUG [mw208 ] launcher> Stopped; no automatic login retry.
+18:25:26.309 INFO  [mw208 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=10708 elapsed=16062ms, 用时 16.2s
+18:25:26.310 ERROR [mw208 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=10708 elapsed=16062ms
+18:25:26.310 WARNING [mw208 ] 关闭失败的进程 pid=10708 后重试
+18:25:27.361 INFO  [mw206 ] 启动游戏并登录 (第 2/3 次)
+18:25:27.361 DEBUG [mw206 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw206_2.json
+18:25:28.985 DEBUG [mw207 ] launcher> PID 6012, slot 1
+18:25:28.985 DEBUG [mw207 ] launcher> Stage 1, error 0
+18:25:28.985 DEBUG [mw207 ] launcher> Stage 4, error 0
+18:25:28.985 DEBUG [mw207 ] launcher> Stage 5, error 0
+18:25:28.985 DEBUG [mw207 ] launcher> Stage -1, error 107
+18:25:28.985 DEBUG [mw207 ] launcher> Stopped; no automatic login retry.
+18:25:28.986 INFO  [mw207 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=6012 elapsed=16078ms, 用时 16.9s
+18:25:28.986 ERROR [mw207 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=6012 elapsed=16078ms
+18:25:28.986 WARNING [mw207 ] 关闭失败的进程 pid=6012 后重试
+18:25:29.361 INFO  [mw208 ] 启动游戏并登录 (第 2/3 次)
+18:25:29.362 DEBUG [mw208 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw208_2.json
+18:25:31.362 INFO  [mw207 ] 启动游戏并登录 (第 2/3 次)
+18:25:31.362 DEBUG [mw207 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw207_2.json
+18:25:33.680 DEBUG [mw201 ] launcher> PID 1148, slot 1
+18:25:33.680 DEBUG [mw201 ] launcher> Stage 1, error 0
+18:25:33.680 DEBUG [mw201 ] launcher> Stage 4, error 0
+18:25:33.680 DEBUG [mw201 ] launcher> Stage 5, error 0
+18:25:33.680 DEBUG [mw201 ] launcher> Stage -1, error 107
+18:25:33.680 DEBUG [mw201 ] launcher> Stopped; no automatic login retry.
+18:25:33.681 INFO  [mw201 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=1148 elapsed=16187ms, 用时 16.3s
+18:25:33.681 ERROR [mw201 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=1148 elapsed=16187ms
+18:25:33.681 WARNING [mw201 ] 关闭失败的进程 pid=1148 后重试
+18:25:35.692 DEBUG [mw202 ] launcher> PID 1560, slot 1
+18:25:35.692 DEBUG [mw202 ] launcher> Stage 1, error 0
+18:25:35.692 DEBUG [mw202 ] launcher> Stage 3, error 0
+18:25:35.692 DEBUG [mw202 ] launcher> Stage 4, error 0
+18:25:35.692 DEBUG [mw202 ] launcher> Stage 5, error 0
+18:25:35.692 DEBUG [mw202 ] launcher> Stage -1, error 107
+18:25:35.692 DEBUG [mw202 ] launcher> Stopped; no automatic login retry.
+18:25:35.693 INFO  [mw202 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=1560 elapsed=16187ms, 用时 16.3s
+18:25:35.693 ERROR [mw202 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=1560 elapsed=16187ms
+18:25:35.693 WARNING [mw202 ] 关闭失败的进程 pid=1560 后重试
+18:25:35.744 INFO  [mw201 ] 启动游戏并登录 (第 3/3 次)
+18:25:35.745 DEBUG [mw201 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw201_3.json
+18:25:37.680 DEBUG [mw203 ] launcher> PID 6416, slot 1
+18:25:37.680 DEBUG [mw203 ] launcher> Stage 1, error 0
+18:25:37.680 DEBUG [mw203 ] launcher> Stage 4, error 0
+18:25:37.681 DEBUG [mw203 ] launcher> Stage 5, error 0
+18:25:37.681 DEBUG [mw203 ] launcher> Stage -1, error 107
+18:25:37.681 DEBUG [mw203 ] launcher> Stopped; no automatic login retry.
+18:25:37.681 INFO  [mw203 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=6416 elapsed=16156ms, 用时 16.3s
+18:25:37.681 ERROR [mw203 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=6416 elapsed=16156ms
+18:25:37.681 WARNING [mw203 ] 关闭失败的进程 pid=6416 后重试
+18:25:37.747 INFO  [mw202 ] 启动游戏并登录 (第 3/3 次)
+18:25:37.747 DEBUG [mw202 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw202_3.json
+18:25:39.582 DEBUG [mw204 ] launcher> PID 7928, slot 1
+18:25:39.582 DEBUG [mw204 ] launcher> Stage 1, error 0
+18:25:39.582 DEBUG [mw204 ] launcher> Stage 4, error 0
+18:25:39.582 DEBUG [mw204 ] launcher> Stage 5, error 0
+18:25:39.582 DEBUG [mw204 ] launcher> Stage -1, error 107
+18:25:39.582 DEBUG [mw204 ] launcher> Stopped; no automatic login retry.
+18:25:39.583 INFO  [mw204 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=7928 elapsed=16157ms, 用时 16.2s
+18:25:39.583 ERROR [mw204 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=7928 elapsed=16157ms
+18:25:39.583 WARNING [mw204 ] 关闭失败的进程 pid=7928 后重试
+18:25:39.747 INFO  [mw203 ] 启动游戏并登录 (第 3/3 次)
+18:25:39.748 DEBUG [mw203 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw203_3.json
+18:25:41.565 DEBUG [mw205 ] launcher> PID 1288, slot 1
+18:25:41.565 DEBUG [mw205 ] launcher> Stage 1, error 0
+18:25:41.565 DEBUG [mw205 ] launcher> Stage 3, error 0
+18:25:41.565 DEBUG [mw205 ] launcher> Stage 4, error 0
+18:25:41.565 DEBUG [mw205 ] launcher> Stage 5, error 0
+18:25:41.566 DEBUG [mw205 ] launcher> Stage -1, error 107
+18:25:41.566 DEBUG [mw205 ] launcher> Stopped; no automatic login retry.
+18:25:41.566 INFO  [mw205 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=1288 elapsed=16109ms, 用时 16.2s
+18:25:41.566 ERROR [mw205 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=1288 elapsed=16109ms
+18:25:41.566 WARNING [mw205 ] 关闭失败的进程 pid=1288 后重试
+18:25:41.748 INFO  [mw204 ] 启动游戏并登录 (第 3/3 次)
+18:25:41.749 DEBUG [mw204 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw204_3.json
+18:25:43.642 DEBUG [mw206 ] launcher> PID 7140, slot 1
+18:25:43.642 DEBUG [mw206 ] launcher> Stage 1, error 0
+18:25:43.642 DEBUG [mw206 ] launcher> Stage 4, error 0
+18:25:43.642 DEBUG [mw206 ] launcher> Stage 5, error 0
+18:25:43.642 DEBUG [mw206 ] launcher> Stage -1, error 107
+18:25:43.642 DEBUG [mw206 ] launcher> Stopped; no automatic login retry.
+18:25:43.642 INFO  [mw206 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=7140 elapsed=16172ms, 用时 16.3s
+18:25:43.642 ERROR [mw206 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=7140 elapsed=16172ms
+18:25:43.643 WARNING [mw206 ] 关闭失败的进程 pid=7140 后重试
+18:25:43.748 INFO  [mw205 ] 启动游戏并登录 (第 3/3 次)
+18:25:43.749 DEBUG [mw205 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw205_3.json
+18:25:45.702 DEBUG [mw208 ] launcher> PID 10748, slot 1
+18:25:45.703 DEBUG [mw208 ] launcher> Stage 1, error 0
+18:25:45.703 DEBUG [mw208 ] launcher> Stage 4, error 0
+18:25:45.703 DEBUG [mw208 ] launcher> Stage 5, error 0
+18:25:45.703 DEBUG [mw208 ] launcher> Stage -1, error 107
+18:25:45.703 DEBUG [mw208 ] launcher> Stopped; no automatic login retry.
+18:25:45.703 INFO  [mw208 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=10748 elapsed=16141ms, 用时 16.3s
+18:25:45.703 ERROR [mw208 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=10748 elapsed=16141ms
+18:25:45.704 WARNING [mw208 ] 关闭失败的进程 pid=10748 后重试
+18:25:45.749 INFO  [mw206 ] 启动游戏并登录 (第 3/3 次)
+18:25:45.749 DEBUG [mw206 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw206_3.json
+18:25:47.632 DEBUG [mw207 ] launcher> PID 11768, slot 1
+18:25:47.633 DEBUG [mw207 ] launcher> Stage 1, error 0
+18:25:47.633 DEBUG [mw207 ] launcher> Stage 4, error 0
+18:25:47.633 DEBUG [mw207 ] launcher> Stage 5, error 0
+18:25:47.633 DEBUG [mw207 ] launcher> Stage -1, error 107
+18:25:47.633 DEBUG [mw207 ] launcher> Stopped; no automatic login retry.
+18:25:47.633 INFO  [mw207 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=11768 elapsed=16188ms, 用时 16.3s
+18:25:47.633 ERROR [mw207 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=11768 elapsed=16188ms
+18:25:47.634 WARNING [mw207 ] 关闭失败的进程 pid=11768 后重试
+18:25:47.758 INFO  [mw208 ] 启动游戏并登录 (第 3/3 次)
+18:25:47.758 DEBUG [mw208 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw208_3.json
+18:25:49.759 INFO  [mw207 ] 启动游戏并登录 (第 3/3 次)
+18:25:49.759 DEBUG [mw207 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw207_3.json
+18:25:52.021 DEBUG [mw201 ] launcher> PID 7876, slot 1
+18:25:52.021 DEBUG [mw201 ] launcher> Stage 1, error 0
+18:25:52.021 DEBUG [mw201 ] launcher> Stage 4, error 0
+18:25:52.021 DEBUG [mw201 ] launcher> Stage 5, error 0
+18:25:52.021 DEBUG [mw201 ] launcher> Stage -1, error 107
+18:25:52.021 DEBUG [mw201 ] launcher> Stopped; no automatic login retry.
+18:25:52.022 INFO  [mw201 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=7876 elapsed=16140ms, 用时 16.3s
+18:25:52.022 ERROR [mw201 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=7876 elapsed=16140ms
+18:25:52.022 ERROR [mw201 ] 步骤「登录」失败: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=7876 elapsed=16140ms
+Traceback (most recent call last):
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\login.py", line 47, in login
+    session = native.launch(settings, account, result_file, log)
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\native.py", line 121, in launch
+    raise LaunchError(describe(result), result, proc.returncode not in NOT_RETRYABLE)
+provisioner.native.LaunchError: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=7876 elapsed=16140ms
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\worker.py", line 58, in run
+    self.session = self._login()
+                   ~~~~~~~~~~~^^
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\worker.py", line 103, in _login
+    return login(self.s, self.account, self.runtime, self.throttle, self.log, self.s.kill_on_failure)
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\login.py", line 56, in login
+    raise LoginFailed(f'登录失败: {e}') from e
+provisioner.login.LoginFailed: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=7876 elapsed=16140ms
+18:25:52.029 INFO  [mw201 ] 结束: ok=False 角色={'mw201r1': None, 'mw201r2': None, 'mw201r3': None, 'mw201r4': None} 用时 53.9s 错误=LoginFailed: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=7876 elapsed=16140ms
+18:25:52.029 INFO  [mw209 ] == 登录 ==
+18:25:52.029 INFO  [mw209 ] 启动游戏并登录 (第 1/3 次)
+18:25:52.030 DEBUG [mw209 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw209_1.json
+18:25:54.063 DEBUG [mw202 ] launcher> PID 9968, slot 1
+18:25:54.063 DEBUG [mw202 ] launcher> Stage 1, error 0
+18:25:54.063 DEBUG [mw202 ] launcher> Stage 4, error 0
+18:25:54.063 DEBUG [mw202 ] launcher> Stage 5, error 0
+18:25:54.063 DEBUG [mw202 ] launcher> Stage -1, error 107
+18:25:54.063 DEBUG [mw202 ] launcher> Stopped; no automatic login retry.
+18:25:54.063 INFO  [mw202 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=9968 elapsed=16171ms, 用时 16.3s
+18:25:54.063 ERROR [mw202 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=9968 elapsed=16171ms
+18:25:54.064 ERROR [mw202 ] 步骤「登录」失败: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=9968 elapsed=16171ms
+Traceback (most recent call last):
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\login.py", line 47, in login
+    session = native.launch(settings, account, result_file, log)
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\native.py", line 121, in launch
+    raise LaunchError(describe(result), result, proc.returncode not in NOT_RETRYABLE)
+provisioner.native.LaunchError: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=9968 elapsed=16171ms
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\worker.py", line 58, in run
+    self.session = self._login()
+                   ~~~~~~~~~~~^^
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\worker.py", line 103, in _login
+    return login(self.s, self.account, self.runtime, self.throttle, self.log, self.s.kill_on_failure)
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\login.py", line 56, in login
+    raise LoginFailed(f'登录失败: {e}') from e
+provisioner.login.LoginFailed: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=9968 elapsed=16171ms
+18:25:54.068 INFO  [mw202 ] 结束: ok=False 角色={'mw202r1': None, 'mw202r2': None, 'mw202r3': None, 'mw202r4': None} 用时 56.0s 错误=LoginFailed: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=9968 elapsed=16171ms
+18:25:54.069 INFO  [mw210 ] == 登录 ==
+18:25:54.069 INFO  [mw210 ] 启动游戏并登录 (第 1/3 次)
+18:25:54.069 DEBUG [mw210 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw210_1.json
+18:25:55.902 DEBUG [mw203 ] launcher> PID 8504, slot 1
+18:25:55.902 DEBUG [mw203 ] launcher> Stage 1, error 0
+18:25:55.902 DEBUG [mw203 ] launcher> Stage 4, error 0
+18:25:55.902 DEBUG [mw203 ] launcher> Stage 5, error 0
+18:25:55.902 DEBUG [mw203 ] launcher> Stage -1, error 107
+18:25:55.902 DEBUG [mw203 ] launcher> Stopped; no automatic login retry.
+18:25:55.903 INFO  [mw203 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=8504 elapsed=15984ms, 用时 16.2s
+18:25:55.903 ERROR [mw203 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=8504 elapsed=15984ms
+18:25:55.903 ERROR [mw203 ] 步骤「登录」失败: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=8504 elapsed=15984ms
+Traceback (most recent call last):
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\login.py", line 47, in login
+    session = native.launch(settings, account, result_file, log)
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\native.py", line 121, in launch
+    raise LaunchError(describe(result), result, proc.returncode not in NOT_RETRYABLE)
+provisioner.native.LaunchError: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=8504 elapsed=15984ms
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\worker.py", line 58, in run
+    self.session = self._login()
+                   ~~~~~~~~~~~^^
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\worker.py", line 103, in _login
+    return login(self.s, self.account, self.runtime, self.throttle, self.log, self.s.kill_on_failure)
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\login.py", line 56, in login
+    raise LoginFailed(f'登录失败: {e}') from e
+provisioner.login.LoginFailed: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=8504 elapsed=15984ms
+18:25:55.907 INFO  [mw203 ] 结束: ok=False 角色={'mw203r1': None, 'mw203r2': None, 'mw203r3': None, 'mw203r4': None} 用时 57.8s 错误=LoginFailed: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=8504 elapsed=15984ms
+18:25:55.907 INFO  [mw211 ] == 登录 ==
+18:25:56.069 INFO  [mw211 ] 启动游戏并登录 (第 1/3 次)
+18:25:56.070 DEBUG [mw211 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw211_1.json
+18:25:57.941 DEBUG [mw204 ] launcher> PID 8008, slot 1
+18:25:57.941 DEBUG [mw204 ] launcher> Stage 1, error 0
+18:25:57.941 DEBUG [mw204 ] launcher> Stage 4, error 0
+18:25:57.941 DEBUG [mw204 ] launcher> Stage 5, error 0
+18:25:57.941 DEBUG [mw204 ] launcher> Stage -1, error 107
+18:25:57.942 DEBUG [mw204 ] launcher> Stopped; no automatic login retry.
+18:25:57.942 INFO  [mw204 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=8008 elapsed=16109ms, 用时 16.2s
+18:25:57.942 ERROR [mw204 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=8008 elapsed=16109ms
+18:25:57.942 ERROR [mw204 ] 步骤「登录」失败: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=8008 elapsed=16109ms
+Traceback (most recent call last):
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\login.py", line 47, in login
+    session = native.launch(settings, account, result_file, log)
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\native.py", line 121, in launch
+    raise LaunchError(describe(result), result, proc.returncode not in NOT_RETRYABLE)
+provisioner.native.LaunchError: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=8008 elapsed=16109ms
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\worker.py", line 58, in run
+    self.session = self._login()
+                   ~~~~~~~~~~~^^
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\worker.py", line 103, in _login
+    return login(self.s, self.account, self.runtime, self.throttle, self.log, self.s.kill_on_failure)
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\login.py", line 56, in login
+    raise LoginFailed(f'登录失败: {e}') from e
+provisioner.login.LoginFailed: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=8008 elapsed=16109ms
+18:25:57.948 INFO  [mw204 ] 结束: ok=False 角色={'mw204r1': None, 'mw204r2': None, 'mw204r3': None, 'mw204r4': None} 用时 59.8s 错误=LoginFailed: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=8008 elapsed=16109ms
+18:25:57.949 INFO  [mw212 ] == 登录 ==
+18:25:58.070 INFO  [mw212 ] 启动游戏并登录 (第 1/3 次)
+18:25:58.071 DEBUG [mw212 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw212_1.json
+18:25:59.877 DEBUG [mw205 ] launcher> PID 9280, slot 1
+18:25:59.877 DEBUG [mw205 ] launcher> Stage 1, error 0
+18:25:59.877 DEBUG [mw205 ] launcher> Stage 3, error 0
+18:25:59.877 DEBUG [mw205 ] launcher> Stage 4, error 0
+18:25:59.877 DEBUG [mw205 ] launcher> Stage 5, error 0
+18:25:59.878 DEBUG [mw205 ] launcher> Stage -1, error 107
+18:25:59.878 DEBUG [mw205 ] launcher> Stopped; no automatic login retry.
+18:25:59.878 INFO  [mw205 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=9280 elapsed=16031ms, 用时 16.1s
+18:25:59.878 ERROR [mw205 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=9280 elapsed=16031ms
+18:25:59.878 ERROR [mw205 ] 步骤「登录」失败: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=9280 elapsed=16031ms
+Traceback (most recent call last):
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\login.py", line 47, in login
+    session = native.launch(settings, account, result_file, log)
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\native.py", line 121, in launch
+    raise LaunchError(describe(result), result, proc.returncode not in NOT_RETRYABLE)
+provisioner.native.LaunchError: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=9280 elapsed=16031ms
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\worker.py", line 58, in run
+    self.session = self._login()
+                   ~~~~~~~~~~~^^
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\worker.py", line 103, in _login
+    return login(self.s, self.account, self.runtime, self.throttle, self.log, self.s.kill_on_failure)
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\login.py", line 56, in login
+    raise LoginFailed(f'登录失败: {e}') from e
+provisioner.login.LoginFailed: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=9280 elapsed=16031ms
+18:25:59.884 INFO  [mw205 ] 结束: ok=False 角色={'mw205r1': None, 'mw205r2': None, 'mw205r3': None, 'mw205r4': None} 用时 61.8s 错误=LoginFailed: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=9280 elapsed=16031ms
+18:25:59.884 INFO  [mw213 ] == 登录 ==
+18:26:00.070 INFO  [mw213 ] 启动游戏并登录 (第 1/3 次)
+18:26:00.071 DEBUG [mw213 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw213_1.json
+18:26:01.887 DEBUG [mw206 ] launcher> PID 8004, slot 1
+18:26:01.888 DEBUG [mw206 ] launcher> Stage 1, error 0
+18:26:01.888 DEBUG [mw206 ] launcher> Stage 4, error 0
+18:26:01.888 DEBUG [mw206 ] launcher> Stage 5, error 0
+18:26:01.888 DEBUG [mw206 ] launcher> Stage -1, error 107
+18:26:01.888 DEBUG [mw206 ] launcher> Stopped; no automatic login retry.
+18:26:01.888 INFO  [mw206 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=8004 elapsed=16016ms, 用时 16.1s
+18:26:01.888 ERROR [mw206 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=8004 elapsed=16016ms
+18:26:01.889 ERROR [mw206 ] 步骤「登录」失败: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=8004 elapsed=16016ms
+Traceback (most recent call last):
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\login.py", line 47, in login
+    session = native.launch(settings, account, result_file, log)
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\native.py", line 121, in launch
+    raise LaunchError(describe(result), result, proc.returncode not in NOT_RETRYABLE)
+provisioner.native.LaunchError: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=8004 elapsed=16016ms
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\worker.py", line 58, in run
+    self.session = self._login()
+                   ~~~~~~~~~~~^^
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\worker.py", line 103, in _login
+    return login(self.s, self.account, self.runtime, self.throttle, self.log, self.s.kill_on_failure)
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\login.py", line 56, in login
+    raise LoginFailed(f'登录失败: {e}') from e
+provisioner.login.LoginFailed: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=8004 elapsed=16016ms
+18:26:01.891 INFO  [mw206 ] 结束: ok=False 角色={'mw206r1': None, 'mw206r2': None, 'mw206r3': None, 'mw206r4': None} 用时 63.8s 错误=LoginFailed: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=8004 elapsed=16016ms
+18:26:01.891 INFO  [mw214 ] == 登录 ==
+18:26:02.071 INFO  [mw214 ] 启动游戏并登录 (第 1/3 次)
+18:26:02.071 DEBUG [mw214 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw214_1.json
+18:26:05.000 DEBUG [mw208 ] launcher> PID 6868, slot 1
+18:26:05.000 DEBUG [mw208 ] launcher> Stage 1, error 0
+18:26:05.000 DEBUG [mw208 ] launcher> Stage 4, error 0
+18:26:05.000 DEBUG [mw208 ] launcher> Stage 5, error 0
+18:26:05.000 DEBUG [mw208 ] launcher> Stage -1, error 107
+18:26:05.000 DEBUG [mw208 ] launcher> Stopped; no automatic login retry.
+18:26:05.001 INFO  [mw208 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=6868 elapsed=17141ms, 用时 17.2s
+18:26:05.001 ERROR [mw208 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=6868 elapsed=17141ms
+18:26:05.001 ERROR [mw208 ] 步骤「登录」失败: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=6868 elapsed=17141ms
+Traceback (most recent call last):
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\login.py", line 47, in login
+    session = native.launch(settings, account, result_file, log)
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\native.py", line 121, in launch
+    raise LaunchError(describe(result), result, proc.returncode not in NOT_RETRYABLE)
+provisioner.native.LaunchError: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=6868 elapsed=17141ms
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\worker.py", line 58, in run
+    self.session = self._login()
+                   ~~~~~~~~~~~^^
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\worker.py", line 103, in _login
+    return login(self.s, self.account, self.runtime, self.throttle, self.log, self.s.kill_on_failure)
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\login.py", line 56, in login
+    raise LoginFailed(f'登录失败: {e}') from e
+provisioner.login.LoginFailed: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=6868 elapsed=17141ms
+18:26:05.004 INFO  [mw208 ] 结束: ok=False 角色={'mw208r1': None, 'mw208r2': None, 'mw208r3': None, 'mw208r4': None} 用时 66.9s 错误=LoginFailed: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=6868 elapsed=17141ms
+18:26:05.005 INFO  [mw215 ] == 登录 ==
+18:26:05.005 INFO  [mw215 ] 启动游戏并登录 (第 1/3 次)
+18:26:05.005 DEBUG [mw215 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw215_1.json
+18:26:05.928 DEBUG [mw207 ] launcher> PID 6196, slot 1
+18:26:05.928 DEBUG [mw207 ] launcher> Stage 1, error 0
+18:26:05.928 DEBUG [mw207 ] launcher> Stage 4, error 0
+18:26:05.928 DEBUG [mw207 ] launcher> Stage 5, error 0
+18:26:05.928 DEBUG [mw207 ] launcher> Stage -1, error 107
+18:26:05.928 DEBUG [mw207 ] launcher> Stopped; no automatic login retry.
+18:26:05.928 INFO  [mw207 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=6196 elapsed=16062ms, 用时 16.2s
+18:26:05.929 ERROR [mw207 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=6196 elapsed=16062ms
+18:26:05.929 ERROR [mw207 ] 步骤「登录」失败: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=6196 elapsed=16062ms
+Traceback (most recent call last):
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\login.py", line 47, in login
+    session = native.launch(settings, account, result_file, log)
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\native.py", line 121, in launch
+    raise LaunchError(describe(result), result, proc.returncode not in NOT_RETRYABLE)
+provisioner.native.LaunchError: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=6196 elapsed=16062ms
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\worker.py", line 58, in run
+    self.session = self._login()
+                   ~~~~~~~~~~~^^
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\worker.py", line 103, in _login
+    return login(self.s, self.account, self.runtime, self.throttle, self.log, self.s.kill_on_failure)
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\login.py", line 56, in login
+    raise LoginFailed(f'登录失败: {e}') from e
+provisioner.login.LoginFailed: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=6196 elapsed=16062ms
+18:26:05.931 INFO  [mw207 ] 结束: ok=False 角色={'mw207r1': None, 'mw207r2': None, 'mw207r3': None, 'mw207r4': None} 用时 67.8s 错误=LoginFailed: 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=6196 elapsed=16062ms
+18:26:05.931 INFO  [mw216 ] == 登录 ==
+18:26:07.006 INFO  [mw216 ] 启动游戏并登录 (第 1/3 次)
+18:26:07.006 DEBUG [mw216 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw216_1.json
+18:26:08.322 DEBUG [mw209 ] launcher> PID 7440, slot 1
+18:26:08.322 DEBUG [mw209 ] launcher> Stage 1, error 0
+18:26:08.323 DEBUG [mw209 ] launcher> Stage 3, error 0
+18:26:08.323 DEBUG [mw209 ] launcher> Stage 4, error 0
+18:26:08.323 DEBUG [mw209 ] launcher> Stage 5, error 0
+18:26:08.323 DEBUG [mw209 ] launcher> Stage -1, error 107
+18:26:08.323 DEBUG [mw209 ] launcher> Stopped; no automatic login retry.
+18:26:08.323 INFO  [mw209 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=7440 elapsed=16125ms, 用时 16.3s
+18:26:08.324 ERROR [mw209 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=7440 elapsed=16125ms
+18:26:08.324 WARNING [mw209 ] 关闭失败的进程 pid=7440 后重试
+18:26:10.259 DEBUG [mw210 ] launcher> PID 6500, slot 1
+18:26:10.259 DEBUG [mw210 ] launcher> Stage 1, error 0
+18:26:10.259 DEBUG [mw210 ] launcher> Stage 4, error 0
+18:26:10.259 DEBUG [mw210 ] launcher> Stage 5, error 0
+18:26:10.259 DEBUG [mw210 ] launcher> Stage -1, error 107
+18:26:10.259 DEBUG [mw210 ] launcher> Stopped; no automatic login retry.
+18:26:10.259 INFO  [mw210 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=6500 elapsed=16047ms, 用时 16.2s
+18:26:10.260 ERROR [mw210 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=6500 elapsed=16047ms
+18:26:10.260 WARNING [mw210 ] 关闭失败的进程 pid=6500 后重试
+18:26:10.386 INFO  [mw209 ] 启动游戏并登录 (第 2/3 次)
+18:26:10.386 DEBUG [mw209 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw209_2.json
+18:26:12.387 INFO  [mw210 ] 启动游戏并登录 (第 2/3 次)
+18:26:12.387 DEBUG [mw210 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw210_2.json
+18:26:13.508 DEBUG [mw211 ] launcher> PID 11220, slot 1
+18:26:13.508 DEBUG [mw211 ] launcher> Stage 1, error 0
+18:26:13.509 DEBUG [mw211 ] launcher> Stage 4, error 0
+18:26:13.509 DEBUG [mw211 ] launcher> Stage 5, error 0
+18:26:13.509 DEBUG [mw211 ] launcher> Stage -1, error 107
+18:26:13.509 DEBUG [mw211 ] launcher> Stopped; no automatic login retry.
+18:26:13.509 INFO  [mw211 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=11220 elapsed=17266ms, 用时 17.4s
+18:26:13.509 ERROR [mw211 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=11220 elapsed=17266ms
+18:26:13.509 WARNING [mw211 ] 关闭失败的进程 pid=11220 后重试
+18:26:14.301 DEBUG [mw212 ] launcher> PID 7552, slot 1
+18:26:14.301 DEBUG [mw212 ] launcher> Stage 1, error 0
+18:26:14.301 DEBUG [mw212 ] launcher> Stage 3, error 0
+18:26:14.301 DEBUG [mw212 ] launcher> Stage 4, error 0
+18:26:14.301 DEBUG [mw212 ] launcher> Stage 5, error 0
+18:26:14.301 DEBUG [mw212 ] launcher> Stage -1, error 107
+18:26:14.301 DEBUG [mw212 ] launcher> Stopped; no automatic login retry.
+18:26:14.302 INFO  [mw212 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=7552 elapsed=16062ms, 用时 16.2s
+18:26:14.302 ERROR [mw212 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=7552 elapsed=16062ms
+18:26:14.303 WARNING [mw212 ] 关闭失败的进程 pid=7552 后重试
+18:26:15.554 INFO  [mw211 ] 启动游戏并登录 (第 2/3 次)
+18:26:15.554 DEBUG [mw211 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw211_2.json
+18:26:16.272 DEBUG [mw213 ] launcher> PID 2788, slot 1
+18:26:16.272 DEBUG [mw213 ] launcher> Stage 1, error 0
+18:26:16.272 DEBUG [mw213 ] launcher> Stage 4, error 0
+18:26:16.272 DEBUG [mw213 ] launcher> Stage 5, error 0
+18:26:16.272 DEBUG [mw213 ] launcher> Stage -1, error 107
+18:26:16.272 DEBUG [mw213 ] launcher> Stopped; no automatic login retry.
+18:26:16.272 INFO  [mw213 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=2788 elapsed=16078ms, 用时 16.2s
+18:26:16.273 ERROR [mw213 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=2788 elapsed=16078ms
+18:26:16.273 WARNING [mw213 ] 关闭失败的进程 pid=2788 后重试
+18:26:17.554 INFO  [mw212 ] 启动游戏并登录 (第 2/3 次)
+18:26:17.554 DEBUG [mw212 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw212_2.json
+18:26:18.296 DEBUG [mw214 ] launcher> PID 1552, slot 1
+18:26:18.296 DEBUG [mw214 ] launcher> Stage 1, error 0
+18:26:18.296 DEBUG [mw214 ] launcher> Stage 3, error 0
+18:26:18.296 DEBUG [mw214 ] launcher> Stage 4, error 0
+18:26:18.297 DEBUG [mw214 ] launcher> Stage 5, error 0
+18:26:18.297 DEBUG [mw214 ] launcher> Stage -1, error 107
+18:26:18.297 DEBUG [mw214 ] launcher> Stopped; no automatic login retry.
+18:26:18.297 INFO  [mw214 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=1552 elapsed=16078ms, 用时 16.2s
+18:26:18.297 ERROR [mw214 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=1552 elapsed=16078ms
+18:26:18.297 WARNING [mw214 ] 关闭失败的进程 pid=1552 后重试
+18:26:19.555 INFO  [mw213 ] 启动游戏并登录 (第 2/3 次)
+18:26:19.555 DEBUG [mw213 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw213_2.json
+18:26:21.555 INFO  [mw214 ] 启动游戏并登录 (第 2/3 次)
+18:26:21.556 DEBUG [mw214 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw214_2.json
+18:26:22.387 DEBUG [mw215 ] launcher> PID 11704, slot 1
+18:26:22.387 DEBUG [mw215 ] launcher> Stage 1, error 0
+18:26:22.387 DEBUG [mw215 ] launcher> Stage 4, error 0
+18:26:22.387 DEBUG [mw215 ] launcher> Stage 5, error 0
+18:26:22.388 DEBUG [mw215 ] launcher> Stage -1, error 107
+18:26:22.388 DEBUG [mw215 ] launcher> Stopped; no automatic login retry.
+18:26:22.388 INFO  [mw215 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=11704 elapsed=17250ms, 用时 17.4s
+18:26:22.388 ERROR [mw215 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=11704 elapsed=17250ms
+18:26:22.388 WARNING [mw215 ] 关闭失败的进程 pid=11704 后重试
+18:26:24.439 INFO  [mw215 ] 启动游戏并登录 (第 2/3 次)
+18:26:24.440 DEBUG [mw215 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw215_2.json
+18:26:25.929 DEBUG [mw216 ] launcher> PID 3540, slot 1
+18:26:25.929 DEBUG [mw216 ] launcher> Stage 2, error 0
+18:26:25.929 DEBUG [mw216 ] launcher> Stage 3, error 0
+18:26:25.929 DEBUG [mw216 ] launcher> Stage 4, error 0
+18:26:25.929 DEBUG [mw216 ] launcher> Stage 5, error 0
+18:26:25.929 DEBUG [mw216 ] launcher> Stage -1, error 107
+18:26:25.929 DEBUG [mw216 ] launcher> Stopped; no automatic login retry.
+18:26:25.929 INFO  [mw216 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=3540 elapsed=18781ms, 用时 18.9s
+18:26:25.930 ERROR [mw216 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=3540 elapsed=18781ms
+18:26:25.930 WARNING [mw216 ] 关闭失败的进程 pid=3540 后重试
+18:26:27.988 INFO  [mw216 ] 启动游戏并登录 (第 2/3 次)
+18:26:27.989 DEBUG [mw216 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw216_2.json
+18:26:29.405 DEBUG [mw209 ] launcher> PID 11216, slot 1
+18:26:29.405 DEBUG [mw209 ] launcher> Stage 2, error 0
+18:26:29.405 DEBUG [mw209 ] launcher> Stage 4, error 0
+18:26:29.405 DEBUG [mw209 ] launcher> Stage 5, error 0
+18:26:29.405 DEBUG [mw209 ] launcher> Stage -1, error 107
+18:26:29.405 DEBUG [mw209 ] launcher> Stopped; no automatic login retry.
+18:26:29.406 INFO  [mw209 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=11216 elapsed=18937ms, 用时 19.0s
+18:26:29.406 ERROR [mw209 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=11216 elapsed=18937ms
+18:26:29.406 WARNING [mw209 ] 关闭失败的进程 pid=11216 后重试
+18:26:31.394 DEBUG [mw210 ] launcher> PID 5072, slot 1
+18:26:31.394 DEBUG [mw210 ] launcher> Stage 1, error 0
+18:26:31.394 DEBUG [mw210 ] launcher> Stage 3, error 0
+18:26:31.394 DEBUG [mw210 ] launcher> Stage 4, error 0
+18:26:31.394 DEBUG [mw210 ] launcher> Stage 5, error 0
+18:26:31.394 DEBUG [mw210 ] launcher> Stage -1, error 107
+18:26:31.394 DEBUG [mw210 ] launcher> Stopped; no automatic login retry.
+18:26:31.395 INFO  [mw210 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=5072 elapsed=18875ms, 用时 19.0s
+18:26:31.395 ERROR [mw210 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=5072 elapsed=18875ms
+18:26:31.395 WARNING [mw210 ] 关闭失败的进程 pid=5072 后重试
+18:26:31.464 INFO  [mw209 ] 启动游戏并登录 (第 3/3 次)
+18:26:31.465 DEBUG [mw209 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw209_3.json
+18:26:33.464 INFO  [mw210 ] 启动游戏并登录 (第 3/3 次)
+18:26:33.465 DEBUG [mw210 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw210_3.json
+18:26:34.691 DEBUG [mw211 ] launcher> PID 4872, slot 1
+18:26:34.692 DEBUG [mw211 ] launcher> Stage 2, error 0
+18:26:34.692 DEBUG [mw211 ] launcher> Stage 3, error 0
+18:26:34.692 DEBUG [mw211 ] launcher> Stage 4, error 0
+18:26:34.692 DEBUG [mw211 ] launcher> Stage 5, error 0
+18:26:34.692 DEBUG [mw211 ] launcher> Stage -1, error 107
+18:26:34.692 DEBUG [mw211 ] launcher> Stopped; no automatic login retry.
+18:26:34.692 INFO  [mw211 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=4872 elapsed=18953ms, 用时 19.1s
+18:26:34.692 ERROR [mw211 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=4872 elapsed=18953ms
+18:26:34.693 WARNING [mw211 ] 关闭失败的进程 pid=4872 后重试
+18:26:35.788 DEBUG [mw213 ] launcher> PID 11440, slot 1
+18:26:35.788 DEBUG [mw213 ] launcher> Stage 1, error 0
+18:26:35.788 DEBUG [mw213 ] launcher> Stage 4, error 0
+18:26:35.788 DEBUG [mw213 ] launcher> Stage 5, error 0
+18:26:35.788 DEBUG [mw213 ] launcher> Stage -1, error 107
+18:26:35.788 DEBUG [mw213 ] launcher> Stopped; no automatic login retry.
+18:26:35.789 INFO  [mw213 ] 登录结果: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=11440 elapsed=16156ms, 用时 16.2s
+18:26:35.789 ERROR [mw213 ] 登录失败: exit=11(登录流程中止或超时（见 stage/error）) stage=-1(失败) error=107(找不到选角界面对象) pid=11440 elapsed=16156ms
+18:26:35.789 WARNING [mw213 ] 关闭失败的进程 pid=11440 后重试
+18:26:36.598 DEBUG [mw210 ] launcher> PID 720, slot 1
+18:26:36.598 INFO  [mw210 ] 登录结果: exit=3221225786(未知) stage=None(?) error=0(无) pid=None elapsed=Nonems, 用时 3.1s
+18:26:36.598 ERROR [mw210 ] 登录失败: exit=3221225786(未知) stage=None(?) error=0(无) pid=None elapsed=Nonems
+18:26:36.599 ERROR [mw210 ] 步骤「登录」失败: 登录失败: exit=3221225786(未知) stage=None(?) error=0(无) pid=None elapsed=Nonems
+Traceback (most recent call last):
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\login.py", line 47, in login
+    session = native.launch(settings, account, result_file, log)
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\native.py", line 121, in launch
+    raise LaunchError(describe(result), result, proc.returncode not in NOT_RETRYABLE)
+provisioner.native.LaunchError: exit=3221225786(未知) stage=None(?) error=0(无) pid=None elapsed=Nonems
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\worker.py", line 58, in run
+    self.session = self._login()
+                   ~~~~~~~~~~~^^
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\worker.py", line 103, in _login
+    return login(self.s, self.account, self.runtime, self.throttle, self.log, self.s.kill_on_failure)
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\login.py", line 56, in login
+    raise LoginFailed(f'登录失败: {e}') from e
+provisioner.login.LoginFailed: 登录失败: exit=3221225786(未知) stage=None(?) error=0(无) pid=None elapsed=Nonems
+18:26:36.602 INFO  [mw210 ] 结束: ok=False 角色={'mw210r1': None, 'mw210r2': None, 'mw210r3': None, 'mw210r4': None} 用时 42.5s 错误=LoginFailed: 登录失败: exit=3221225786(未知) stage=None(?) error=0(无) pid=None elapsed=Nonems
+18:26:36.602 INFO  [mw217 ] == 登录 ==
+18:26:36.602 INFO  [mw217 ] 启动游戏并登录 (第 1/3 次)
+18:26:36.603 DEBUG [mw217 ] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw217_1.json
+18:26:36.607 DEBUG [mw209 ] launcher> PID 9528, slot 1
+18:26:36.607 INFO  [mw209 ] 登录结果: exit=3221225786(未知) stage=None(?) error=0(无) pid=None elapsed=Nonems, 用时 5.1s
+18:26:36.607 ERROR [mw209 ] 登录失败: exit=3221225786(未知) stage=None(?) error=0(无) pid=None elapsed=Nonems
+18:26:36.608 ERROR [mw209 ] 步骤「登录」失败: 登录失败: exit=3221225786(未知) stage=None(?) error=0(无) pid=None elapsed=Nonems
+Traceback (most recent call last):
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\login.py", line 47, in login
+    session = native.launch(settings, account, result_file, log)
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\native.py", line 121, in launch
+    raise LaunchError(describe(result), result, proc.returncode not in NOT_RETRYABLE)
+provisioner.native.LaunchError: exit=3221225786(未知) stage=None(?) error=0(无) pid=None elapsed=Nonems
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\worker.py", line 58, in run
+    self.session = self._login()
+                   ~~~~~~~~~~~^^
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\worker.py", line 103, in _login
+    return login(self.s, self.account, self.runtime, self.throttle, self.log, self.s.kill_on_failure)
+  File "C:\codes\roach-kitchen\batch_provision\provisioner\login.py", line 56, in login
+    raise LoginFailed(f'登录失败: {e}') from e
+provisioner.login.LoginFailed: 登录失败: exit=3221225786(未知) stage=None(?) error=0(无) pid=None elapsed=Nonems
+18:26:36.610 INFO  [mw209 ] 结束: ok=False 角色={'mw209r1': None, 'mw209r2': None, 'mw209r3': None, 'mw209r4': None} 用时 44.6s 错误=LoginFailed: 登录失败: exit=3221225786(未知) stage=None(?) error=0(无) pid=None elapsed=Nonems
+18:26:36.610 INFO  [mw218 ] == 登录 ==
+18:26:36.616 DEBUG [mw216 ] launcher> PID 11836, slot 1
+18:26:36.616 DEBUG [mw216 ] launcher> Stage 2, error 0
+18:26:36.616 DEBUG [mw216 ] launcher> Stage 4, error 0
+18:26:36.616 DEBUG [mw216 ] launcher> Stage 5, error 0
+18:26:36.616 INFO  [mw216 ] 登录结果: exit=3221225786(未知) stage=None(?) error=0(无) pid=None elapsed=Nonems, 用时 8.6s
+18:26:36.616 ERROR [mw216 ] 登录失败: exit=3221225786(未知) stage=None(?) error=0(无) pid=None elapsed=Nonems
+18:26:36.626 DEBUG [mw215 ] launcher> PID 10060, slot 1
+18:26:36.626 DEBUG [mw215 ] launcher> Stage 1, error 0
+18:26:36.626 DEBUG [mw215 ] launcher> Stage 4, error 0
+18:26:36.626 DEBUG [mw215 ] launcher> Stage 5, error 0
+18:26:36.626 INFO  [mw215 ] 登录结果: exit=3221225786(未知) stage=None(?) error=0(无) pid=None elapsed=Nonems, 用时 12.2s
+18:26:36.627 ERROR [mw215 ] 登录失败: exit=3221225786(未知) stage=None(?) error=0(无) pid=None elapsed=Nonems
+18:26:36.636 DEBUG [mw214 ] launcher> PID 3332, slot 1
+18:26:36.636 DEBUG [mw214 ] launcher> Stage 1, error 0
+18:26:36.636 DEBUG [mw214 ] launcher> Stage 4, error 0
+18:26:36.636 DEBUG [mw214 ] launcher> Stage 5, error 0
+18:26:36.636 INFO  [mw214 ] 登录结果: exit=3221225786(未知) stage=None(?) error=0(无) pid=None elapsed=Nonems, 用时 15.1s
+18:26:36.636 ERROR [mw214 ] 登录失败: exit=3221225786(未知) stage=None(?) error=0(无) pid=None elapsed=Nonems
+18:26:36.645 DEBUG [mw212 ] launcher> PID 1600, slot 1
+18:26:36.645 DEBUG [mw212 ] launcher> Stage 2, error 0
+18:26:36.645 DEBUG [mw212 ] launcher> Stage 4, error 0
+18:26:36.645 DEBUG [mw212 ] launcher> Stage 5, error 0
+18:26:36.645 INFO  [mw212 ] 登录结果: exit=3221225786(未知) stage=None(?) error=0(无) pid=None elapsed=Nonems, 用时 19.1s
+18:26:36.646 ERROR [mw212 ] 登录失败: exit=3221225786(未知) stage=None(?) error=0(无) pid=None elapsed=Nonems

@@ -1,0 +1,307 @@
+18:45:10.279 INFO  [main  ] 日志文件: C:\codes\roach-kitchen\batch_provision\logs\supervisor_20261015_184510.log
+18:45:10.348 INFO  [main  ] 工人: account, chores；小号窗口上限 30，同时登录 4 个
+18:45:10.348 INFO  [main  ] 工位掉线自动重登: 开（读不到角色 30 秒就关窗重登；配置里的工位 dispatcher1, well1, coast1, coast2, coast3, receiver1, well2）
+18:45:10.350 INFO  [main  ] 古井队列 0 < 4，拉一个新角色 -> 登录 mw201r1
+18:45:10.351 INFO  [main  ] 古井队列 1 < 4，拉一个新角色 -> 登录 mw202r1
+18:45:10.355 INFO  [main  ] 古井队列 2 < 4，拉一个新角色 -> 登录 mw203r1
+18:45:10.356 INFO  [main  ] 古井队列 3 < 4，拉一个新角色 -> 登录 mw204r1
+18:45:10.358 INFO  [main  ] 窗口 0/30（登录中 4）| 上游 0 古井 0 海岸等 0 刷怪 0 下游 0 其他 0 | 本次收料理 0 | 待删 0 本次删 0 | 本次重建 0 | 工位: 
+18:45:10.376 INFO  [mw201r1] 启动游戏并登录 (第 1/3 次)
+18:45:10.378 DEBUG [mw201r1] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw201_1.json
+18:45:12.377 INFO  [mw204r1] 启动游戏并登录 (第 1/3 次)
+18:45:12.378 DEBUG [mw204r1] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw204_1.json
+18:45:14.378 INFO  [mw203r1] 启动游戏并登录 (第 1/3 次)
+18:45:14.379 DEBUG [mw203r1] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw203_1.json
+18:45:16.378 INFO  [mw202r1] 启动游戏并登录 (第 1/3 次)
+18:45:16.379 DEBUG [mw202r1] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw202_1.json
+18:45:16.407 DEBUG [mw201r1] launcher> PID 7428, slot 1
+18:45:16.407 DEBUG [mw201r1] launcher> Stage 1, error 0
+18:45:16.407 DEBUG [mw201r1] launcher> Stage 4, error 0
+18:45:16.407 DEBUG [mw201r1] launcher> Stage 5, error 0
+18:45:16.407 DEBUG [mw201r1] launcher> Stage 9, error 0
+18:45:16.407 DEBUG [mw201r1] launcher> Login checkpoint reached.
+18:45:16.407 INFO  [mw201r1] 登录结果: exit=0(成功到达选角界面) stage=9(停在选角界面) error=0(无) pid=7428 elapsed=5859ms, 用时 6.0s
+18:45:16.408 INFO  [mw201r1] 已到选角界面 pid=7428 hwnd=0x310ae4 base=0xd80000
+18:45:17.702 INFO  [mw201r1] 会话上下文=0x18f213c (定位+读列表 1.3s)
+18:45:17.703 INFO  [mw201r1] 选角列表 槽1: mw201r1  ID=205976  1级
+18:45:17.703 INFO  [mw201r1] 选角列表 槽2: mw201r2  ID=205977  1级
+18:45:17.703 INFO  [mw201r1] 选角列表 槽3: mw201r3  ID=205979  1级
+18:45:17.703 INFO  [mw201r1] 选角列表 槽4: mw201r4  ID=205982  1级
+18:45:17.721 DEBUG [mw201r1] DLL stage=6(选角) error=0 enter_messages=2
+18:45:17.922 DEBUG [mw201r1] DLL stage=7(进入世界中) error=0 enter_messages=4
+18:45:18.300 DEBUG [mw204r1] launcher> PID 2520, slot 1
+18:45:18.300 DEBUG [mw204r1] launcher> Stage 1, error 0
+18:45:18.300 DEBUG [mw204r1] launcher> Stage 4, error 0
+18:45:18.300 DEBUG [mw204r1] launcher> Stage 5, error 0
+18:45:18.300 DEBUG [mw204r1] launcher> Stage 9, error 0
+18:45:18.301 DEBUG [mw204r1] launcher> Login checkpoint reached.
+18:45:18.301 INFO  [mw204r1] 登录结果: exit=0(成功到达选角界面) stage=9(停在选角界面) error=0(无) pid=2520 elapsed=5844ms, 用时 5.9s
+18:45:18.301 INFO  [mw204r1] 已到选角界面 pid=2520 hwnd=0xe0de8 base=0xd80000
+18:45:19.129 DEBUG [mw201r1] DLL stage=8(已进入世界) error=0 enter_messages=10
+18:45:19.129 INFO  [mw201r1] 世界指针已出现（DLL 用时 3547ms，按回车 10 次）
+18:45:19.623 INFO  [mw204r1] 会话上下文=0xcf21b4 (定位+读列表 1.3s)
+18:45:19.623 INFO  [mw204r1] 选角列表 槽1: mw204r1  ID=205984  1级
+18:45:19.624 INFO  [mw204r1] 选角列表 槽2: mw204r2  ID=205987  1级
+18:45:19.624 INFO  [mw204r1] 选角列表 槽3: mw204r3  ID=205990  1级
+18:45:19.624 INFO  [mw204r1] 选角列表 槽4: mw204r4  ID=205993  1级
+18:45:19.656 DEBUG [mw204r1] DLL stage=9(停在选角界面) error=0 enter_messages=2
+18:45:19.857 DEBUG [mw204r1] DLL stage=7(进入世界中) error=0 enter_messages=4
+18:45:20.334 DEBUG [mw203r1] launcher> PID 10064, slot 1
+18:45:20.334 DEBUG [mw203r1] launcher> Stage 2, error 0
+18:45:20.334 DEBUG [mw203r1] launcher> Stage 4, error 0
+18:45:20.334 DEBUG [mw203r1] launcher> Stage 5, error 0
+18:45:20.334 DEBUG [mw203r1] launcher> Stage 9, error 0
+18:45:20.334 DEBUG [mw203r1] launcher> Login checkpoint reached.
+18:45:20.335 INFO  [mw203r1] 登录结果: exit=0(成功到达选角界面) stage=9(停在选角界面) error=0(无) pid=10064 elapsed=5859ms, 用时 6.0s
+18:45:20.335 INFO  [mw203r1] 已到选角界面 pid=10064 hwnd=0x1f0f06 base=0xd80000
+18:45:21.062 DEBUG [mw204r1] DLL stage=8(已进入世界) error=0 enter_messages=10
+18:45:21.063 INFO  [mw204r1] 世界指针已出现（DLL 用时 3594ms，按回车 10 次）
+18:45:21.136 INFO  [mw201r1] 已在游戏中: mw201r1 ID=205976 地图=271 坐标=(280,600)
+18:45:21.144 INFO  [mw201r1] 已上线 地图 271 (280,600)
+18:45:21.620 INFO  [mw203r1] 会话上下文=0xcf1ce4 (定位+读列表 1.3s)
+18:45:21.620 INFO  [mw203r1] 选角列表 槽1: mw203r1  ID=205981  1级
+18:45:21.620 INFO  [mw203r1] 选角列表 槽2: mw203r2  ID=205985  1级
+18:45:21.620 INFO  [mw203r1] 选角列表 槽3: mw203r3  ID=205989  1级
+18:45:21.620 INFO  [mw203r1] 选角列表 槽4: mw203r4  ID=205992  1级
+18:45:21.642 DEBUG [mw203r1] DLL stage=9(停在选角界面) error=0 enter_messages=2
+18:45:21.843 DEBUG [mw203r1] DLL stage=7(进入世界中) error=0 enter_messages=4
+18:45:22.336 DEBUG [mw202r1] launcher> PID 3664, slot 1
+18:45:22.336 DEBUG [mw202r1] launcher> Stage 1, error 0
+18:45:22.336 DEBUG [mw202r1] launcher> Stage 4, error 0
+18:45:22.336 DEBUG [mw202r1] launcher> Stage 5, error 0
+18:45:22.336 DEBUG [mw202r1] launcher> Stage 9, error 0
+18:45:22.336 DEBUG [mw202r1] launcher> Login checkpoint reached.
+18:45:22.337 INFO  [mw202r1] 登录结果: exit=0(成功到达选角界面) stage=9(停在选角界面) error=0(无) pid=3664 elapsed=5844ms, 用时 6.0s
+18:45:22.337 INFO  [mw202r1] 已到选角界面 pid=3664 hwnd=0x1c030a base=0xd80000
+18:45:22.363 INFO  [main  ] 古井队列 3 < 4，拉一个新角色 -> 登录 mw205r1
+18:45:22.413 INFO  [mw205r1] 启动游戏并登录 (第 1/3 次)
+18:45:22.414 DEBUG [mw205r1] launcher args: --stdin --selection-only --slot 1 --server-index 0 --game C:\什么什么大冒险2.0\v2.1\win32\WaatClient.exe --inject-delay 3000 --result C:\codes\roach-kitchen\batch_provision\runtime\launch_mw205_1.json
+18:45:22.426 DEBUG [mw201r1] 状态 map=271 xy=(280,600) flags=0x0 busy=False battle=False sp=None nav=False dialog=False
+18:45:22.427 INFO  [mw201r1] 寻路去新手传送师 (距离 2377)
+18:45:22.567 INFO  [mw204r1] 已在游戏中: mw204r1 ID=205984 地图=271 坐标=(280,600)
+18:45:22.584 INFO  [mw204r1] 已上线 地图 271 (280,600)
+18:45:22.620 INFO  [mw201r1] 寻路中
+18:45:23.253 DEBUG [mw203r1] DLL stage=8(已进入世界) error=0 enter_messages=11
+18:45:23.253 INFO  [mw203r1] 世界指针已出现（DLL 用时 3766ms，按回车 11 次）
+18:45:23.667 INFO  [mw202r1] 会话上下文=0xc821bc (定位+读列表 1.3s)
+18:45:23.667 INFO  [mw202r1] 选角列表 槽1: mw202r1  ID=205978  1级
+18:45:23.667 INFO  [mw202r1] 选角列表 槽2: mw202r2  ID=205980  1级
+18:45:23.667 INFO  [mw202r1] 选角列表 槽3: mw202r3  ID=205983  1级
+18:45:23.668 INFO  [mw202r1] 选角列表 槽4: mw202r4  ID=205986  1级
+18:45:23.680 DEBUG [mw202r1] DLL stage=9(停在选角界面) error=0 enter_messages=2
+18:45:23.881 DEBUG [mw202r1] DLL stage=7(进入世界中) error=0 enter_messages=4
+18:45:24.432 DEBUG [mw204r1] 状态 map=271 xy=(280,600) flags=0x0 busy=False battle=False sp=None nav=False dialog=False
+18:45:24.433 INFO  [mw204r1] 寻路去新手传送师 (距离 2377)
+18:45:24.439 DEBUG [mw201r1] 状态 map=271 xy=(564,743) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:24.597 INFO  [mw204r1] 寻路中
+18:45:25.258 INFO  [mw203r1] 已在游戏中: mw203r1 ID=205981 地图=271 坐标=(280,600)
+18:45:25.274 INFO  [mw203r1] 已上线 地图 271 (280,600)
+18:45:25.287 DEBUG [mw202r1] DLL stage=8(已进入世界) error=0 enter_messages=11
+18:45:25.287 INFO  [mw202r1] 世界指针已出现（DLL 用时 3813ms，按回车 11 次）
+18:45:26.289 INFO  [mw202r1] 已在游戏中: mw202r1 ID=205978 地图=271 坐标=(280,600)
+18:45:26.296 INFO  [mw202r1] 已上线 地图 271 (280,600)
+18:45:26.459 DEBUG [mw203r1] 状态 map=271 xy=(280,600) flags=0x0 busy=False battle=False sp=None nav=False dialog=False
+18:45:26.459 INFO  [mw203r1] 寻路去新手传送师 (距离 2377)
+18:45:26.460 DEBUG [mw202r1] 状态 map=271 xy=(280,600) flags=0x0 busy=False battle=False sp=None nav=False dialog=False
+18:45:26.460 INFO  [mw202r1] 寻路去新手传送师 (距离 2377)
+18:45:26.555 DEBUG [mw201r1] 状态 map=271 xy=(864,895) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:26.561 DEBUG [mw204r1] 状态 map=271 xy=(580,751) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:26.616 INFO  [mw203r1] 寻路中
+18:45:26.659 INFO  [mw202r1] 寻路中
+18:45:28.391 DEBUG [mw205r1] launcher> PID 3144, slot 1
+18:45:28.392 DEBUG [mw205r1] launcher> Stage 1, error 0
+18:45:28.392 DEBUG [mw205r1] launcher> Stage 4, error 0
+18:45:28.392 DEBUG [mw205r1] launcher> Stage 5, error 0
+18:45:28.392 DEBUG [mw205r1] launcher> Stage 9, error 0
+18:45:28.392 DEBUG [mw205r1] launcher> Login checkpoint reached.
+18:45:28.393 INFO  [mw205r1] 登录结果: exit=0(成功到达选角界面) stage=9(停在选角界面) error=0(无) pid=3144 elapsed=5875ms, 用时 6.0s
+18:45:28.393 INFO  [mw205r1] 已到选角界面 pid=3144 hwnd=0x1602c4 base=0xd80000
+18:45:28.477 DEBUG [mw202r1] 状态 map=271 xy=(560,742) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:28.583 DEBUG [mw203r1] 状态 map=271 xy=(580,752) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:28.675 DEBUG [mw201r1] 状态 map=271 xy=(1164,1043) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:28.683 DEBUG [mw204r1] 状态 map=271 xy=(884,905) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:29.695 INFO  [mw205r1] 会话上下文=0x981dbc (定位+读列表 1.3s)
+18:45:29.695 INFO  [mw205r1] 选角列表 槽1: mw205r1  ID=205988  1级
+18:45:29.696 INFO  [mw205r1] 选角列表 槽2: mw205r2  ID=205991  1级
+18:45:29.696 INFO  [mw205r1] 选角列表 槽3: mw205r3  ID=205994  1级
+18:45:29.696 INFO  [mw205r1] 选角列表 槽4: mw205r4  ID=205996  1级
+18:45:29.723 DEBUG [mw205r1] DLL stage=6(选角) error=0 enter_messages=2
+18:45:29.924 DEBUG [mw205r1] DLL stage=7(进入世界中) error=0 enter_messages=4
+18:45:30.600 DEBUG [mw202r1] 状态 map=271 xy=(865,895) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:30.709 DEBUG [mw203r1] 状态 map=271 xy=(885,905) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:30.802 DEBUG [mw201r1] 状态 map=271 xy=(1475,1153) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:30.805 DEBUG [mw204r1] 状态 map=271 xy=(1187,1052) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:31.129 DEBUG [mw205r1] DLL stage=8(已进入世界) error=0 enter_messages=10
+18:45:31.129 INFO  [mw205r1] 世界指针已出现（DLL 用时 3578ms，按回车 10 次）
+18:45:32.633 INFO  [mw205r1] 已在游戏中: mw205r1 ID=205988 地图=271 坐标=(280,600)
+18:45:32.642 INFO  [mw205r1] 已上线 地图 271 (280,600)
+18:45:32.718 DEBUG [mw202r1] 状态 map=271 xy=(1164,1043) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:32.825 DEBUG [mw203r1] 状态 map=271 xy=(1181,1050) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:32.918 DEBUG [mw201r1] 状态 map=271 xy=(1818,1159) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:32.922 DEBUG [mw204r1] 状态 map=271 xy=(1499,1153) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:34.501 DEBUG [mw205r1] 状态 map=271 xy=(280,600) flags=0x0 busy=False battle=False sp=None nav=False dialog=False
+18:45:34.501 INFO  [mw205r1] 寻路去新手传送师 (距离 2377)
+18:45:34.664 INFO  [mw205r1] 寻路中
+18:45:34.835 DEBUG [mw202r1] 状态 map=271 xy=(1475,1153) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:34.940 DEBUG [mw203r1] 状态 map=271 xy=(1495,1153) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:35.032 DEBUG [mw201r1] 状态 map=271 xy=(2094,1013) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:35.033 DEBUG [mw204r1] 状态 map=271 xy=(1839,1159) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:36.627 DEBUG [mw205r1] 状态 map=271 xy=(580,751) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:36.950 DEBUG [mw202r1] 状态 map=271 xy=(1810,1159) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:37.059 DEBUG [mw203r1] 状态 map=271 xy=(1833,1159) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:37.148 DEBUG [mw204r1] 状态 map=271 xy=(2109,1000) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:37.149 DEBUG [mw201r1] 状态 map=271 xy=(2352,791) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:37.905 INFO  [mw201r1] 进入战斗（第 1 场），蓄力点=0
+18:45:37.905 INFO  [mw201r1] 蓄力点 None -> 0，发送逃跑
+18:45:37.940 DEBUG [mw201r1] SendFightCmdPacket(0,0,8,0) -> 0x1
+18:45:38.091 INFO  [mw201r1] 战斗中，等蓄力点变化
+18:45:38.660 INFO  [mw204r1] 进入战斗（第 1 场），蓄力点=None
+18:45:38.660 INFO  [mw204r1] 战斗中，读不到自己的蓄力点
+18:45:38.745 DEBUG [mw205r1] 状态 map=271 xy=(884,905) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:38.811 INFO  [mw204r1] 蓄力点 None -> 0，发送逃跑
+18:45:38.833 DEBUG [mw204r1] SendFightCmdPacket(0,0,8,0) -> 0x1
+18:45:38.984 INFO  [mw204r1] 战斗中，等蓄力点变化
+18:45:39.066 DEBUG [mw202r1] 状态 map=271 xy=(2091,1016) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:39.151 DEBUG [mw201r1] 状态 map=271 xy=(2427,726) flags=0x8 busy=True battle=True sp=0 nav=True dialog=False
+18:45:39.175 DEBUG [mw203r1] 状态 map=271 xy=(2106,1003) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:39.286 DEBUG [mw204r1] 状态 map=271 xy=(2292,842) flags=0x8 busy=True battle=True sp=0 nav=True dialog=False
+18:45:40.274 INFO  [mw202r1] 进入战斗（第 1 场），蓄力点=None
+18:45:40.274 INFO  [mw202r1] 战斗中，读不到自己的蓄力点
+18:45:40.425 INFO  [mw202r1] 蓄力点 None -> 0，发送逃跑
+18:45:40.445 DEBUG [mw202r1] SendFightCmdPacket(0,0,8,0) -> 0x1
+18:45:40.596 INFO  [mw202r1] 战斗中，等蓄力点变化
+18:45:40.859 DEBUG [mw205r1] 状态 map=271 xy=(1182,1050) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:40.988 INFO  [mw203r1] 进入战斗（第 1 场），蓄力点=None
+18:45:40.988 INFO  [mw203r1] 战斗中，读不到自己的蓄力点
+18:45:41.140 INFO  [mw203r1] 蓄力点 None -> 0，发送逃跑
+18:45:41.183 DEBUG [mw203r1] SendFightCmdPacket(0,0,8,0) -> 0x1
+18:45:41.200 DEBUG [mw202r1] 状态 map=271 xy=(2233,893) flags=0x8 busy=True battle=True sp=0 nav=True dialog=False
+18:45:41.267 DEBUG [mw201r1] 状态 map=271 xy=(2427,726) flags=0x8 busy=True battle=True sp=0 nav=True dialog=False
+18:45:41.334 DEBUG [mw203r1] 状态 map=271 xy=(2327,812) flags=0x8 busy=True battle=True sp=0 nav=True dialog=False
+18:45:41.334 INFO  [mw203r1] 战斗中，等蓄力点变化
+18:45:41.401 DEBUG [mw204r1] 状态 map=271 xy=(2292,842) flags=0x8 busy=True battle=True sp=0 nav=True dialog=False
+18:45:41.719 INFO  [mw201r1] 蓄力点 0 -> 1，发送逃跑
+18:45:41.742 DEBUG [mw201r1] SendFightCmdPacket(0,0,8,0) -> 0x1
+18:45:41.894 INFO  [mw201r1] 战斗中，等蓄力点变化
+18:45:42.500 INFO  [mw201r1] 战斗结束
+18:45:42.502 INFO  [mw201r1] 寻路中
+18:45:42.611 INFO  [mw204r1] 蓄力点 0 -> 1，发送逃跑
+18:45:42.636 DEBUG [mw204r1] SendFightCmdPacket(0,0,8,0) -> 0x1
+18:45:42.787 INFO  [mw204r1] 战斗中，等蓄力点变化
+18:45:42.978 DEBUG [mw205r1] 状态 map=271 xy=(1499,1153) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:43.317 DEBUG [mw202r1] 状态 map=271 xy=(2233,893) flags=0x8 busy=True battle=True sp=0 nav=True dialog=False
+18:45:43.409 DEBUG [mw201r1] 状态 map=271 xy=(2548,621) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:43.450 DEBUG [mw203r1] 状态 map=271 xy=(2327,812) flags=0x8 busy=True battle=True sp=0 nav=True dialog=False
+18:45:43.544 INFO  [mw204r1] 战斗结束
+18:45:43.544 DEBUG [mw204r1] 状态 map=271 xy=(2309,827) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:43.545 INFO  [mw204r1] 寻路中
+18:45:43.862 INFO  [mw201r1] 已到传送师旁 (68)，停止寻路
+18:45:44.042 INFO  [mw201r1] 和新手传送师对话 (距离 38)
+18:45:44.198 INFO  [mw201r1] 等待对话框
+18:45:44.224 INFO  [mw202r1] 蓄力点 0 -> 1，发送逃跑
+18:45:44.247 DEBUG [mw202r1] SendFightCmdPacket(0,0,8,0) -> 0x1
+18:45:44.398 INFO  [mw202r1] 战斗中，等蓄力点变化
+18:45:44.652 INFO  [mw201r1] 选择「逍遥村」
+18:45:44.828 INFO  [mw201r1] 等待对话框
+18:45:44.960 INFO  [mw203r1] 蓄力点 0 -> 1，发送逃跑
+18:45:44.985 DEBUG [mw203r1] SendFightCmdPacket(0,0,8,0) -> 0x1
+18:45:45.003 INFO  [mw202r1] 战斗结束
+18:45:45.004 INFO  [mw202r1] 寻路中
+18:45:45.093 DEBUG [mw205r1] 状态 map=271 xy=(1838,1159) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:45.136 INFO  [mw203r1] 战斗中，等蓄力点变化
+18:45:45.433 DEBUG [mw201r1] 状态 map=1 xy=(1266,1174) flags=0x0 busy=False battle=False sp=None nav=False dialog=False
+18:45:45.433 INFO  [mw201r1] 到达逍遥村西区 坐标=(1266,1174)，用时 23.0s，战斗 1 场，逃跑指令 2 次
+18:45:45.457 DEBUG [mw202r1] 状态 map=271 xy=(2300,835) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:45.590 DEBUG [mw203r1] 状态 map=271 xy=(2327,812) flags=0x8 busy=True battle=True sp=1 nav=True dialog=False
+18:45:45.660 DEBUG [mw204r1] 状态 map=271 xy=(2567,605) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:45.741 INFO  [mw203r1] 战斗结束
+18:45:45.742 INFO  [mw203r1] 寻路中
+18:45:45.963 INFO  [mw204r1] 已到传送师旁 (68)，停止寻路
+18:45:46.141 INFO  [mw204r1] 和新手传送师对话 (距离 38)
+18:45:46.297 INFO  [mw204r1] 等待对话框
+18:45:46.448 INFO  [mw204r1] 选择「逍遥村」
+18:45:46.573 INFO  [mw201r1] 吃前: 等级=2 小肉林=1 地瓜=2 回城卷=1 背包占用格=14
+18:45:46.573 DEBUG [mw201r1] 背包: [(0, 64002, 30), (1, 63954, 30), (2, 22000, 1), (3, 22500, 1), (4, 21500, 1), (5, 23000, 1), (6, 21000, 1), (7, 32004, 2), (8, 9801, 1), (9, 9998, 1), (10, 30187, 1), (11, 30188, 1), (12, 31140, 1), (13, 11359, 1)]
+18:45:46.574 INFO  [mw201r1] 角色忙/战斗/移动中
+18:45:46.729 INFO  [mw204r1] 等待对话框
+18:45:47.031 INFO  [mw204r1] 到达逍遥村西区 坐标=(1266,1174)，用时 22.6s，战斗 1 场，逃跑指令 2 次
+18:45:47.179 INFO  [mw201r1] 吃小肉林（背包第 11 格，1 个）
+18:45:47.194 DEBUG [mw201r1] send 0x0049 slot=11 -> 0x1
+18:45:47.206 DEBUG [mw205r1] 状态 map=271 xy=(2109,1000) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:47.396 INFO  [mw201r1] 小肉林 1 -> 0
+18:45:47.400 INFO  [mw201r1] 吃后: 等级=2 小肉林=0 地瓜=2 回城卷=1 背包占用格=13
+18:45:47.572 DEBUG [mw202r1] 状态 map=271 xy=(2555,616) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:47.705 DEBUG [mw203r1] 状态 map=271 xy=(2570,602) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:48.007 INFO  [mw203r1] 已到传送师旁 (69)，停止寻路
+18:45:48.025 INFO  [mw202r1] 已到传送师旁 (59)，停止寻路
+18:45:48.166 INFO  [mw203r1] 和新手传送师对话 (距离 39)
+18:45:48.198 INFO  [mw202r1] 和新手传送师对话 (距离 30)
+18:45:48.320 INFO  [mw203r1] 等待对话框
+18:45:48.380 INFO  [mw202r1] 等待对话框
+18:45:48.598 INFO  [mw204r1] 吃前: 等级=2 小肉林=1 地瓜=2 回城卷=1 背包占用格=14
+18:45:48.598 DEBUG [mw204r1] 背包: [(0, 64002, 30), (1, 63954, 30), (2, 22000, 1), (3, 22500, 1), (4, 21500, 1), (5, 23000, 1), (6, 21000, 1), (7, 32004, 2), (8, 9801, 1), (9, 9998, 1), (10, 30187, 1), (11, 30188, 1), (12, 31140, 1), (13, 11359, 1)]
+18:45:48.599 INFO  [mw204r1] 角色忙/战斗/移动中
+18:45:48.613 INFO  [mw201r1] 角色忙/战斗/移动中
+18:45:48.622 INFO  [mw203r1] 选择「逍遥村」
+18:45:48.834 INFO  [mw202r1] 选择「逍遥村」
+18:45:49.023 INFO  [mw203r1] 等待对话框
+18:45:49.204 INFO  [mw204r1] 吃小肉林（背包第 11 格，1 个）
+18:45:49.217 INFO  [mw201r1] 站稳后再记录
+18:45:49.222 DEBUG [mw204r1] send 0x0049 slot=11 -> 0x1
+18:45:49.254 INFO  [mw202r1] 等待对话框
+18:45:49.323 DEBUG [mw205r1] 状态 map=271 xy=(2364,780) flags=0x0 busy=False battle=False sp=None nav=True dialog=False
+18:45:49.424 INFO  [mw204r1] 小肉林 1 -> 0
+18:45:49.429 INFO  [mw204r1] 吃后: 等级=2 小肉林=0 地瓜=2 回城卷=1 背包占用格=13
+18:45:49.556 INFO  [mw202r1] 到达逍遥村西区 坐标=(1266,1174)，用时 23.1s，战斗 1 场，逃跑指令 2 次
+18:45:49.627 INFO  [mw203r1] 到达逍遥村西区 坐标=(1266,1174)，用时 23.2s，战斗 1 场，逃跑指令 2 次
+18:45:50.626 INFO  [mw201r1] 记录飞鞋 地图1 (1266,1174)，原记录点 (271, 280, 600)
+18:45:50.634 INFO  [mw202r1] 吃前: 等级=2 小肉林=1 地瓜=2 回城卷=1 背包占用格=14
+18:45:50.634 DEBUG [mw202r1] 背包: [(0, 64002, 30), (1, 63954, 30), (2, 22000, 1), (3, 22500, 1), (4, 21500, 1), (5, 23000, 1), (6, 21000, 1), (7, 32004, 2), (8, 9801, 1), (9, 9998, 1), (10, 30187, 1), (11, 30188, 1), (12, 31140, 1), (13, 11359, 1)]
+18:45:50.635 INFO  [mw202r1] 角色忙/战斗/移动中
+18:45:50.657 INFO  [mw203r1] 吃前: 等级=2 小肉林=1 地瓜=2 回城卷=1 背包占用格=14
+18:45:50.657 DEBUG [mw203r1] 背包: [(0, 64002, 30), (1, 63954, 30), (2, 22000, 1), (3, 22500, 1), (4, 21500, 1), (5, 23000, 1), (6, 21000, 1), (7, 32004, 2), (8, 9801, 1), (9, 9998, 1), (10, 30187, 1), (11, 30188, 1), (12, 31140, 1), (13, 11359, 1)]
+18:45:50.658 INFO  [mw203r1] 角色忙/战斗/移动中
+18:45:50.672 INFO  [mw204r1] 角色忙/战斗/移动中
+18:45:50.894 INFO  [mw201r1] 飞鞋记录点 = 地图1 (1266,1174)
+18:45:51.239 INFO  [mw202r1] 吃小肉林（背包第 11 格，1 个）
+18:45:51.263 INFO  [mw203r1] 吃小肉林（背包第 11 格，1 个）
+18:45:51.276 INFO  [mw204r1] 站稳后再记录
+18:45:51.279 DEBUG [mw203r1] send 0x0049 slot=11 -> 0x1
+18:45:51.280 DEBUG [mw202r1] send 0x0049 slot=11 -> 0x1
+18:45:51.289 INFO  [mw205r1] 已到传送师旁 (72)，停止寻路
+18:45:51.444 DEBUG [mw205r1] 状态 map=271 xy=(2621,559) flags=0x0 busy=False battle=False sp=None nav=False dialog=False
+18:45:51.444 INFO  [mw205r1] 和新手传送师对话 (距离 47)
+18:45:51.482 INFO  [mw203r1] 小肉林 1 -> 0
+18:45:51.483 INFO  [mw202r1] 小肉林 1 -> 0
+18:45:51.488 INFO  [mw203r1] 吃后: 等级=2 小肉林=0 地瓜=2 回城卷=1 背包占用格=13
+18:45:51.496 INFO  [mw202r1] 吃后: 等级=2 小肉林=0 地瓜=2 回城卷=1 背包占用格=13
+18:45:51.601 INFO  [mw205r1] 等待对话框
+18:45:52.669 INFO  [mw202r1] 角色忙/战斗/移动中
+18:45:52.684 INFO  [mw203r1] 角色忙/战斗/移动中
+18:45:52.686 INFO  [mw204r1] 记录飞鞋 地图1 (1266,1174)，原记录点 (271, 280, 600)
+18:45:52.919 INFO  [mw204r1] 飞鞋记录点 = 地图1 (1266,1174)
+18:45:53.274 INFO  [mw202r1] 站稳后再记录
+18:45:53.288 INFO  [mw203r1] 站稳后再记录
+18:45:53.568 DEBUG [mw205r1] 状态 map=271 xy=(2656,528) flags=0x0 busy=False battle=False sp=None nav=False dialog=False
+18:45:54.476 INFO  [mw205r1] 和新手传送师对话 (距离 0)
+18:45:54.635 INFO  [mw205r1] 等待对话框
+18:45:54.682 INFO  [mw202r1] 记录飞鞋 地图1 (1266,1174)，原记录点 (271, 280, 600)
+18:45:54.697 INFO  [mw203r1] 记录飞鞋 地图1 (1266,1174)，原记录点 (271, 280, 600)
+18:45:54.787 INFO  [mw205r1] 选择「逍遥村」
+18:45:54.936 INFO  [mw203r1] 飞鞋记录点 = 地图1 (1266,1174)
+18:45:54.936 INFO  [mw202r1] 飞鞋记录点 = 地图1 (1266,1174)
+18:45:55.025 INFO  [mw205r1] 等待对话框
+18:45:55.328 INFO  [mw205r1] 到达逍遥村西区 坐标=(1266,1174)，用时 20.8s，战斗 0 场，逃跑指令 0 次
+18:45:56.747 INFO  [mw205r1] 吃前: 等级=2 小肉林=1 地瓜=2 回城卷=1 背包占用格=14
+18:45:56.748 DEBUG [mw205r1] 背包: [(0, 64002, 30), (1, 63954, 30), (2, 22000, 1), (3, 22500, 1), (4, 21500, 1), (5, 23000, 1), (6, 21000, 1), (7, 32004, 2), (8, 9801, 1), (9, 9998, 1), (10, 30187, 1), (11, 30188, 1), (12, 31140, 1), (13, 11359, 1)]
+18:45:56.749 INFO  [mw205r1] 角色忙/战斗/移动中
+18:45:57.353 INFO  [mw205r1] 吃小肉林（背包第 11 格，1 个）
+18:45:57.371 DEBUG [mw205r1] send 0x0049 slot=11 -> 0x1
+18:45:57.573 INFO  [mw205r1] 小肉林 1 -> 0
+18:45:57.649 INFO  [mw205r1] 吃后: 等级=2 小肉林=0 地瓜=2 回城卷=1 背包占用格=13
+18:45:58.780 INFO  [mw205r1] 角色忙/战斗/移动中
+18:45:59.385 INFO  [mw205r1] 站稳后再记录
+18:46:00.793 INFO  [mw205r1] 记录飞鞋 地图1 (1266,1174)，原记录点 (271, 280, 600)
+18:46:01.044 INFO  [mw205r1] 飞鞋记录点 = 地图1 (1266,1174)
+18:46:10.389 INFO  [main  ] 窗口 5/30（登录中 0）| 上游 5 古井 0 海岸等 0 刷怪 0 下游 0 其他 0 | 本次收料理 0 | 待删 0 本次删 0 | 本次重建 0 | 工位: 
+18:47:10.422 INFO  [main  ] 窗口 5/30（登录中 0）| 上游 5 古井 0 海岸等 0 刷怪 0 下游 0 其他 0 | 本次收料理 0 | 待删 0 本次删 0 | 本次重建 0 | 工位: 
