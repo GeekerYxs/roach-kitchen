@@ -2,19 +2,23 @@
 watched side by side: 一键登录工位.cmd does it after its logins, the supervisor at start and after a relogin
 ([batch] arrange = true, the default).
 
-Windows keep their size; only their position changes. When they do not all fit (e.g. 5 windows of 1024x768 on a
-2560x1440 screen) they overlap evenly, so every window shows a large part (grid() picks the grid that keeps the
-smallest visible part largest). The user is free to move them afterwards: nothing moves them back, except a
-relogin putting the new window of that one station into its slot.
+Windows keep their size; only their position changes. When they do not all fit (e.g. 11 windows of 800x600 on a
+2560x1440 screen) they overlap evenly and are stacked in screen order (each one above the one before it), so every
+window shows its top-left part, the last one all of it. grid() prefers a grid whose visible part reaches the
+window's centre (where the character stands), then the largest visible part. The user is free to move them
+afterwards: nothing moves them back, except a relogin putting the new window of that one station into its slot.
 
 The Win32 calls are bound on first use, so grid() / order() load and test on any OS (tests/test_layout.py).
 """
 import ctypes
 import math
+import threading
 from ctypes import wintypes as W
 
 SW_SHOWNOACTIVATE = 4
-SWP_NOSIZE, SWP_NOZORDER, SWP_NOACTIVATE, SWP_ASYNCWINDOWPOS = 0x1, 0x4, 0x10, 0x4000
+SWP_NOSIZE, SWP_NOACTIVATE = 0x1, 0x10
+HWND_TOP = None
+MOVE_TIMEOUT = 10.0     # seconds to wait for the moves; a hung window only holds up the helper thread
 SPI_GETWORKAREA = 0x30
 GW_OWNER = 4
 ROLE_ORDER = ('dispatcher', 'well', 'coast', 'receiver')    # left to right, top to bottom
@@ -43,7 +47,8 @@ def grid(n, size, area):
     for cols in range(1, n + 1):
         rows = math.ceil(n / cols)
         dx, dy = _steps(cols, w, right - left), _steps(rows, h, bottom - top)
-        score = (min(dx, w) * min(dy, h), -rows)            # smallest visible part; then fewer rows
+        dx, dy = min(dx, w), min(dy, h)
+        score = (dx * 2 >= w and dy * 2 >= h, dx * dy, -rows)   # centre shows; visible part; fewer rows
         if best is None or score > best[0]:
             best = (score, cols, dx, dy)
     _, cols, dx, dy = best
@@ -76,7 +81,7 @@ def _u():
         u.GetWindow.argtypes = [W.HWND, W.UINT]
         u.GetWindow.restype = W.HWND
         u.GetWindowPlacement.argtypes = [W.HWND, ctypes.POINTER(_Placement)]
-        u.ShowWindowAsync.argtypes = [W.HWND, ctypes.c_int]
+        u.ShowWindow.argtypes = [W.HWND, ctypes.c_int]
         u.SetWindowPos.argtypes = [W.HWND, W.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, W.UINT]
         u.SystemParametersInfoW.argtypes = [W.UINT, W.UINT, ctypes.c_void_p, W.UINT]
         u._enum = enum
@@ -118,20 +123,25 @@ def work_area():
 def arrange(pids, only=None):
     """Move the main windows of pids (screen order) into their grid slots; a minimized one is restored first
     (without taking the focus). A None pid (station offline) keeps its slot empty, so the others do not shift.
-    only = the pids to move (default all); the slots still count every pid.
-    -> [(pid, x, y)] moved. Async: a hung window does not block the caller."""
+    only = the pids to move (default all); the slots still count every pid. Each moved window is put on top, in
+    screen order, so a later one overlaps an earlier one by the grid's step only.
+    -> [(pid, x, y)] moved. Waits at most MOVE_TIMEOUT: a hung window does not block the caller."""
     u = _u()
     wins = [(pid, main_window(pid) if pid else None) for pid in pids]
     sizes = [_normal_size(h) for _, h in wins if h]
     if not sizes:
         return []
     size = (max(w for w, _ in sizes), max(h for _, h in sizes))
-    moved = []
-    for (pid, hwnd), (x, y) in zip(wins, grid(len(wins), size, work_area())):
-        if not hwnd or (only is not None and pid not in only):
-            continue
-        if u.IsIconic(hwnd):
-            u.ShowWindowAsync(hwnd, SW_SHOWNOACTIVATE)
-        u.SetWindowPos(hwnd, None, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS)
-        moved.append((pid, x, y))
-    return moved
+    moves = [(pid, hwnd, x, y) for (pid, hwnd), (x, y) in zip(wins, grid(len(wins), size, work_area()))
+             if hwnd and (only is None or pid in only)]
+
+    def move():     # synchronous, one after another: the stacking order is the screen order
+        for _, hwnd, x, y in moves:
+            if u.IsIconic(hwnd):
+                u.ShowWindow(hwnd, SW_SHOWNOACTIVATE)
+            u.SetWindowPos(hwnd, HWND_TOP, x, y, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE)
+
+    t = threading.Thread(target=move, name='layout', daemon=True)
+    t.start()
+    t.join(MOVE_TIMEOUT)
+    return [(pid, x, y) for pid, _, x, y in moves]

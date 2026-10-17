@@ -11,6 +11,12 @@ class Grid(unittest.TestCase):
         self.assertEqual(grid(5, (1024, 768), AREA_2K),
                          [(0, 0), (768, 0), (1536, 0), (0, 624), (768, 624)])
 
+    def test_eleven_800x600_on_2k_four_by_three_centre_shows(self):
+        # 1 dispatcher + 3 well + 6 coast + 1 receiver; 816x639 = 800x600 with the window frame
+        g = grid(11, (816, 639), AREA_2K)
+        self.assertEqual(g[:5], [(0, 0), (581, 0), (1162, 0), (1743, 0), (0, 376)])
+        self.assertEqual(g[-1], (1162, 752))
+
     def test_windows_that_fit_do_not_overlap(self):
         self.assertEqual(grid(4, (800, 600), AREA_2K), [(0, 0), (800, 0), (0, 600), (800, 600)])
 
