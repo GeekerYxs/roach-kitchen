@@ -19,7 +19,8 @@ inject_delay_ms = 3000
 login_retries = 2            # 登录失败时（只关本工具刚启动的那个进程）重开的次数
 enter_timeout = 60
 min_free_memory_mb = 3000    # 空闲内存低于这个值就暂停开新窗口
-minimize = false             # true = 本工具开的游戏窗口自动最小化（省 CPU 和内存；实测不影响任何工序）。只想本机开：在 local.toml 写 [batch] minimize = true
+minimize = false             # true = 总大脑开的小号窗口自动最小化（省 CPU 和内存；实测不影响任何工序）。每个窗口只最小化一次，你点开看的不会再被最小化；工位窗口从不最小化。只想本机开：在 local.toml 写 [batch] minimize = true
+arrange = true               # 总大脑启动时、工位自动重登后，把工位窗口排在主屏幕上（不改窗口大小，放不下就均匀叠一部分；之后可手动拖）
 
 [novice]
 escape_action = 8            # 万一角色还在菜鸟训练营，先走新手出村（逃跑指令编号，实测确认）

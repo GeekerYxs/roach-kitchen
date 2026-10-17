@@ -12,7 +12,7 @@ inject_delay_ms = 3000
 login_retries = 2
 enter_timeout = 60
 min_free_memory_mb = 3000
-minimize = false             # true = 本工具开的游戏窗口自动最小化（省 CPU 和内存；实测不影响任何工序）。只想本机开：在 local.toml 写 [batch] minimize = true
+arrange = true               # 登录完把工位窗口排在主屏幕上（不改窗口大小，放不下就均匀叠一部分；之后可手动拖）。工位窗口不会被最小化
 kill_on_failure = false     # 失败时保留窗口便于排查
 
 # 每个 [[station]] 一个工位角色：
