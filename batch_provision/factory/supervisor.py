@@ -31,7 +31,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
-from provisioner import config, log, native, procs
+from provisioner import config, layout, log, native, procs
 from provisioner.enter import EnterJob, enter_role, verify_in_world
 from provisioner.game import Game, NotSent
 from provisioner.login import LaunchThrottle, login, read_session
@@ -114,7 +114,8 @@ class SupSettings:
     quarantine_retry: float = 7200.0    # release a quarantined role once, this long after; 0 = never
     relogin: object = None              # Relogin (stage A), None = stations are not logged in again
     relogin_error: str | None = None    # why relogin is off although configured on
-    minimize: bool = False              # [batch] minimize: keep this tool's game windows minimized (provisioner/minimize)
+    minimize: bool = False              # [batch] minimize: minimize this tool's alt windows once (provisioner/minimize)
+    arrange: bool = True                # [batch] arrange: lay the station windows out (provisioner/layout)
 
 
 @dataclass(frozen=True)
@@ -158,7 +159,8 @@ def load_supervisor(path):
                        bool(s.get('fresh', True)), launch if bool(s.get('delete', True)) else None, launch,
                        rebuild_after, float(s.get('rebuild_retry_minutes', 20)) * 60,
                        float(s.get('quarantine_retry_hours', 2)) * 3600, relogin, relogin_error,
-                       bool(data.get('batch', {}).get('minimize', False)))
+                       bool(data.get('batch', {}).get('minimize', False)),
+                       bool(data.get('batch', {}).get('arrange', True)))
 
 
 # ---- the run --------------------------------------------------------------------------------------------
@@ -306,6 +308,7 @@ class Supervisor:
                               coast_backlog=s.policy.coast_backlog * coasts)
         self.last_quarantine_check = 0.0
         self.relogin = getattr(s, 'relogin', None)
+        self.station_pids = frozenset()     # read by the minimizer thread: never minimize a station window
         self.watches = {}               # station_id -> relogin.Watch
         self.logins = ThreadPoolExecutor(max_workers=s.parallel_logins, thread_name_prefix='login')
         self.chores = ThreadPoolExecutor(max_workers=12, thread_name_prefix='chore')
@@ -321,6 +324,20 @@ class Supervisor:
         if role:
             sql, args = sql + ' WHERE role=? ORDER BY station_id', (role,)
         return self.conn.execute(sql, args).fetchall()
+
+    def arrange_stations(self, conn, lg, only=None):
+        """Lay the station windows out ([batch] arrange); only = pids to move, the others keep where the user put
+        them."""
+        if not getattr(self.s, 'arrange', True):
+            return
+        rows = layout.order(conn.execute('SELECT station_id, role, pid FROM stations').fetchall())
+        try:
+            moved = layout.arrange([r['pid'] if native.has_dll(r['pid']) else None for r in rows], only)
+        except Exception as e:      # noqa: BLE001 - never take the run down for a window chore
+            lg.warning('排列工位窗口出错: %s', e)
+            return
+        if moved:
+            lg.info('排列工位窗口: %s', ', '.join(f'pid={p} ({x},{y})' for p, x, y in moved))
 
     def adopt(self):
         stations = set(db.station_roles(self.conn))
@@ -478,6 +495,8 @@ class Supervisor:
                                 time.time())
             w.fails, w.next_try, w.hwnd, w.lost_since = 0, 0.0, r.get('hwnd'), None
             lg.info('工位重登成功: %s pid=%d 地图 %s，接着干活', r['role'], r['pid'], r.get('map_id'))
+            self.station_pids = self.station_pids | {r['pid']}
+            self.arrange_stations(conn, lg, only={r['pid']})     # back into its slot (and out of the minimizer's)
             return True
         if r.get('pid') and native.alive(r['pid']):
             native.kill(r['pid'])           # the window we just started; never left half-logged-in
@@ -704,6 +723,7 @@ class Supervisor:
         return out
 
     def manage(self):
+        self.station_pids = frozenset(r['pid'] for r in self.station_rows())
         if self.relogin:
             self.watch_stations()
         now = time.monotonic()
@@ -970,8 +990,10 @@ class Supervisor:
             self.log.error('工位掉线自动重登没开: %s', self.s.relogin_error)
         else:
             self.log.info('工位掉线自动重登: 关（supervisor.toml station_relogin = false）')
+        self.station_pids = frozenset(r['pid'] for r in self.station_rows())
+        self.arrange_stations(self.conn, self.log)
         if self.s.minimize:
-            Minimizer(self.log, self.stop).start()
+            Minimizer(self.log, self.stop, skip=lambda: self.station_pids).start()
         for t in threads:
             t.start()
         last_status = 0.0
