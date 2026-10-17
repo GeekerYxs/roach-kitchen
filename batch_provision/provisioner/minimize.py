@@ -7,7 +7,9 @@ the tool uses screen coordinates (login = key messages, the rest = memory reads 
 Minimized, a window used about half the CPU and its working set dropped ~700 -> ~300 MB (commit size unchanged).
 
 Only processes that carry our DLL (native.has_dll) are touched: a window the user opened by hand is never minimized.
-A window the user restores is minimized again on the next pass. pick() is pure (tests/test_minimize.py).
+Each window is minimized once, when it first shows: a window the user restores to look at stays open. Station
+windows (the supervisor's skip()) are never minimized: they are laid out instead (provisioner/layout).
+pick() is pure (tests/test_minimize.py).
 """
 import ctypes
 import threading
@@ -38,9 +40,10 @@ class Win:
     iconic: bool
 
 
-def pick(windows, ours):
-    """The windows to minimize: top-level windows of our own processes that are not minimized yet."""
-    return [w for w in windows if w.pid in ours and not w.iconic]
+def pick(windows, ours, done=frozenset(), skip=frozenset()):
+    """The windows to minimize: top-level windows of our own processes, not minimized yet, not minimized by us
+    before (done = hwnds: the user restored it) and not of a skipped pid (stations)."""
+    return [w for w in windows if w.pid in ours and w.pid not in skip and w.hwnd not in done and not w.iconic]
 
 
 def top_windows(pids):
@@ -62,26 +65,29 @@ def our_pids():
     return {pid for pid in procs.game_pids() if native.has_dll(pid)}
 
 
-def minimize_ours():
+def minimize_ours(done=frozenset(), skip=frozenset()):
     """One pass. -> the windows it minimized (async: it does not wait for a hung window)."""
     ours = our_pids()
-    done = pick(top_windows(ours), ours)
-    for w in done:
+    out = pick(top_windows(ours), ours, done, skip)
+    for w in out:
         _u.ShowWindowAsync(w.hwnd, SW_MINIMIZE)
-    return done
+    return out
 
 
 class Minimizer:
-    """A daemon thread that runs minimize_ours() every `every` seconds until stop() / the stop event is set."""
+    """A daemon thread that runs minimize_ours() every `every` seconds until stop() / the stop event is set.
+    skip() -> pids never to minimize (read on every pass; must not touch a sqlite connection of another thread)."""
 
-    def __init__(self, logger, stop=None, every=EVERY):
-        self.log, self.every = logger, every
+    def __init__(self, logger, stop=None, every=EVERY, skip=None):
+        self.log, self.every, self.skip = logger, every, skip or frozenset
         self.stop_event = stop or threading.Event()
         self.thread = threading.Thread(target=self._loop, name='minimize', daemon=True)
         self.seen = set()
+        self.done = set()               # hwnds minimized once; never again
 
     def start(self):
-        self.log.info('游戏窗口自动最小化: 开（每 %.0f 秒检查一次，只管本工具启动的窗口）', self.every)
+        self.log.info('游戏窗口自动最小化: 开（每 %.0f 秒检查一次，只管本工具启动的小号窗口，每个窗口只最小化一次；'
+                      '工位窗口不最小化）', self.every)
         self.thread.start()
         return self
 
@@ -91,7 +97,8 @@ class Minimizer:
     def _loop(self):
         while not self.stop_event.is_set():
             try:
-                for w in minimize_ours():
+                for w in minimize_ours(self.done, set(self.skip())):
+                    self.done.add(w.hwnd)
                     if w.pid not in self.seen:
                         self.seen.add(w.pid)
                         self.log.info('最小化游戏窗口 pid=%d', w.pid)

@@ -11,10 +11,9 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from provisioner import config, log, native, procs
+from provisioner import config, layout, log, native, procs
 from provisioner.enter import EnterJob
 from provisioner.login import LaunchThrottle
-from provisioner.minimize import Minimizer, minimize_ours
 
 from . import db
 from .config import ROOT, load_settings
@@ -40,16 +39,23 @@ def main():
     # [stations] factory = '...' picks another database (testrun/ uses its own); default = the shared factory.toml
     data = config._read(cfg)
     factory_cfg = data.get('stations', {}).get('factory', 'factory.toml')
-    minimizer = Minimizer(logger).start() if data.get('batch', {}).get('minimize', False) else None
+    # station windows are never minimized ([batch] minimize is for the supervisor's alt windows): laid out instead
+    return _run(cfg, log_path, logger, enter_settings, stations, factory_cfg,
+                bool(data.get('batch', {}).get('arrange', True)))
+
+
+def arrange(conn, logger):
+    """Lay out the windows of every registered station that is online ([batch] arrange)."""
+    rows = layout.order(conn.execute('SELECT station_id, role, pid FROM stations').fetchall())
     try:
-        return _run(cfg, log_path, logger, enter_settings, stations, factory_cfg)
-    finally:
-        if minimizer:
-            minimizer.stop()
-            minimize_ours()             # the last window may have appeared after the thread's final pass
+        moved = layout.arrange([r['pid'] if native.has_dll(r['pid']) else None for r in rows])
+    except Exception as e:      # noqa: BLE001 - the logins are done; a window chore never fails the run
+        logger.warning('排列工位窗口出错: %s', e)
+        return
+    logger.info('排列工位窗口 %d 个（主屏幕，保持窗口大小；之后可以手动拖动）', len(moved))
 
 
-def _run(cfg, log_path, logger, enter_settings, stations, factory_cfg):
+def _run(cfg, log_path, logger, enter_settings, stations, factory_cfg, arrange_windows=True):
     settings = load_settings(ROOT / factory_cfg)
     conn = db.connect(settings.db_path)
     for sid in db.prune_stations(conn, [s.station_id for s in stations], time.time()):
@@ -105,6 +111,8 @@ def _run(cfg, log_path, logger, enter_settings, stations, factory_cfg):
                 db.heartbeat(conn, s.station_id, k['role'], k['char_id'], 'offline', time.time())
             results.append({'station': s.station_id, 'ok': r['ok'], 'name': r.get('role'), 'char_id': r.get('char_id'),
                             'pid': r.get('pid'), 'map_id': r.get('map_id'), 'error': r.get('error')})
+    if arrange_windows:
+        arrange(conn, logger)
     conn.close()
     out = ROOT / 'logs' / (log_path.stem.replace('stations_', 'stations_summary_') + '.json')
     out.write_text(json.dumps(results, ensure_ascii=False, indent=2), 'utf-8')
