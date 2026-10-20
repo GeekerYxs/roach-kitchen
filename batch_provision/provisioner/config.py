@@ -214,7 +214,11 @@ def load(path):
 
 
 def load_pipeline(path):
-    data = _read(path)
+    return pipeline_from(_read(path))
+
+
+def pipeline_from(data):
+    """load_pipeline on an already read config (factory/storeuse.py swaps [accounts] for [store_accounts])."""
     b, n = data['batch'], data.get('novice', {})
     common = _launch_common(data)
     common.pop('kill_on_failure')  # the pipeline always closes its own windows (window budget)

@@ -452,8 +452,10 @@ def main():
     logger.info('日志文件: %s', log_path)
     try:
         data = config._read(cfg)
-        us = load_unload(data, read_local(cfg))
-        login_s = config.load_pipeline(cfg)
+        local = read_local(cfg)
+        us = load_unload(data, local)
+        # this tool logs in store roles only: no alt range needed
+        login_s = config.pipeline_from({**data, 'accounts': local.get('store_accounts') or data.get('accounts')})
         fs = load_settings(ROOT / data.get('supervisor', {}).get('factory', 'factory.toml'))
     except Exception as e:
         logger.error('配置错误 (%s): %s', cfg, e)
