@@ -36,7 +36,7 @@ from provisioner import config, log, native, procs
 from provisioner.game import Game
 from provisioner.login import LaunchThrottle
 from provisioner.memory import ProcessMemory
-from provisioner.pipeline import AccountRun, OwnWindows
+from provisioner.pipeline import AccountRun, OwnWindows, slot_of
 from provisioner.procs import Client, game_pids
 from provisioner.game import NotSent
 from provisioner.world import item_count, read_bag, read_dialog, read_gold, read_level, read_team, read_world
@@ -485,9 +485,13 @@ class ShipRun(AccountRun):
         self.well, self.ferry = well, ferry
         self.key = (account.name, slot)
 
-    def before_enter(self, char_id, name):
-        if name != self.expected:
-            raise RuntimeError(f'槽{self.slot} 是 {name}，不是 {self.expected}；不处理（请检查这个账号的角色）')
+    def role_slot(self, roster):
+        slot = slot_of(roster, self.expected)
+        if slot is None:
+            raise RuntimeError(f'选角列表里没有 {self.expected}（有 {[n for _, _, n in roster]}）；不处理（请检查这个账号的角色）')
+        if slot != self.slot:
+            self.log.info('%s 在选角列表第 %d 槽（不是第 %d 槽），按名字进入', self.expected, slot, self.slot)
+        return slot
 
     def in_world(self, session, char_id, name, world, r):
         client = Client(session, char_id, name, world.map_id, world.x, world.y)

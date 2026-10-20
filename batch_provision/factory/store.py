@@ -30,7 +30,7 @@ from provisioner import config, log, native
 from provisioner.game import Game, NotSent
 from provisioner.login import LaunchThrottle
 from provisioner.memory import ProcessMemory
-from provisioner.pipeline import AccountRun, OwnWindows
+from provisioner.pipeline import AccountRun, OwnWindows, slot_of
 from provisioner.procs import game_pids
 from provisioner.world import item_count, read_bag, read_bag_capacity, read_dialog, read_world
 from provisioner.worker import AccountJob
@@ -249,9 +249,13 @@ class StoreRun(AccountRun):
         super().__init__(s, account, slot, throttle, own, account_lock, run_id)
         self.expected, self.store_s, self.db_path = expected, store_settings, db_path
 
-    def before_enter(self, char_id, name):
-        if name != self.expected:
-            raise RuntimeError(f'槽{self.slot} 是 {name}，不是 {self.expected}；不处理（请检查这个账号的角色）')
+    def role_slot(self, roster):
+        slot = slot_of(roster, self.expected)
+        if slot is None:
+            raise RuntimeError(f'选角列表里没有 {self.expected}（有 {[n for _, _, n in roster]}）；不处理（请检查这个账号的角色）')
+        if slot != self.slot:
+            self.log.info('%s 在选角列表第 %d 槽（不是第 %d 槽），按名字进入', self.expected, slot, self.slot)
+        return slot
 
     def in_village(self, session, char_id, name, r):
         self._step('村里腾背包')

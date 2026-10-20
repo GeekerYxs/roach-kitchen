@@ -99,13 +99,11 @@ class AccountRun:
             self._step('读取选角列表')
             _, roster = read_session(session, self.account.name, self.log)
             remember_roster(self.account.name, roster)
-            if self.slot > len(roster):
-                raise RuntimeError(f'槽{self.slot} 没有角色（这个号只有 {len(roster)} 个角色）')
-            char_id, level, name = roster[self.slot - 1]
+            slot = self.role_slot(roster)
+            char_id, level, name = roster[slot - 1]
             r.update(role=name, char_id=char_id)
-            self.before_enter(char_id, name)
-            self._step(f'进入槽{self.slot}: {name}')
-            enter_role(session, self.slot, self.s.enter_timeout, self.log)
+            self._step(f'进入槽{slot}: {name}')
+            enter_role(session, slot, self.s.enter_timeout, self.log)
             world = verify_in_world(session, char_id, name, self.log)
             self.in_world(session, char_id, name, world, r)
             r['ok'] = True
@@ -146,8 +144,11 @@ class AccountRun:
         self.step = name
         self.log.info('== %s ==', name)
 
-    def before_enter(self, char_id, name):
-        """Hook for subclasses (factory/store.py): check the role in this slot before entering it; raise to stop."""
+    def role_slot(self, roster):
+        """The 1-based roster slot to enter. factory/store.py overrides it to find its role by name."""
+        if self.slot > len(roster):
+            raise RuntimeError(f'槽{self.slot} 没有角色（这个号只有 {len(roster)} 个角色）')
+        return self.slot
 
     def in_village(self, session, char_id, name, r):
         """Hook for subclasses (factory/store.py): more work in 逍遥村西区 before the window closes; raise = failed."""
@@ -160,6 +161,13 @@ class AccountRun:
         tmp = path.with_suffix('.tmp')
         tmp.write_text(json.dumps({**r, 'history': history[-20:]}, ensure_ascii=False, indent=2), 'utf-8')
         tmp.replace(path)
+
+
+def slot_of(roster, name):
+    """1-based slot of the role called `name` in roster [(char_id, level, name)], or None. The server reorders the
+    selection list (seen 2026-10-21: box08 listed 仓2 仓3 仓4 仓1 once 仓1 was a level behind), so a slot number is
+    not a role's identity."""
+    return next((i for i, (_, _, n) in enumerate(roster, 1) if n == name), None)
 
 
 def slot_state_path(account, slot):
