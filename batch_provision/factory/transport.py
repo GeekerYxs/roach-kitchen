@@ -230,7 +230,7 @@ class TransportRun:
         for m in self.active():
             if not native.alive(m.c.session.pid):
                 self.drop(m, '游戏进程已退出')
-        db.renew(self.conn, self.sid(), [m.c.char_id for m in self.active()], self.s.transport_lease, time.time())
+        self.renew([m.c.char_id for m in self.active()])
 
     def active(self):
         return [m for m in self.members.values() if m.state != 'dropped']
@@ -238,7 +238,32 @@ class TransportRun:
     def drop(self, m, error):
         m.state, m.error = 'dropped', error
         m.log.error('移出本批: %s', error)
-        db.release(self.conn, self.sid(), [m.c.char_id], time.time())
+        self.release([m.c.char_id])
+
+    # The alt bookkeeping in factory.db (leases, pending actions, failures -> quarantine). factory/storeship.py
+    # overrides these: store roles are not alts.
+    def renew(self, cids):
+        db.renew(self.conn, self.sid(), cids, self.s.transport_lease, time.time())
+
+    def release(self, cids):
+        db.release(self.conn, self.sid(), cids, time.time())
+
+    def note_invite(self, m):
+        db.mark_pending(self.conn, m.c.char_id, ACTION_INVITE, time.time())
+
+    def note_invite_unsent(self, m, error):
+        db.clear_pending(self.conn, m.c.char_id, time.time(), error)
+
+    def note_joined(self, m):
+        if db.alt(self.conn, m.c.char_id)['pending_action'] == ACTION_INVITE:
+            db.complete_action(self.conn, m.c.char_id, time.time())
+
+    def failed(self, m, reason):
+        """One unconfirmed join. -> True when that was the last allowed try."""
+        return db.record_failure(self.conn, m.c.char_id, reason, time.time())
+
+    def gold_job(self, m):
+        return GoldJob(self.conn, self.disp, self.dmem, self.dgame, m.c, m.account, m.slot, self.s, m.log)
 
     def add_members(self, cids):
         for cid in cids:
@@ -299,7 +324,7 @@ class TransportRun:
             if gold is not None and gold >= self.s.gold_topup_below:
                 continue
             m.log.info('金币 %s 低于 %d，先补金币', gold, self.s.gold_topup_below)
-            r = GoldJob(self.conn, self.disp, self.dmem, self.dgame, m.c, m.account, m.slot, self.s, m.log).run()
+            r = self.gold_job(m).run()
             gold = read_gold(m.mem)
             if gold is None or gold < TELEPORT_FEE:
                 self.drop(m, f'补金币失败（{r.get("error")}），金币 {gold} 不够传送费 {TELEPORT_FEE}')
@@ -323,20 +348,19 @@ class TransportRun:
                 m.say(d)
                 if d.kind == 'joined':
                     m.state = 'ready'
-                    if db.alt(self.conn, m.c.char_id)['pending_action'] == ACTION_INVITE:
-                        db.complete_action(self.conn, m.c.char_id, time.time())
+                    self.note_joined(m)
                 elif d.kind == 'fail':
                     self.drop(m, d.reason)
                 elif d.kind == 'unconfirmed':
                     m.join = Join()
-                    if db.record_failure(self.conn, m.c.char_id, d.reason, time.time()):
+                    if self.failed(m, d.reason):
                         self.drop(m, f'连续失败 {db.MAX_RETRIES} 次，已隔离: {d.reason}')
                 elif d.kind == 'invite' and now - last_invite >= INVITE_GAP:
-                    db.mark_pending(self.conn, m.c.char_id, ACTION_INVITE, time.time())
+                    self.note_invite(m)
                     try:
                         self.dgame.team_invite(m.c.char_id, level, invite_byte, self.disp.name)
                     except NotSent as e:
-                        db.clear_pending(self.conn, m.c.char_id, time.time(), str(e))
+                        self.note_invite_unsent(m, str(e))
                         raise RuntimeError(f'调度员的邀请没发出: {e}') from e
                     m.join.invited_at = last_invite = time.monotonic()
                 elif d.kind == 'accept':

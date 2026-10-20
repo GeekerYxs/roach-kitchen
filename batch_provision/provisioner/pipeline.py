@@ -107,21 +107,7 @@ class AccountRun:
             self._step(f'进入槽{self.slot}: {name}')
             enter_role(session, self.slot, self.s.enter_timeout, self.log)
             world = verify_in_world(session, char_id, name, self.log)
-            if world.map_id == NOVICE_MAP:
-                self._step('新手出村')
-                client = Client(session, char_id, name, world.map_id, world.x, world.y)
-                novice = NoviceJob(client, NoviceSettings(self.s.escape_action, self.s.novice_timeout, self.s.tick),
-                                   self.log).run()
-                r.update(battles=novice['battles'], escapes=novice['escapes'], novice_seconds=novice['seconds'])
-                if not novice['ok']:
-                    raise RuntimeError(f"新手出村失败: {novice.get('error')}")
-                r.update(map_id=VILLAGE_MAP, x=novice['x'], y=novice['y'])
-            elif world.map_id == VILLAGE_MAP:
-                self.log.info('角色已经在逍遥村西区')
-                r.update(map_id=world.map_id, x=round(world.x), y=round(world.y))
-            else:
-                raise RuntimeError(f'角色在地图 {world.map_id}，既不是菜鸟训练营也不是逍遥村西区，不处理')
-            self.in_village(session, char_id, name, r)
+            self.in_world(session, char_id, name, world, r)
             r['ok'] = True
         except Exception as e:
             r.update(step=self.step, error=f'{type(e).__name__}: {e}')
@@ -137,6 +123,24 @@ class AccountRun:
         self.log.info('结束: %s 用时 %.1fs%s', '成功' if r['ok'] else '失败', r['seconds'],
                       f" 错误={r['error']}" if r['error'] else '')
         return r
+
+    def in_world(self, session, char_id, name, world, r):
+        """The role is in the world: novice -> village, then in_village(). factory/storeship.py overrides it."""
+        if world.map_id == NOVICE_MAP:
+            self._step('新手出村')
+            client = Client(session, char_id, name, world.map_id, world.x, world.y)
+            novice = NoviceJob(client, NoviceSettings(self.s.escape_action, self.s.novice_timeout, self.s.tick),
+                               self.log).run()
+            r.update(battles=novice['battles'], escapes=novice['escapes'], novice_seconds=novice['seconds'])
+            if not novice['ok']:
+                raise RuntimeError(f"新手出村失败: {novice.get('error')}")
+            r.update(map_id=VILLAGE_MAP, x=novice['x'], y=novice['y'])
+        elif world.map_id == VILLAGE_MAP:
+            self.log.info('角色已经在逍遥村西区')
+            r.update(map_id=world.map_id, x=round(world.x), y=round(world.y))
+        else:
+            raise RuntimeError(f'角色在地图 {world.map_id}，既不是菜鸟训练营也不是逍遥村西区，不处理')
+        self.in_village(session, char_id, name, r)
 
     def _step(self, name):
         self.step = name
