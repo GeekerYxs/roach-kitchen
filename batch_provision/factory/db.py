@@ -3,6 +3,7 @@
 - alts:     one row per alt character: last observation, derived phase, ledger facts, lease, retries
 - stations: resident station characters and their heartbeat
 - events:   human-readable log
+- stores:   料理 store characters (box07仓1 ..): one row per account + slot, filled by factory/store.py
 
 Workers never keep "what step am I in" in memory: they write observations and read queues here.
 A station claims alts with a lease; if the station stops renewing (crash, disconnect) the lease runs
@@ -63,6 +64,21 @@ CREATE TABLE IF NOT EXISTS events (
     station_id TEXT,
     kind       TEXT NOT NULL,
     message    TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS stores (
+    account    TEXT NOT NULL,
+    slot       INTEGER NOT NULL,
+    name       TEXT NOT NULL,
+    char_id    INTEGER,
+    status     TEXT NOT NULL,
+    free_slots INTEGER,
+    capacity   INTEGER,
+    map_id     INTEGER,
+    x          INTEGER,
+    y          INTEGER,
+    error      TEXT,
+    updated_at REAL NOT NULL,
+    PRIMARY KEY (account, slot)
 );
 """
 
@@ -362,3 +378,32 @@ def station(conn, station_id):
 def station_roles(conn):
     """{char_id: role} for derive_phase()."""
     return {r['char_id']: r['role'] for r in conn.execute('SELECT char_id, role FROM stations')}
+
+
+# ---- stores (料理仓库号, factory/store.py) -------------------------------------------------------------
+
+STORE_VILLAGE_READY = 'village_ready'     # 村里已腾格: sold the novice gear, ate 小肉林 / 小酒池, free slots checked
+STORE_FAILED = 'failed'
+
+
+def save_store(conn, account, slot, name, status, now, char_id=None, free_slots=None, capacity=None, map_id=None,
+               x=None, y=None, error=None):
+    """Insert or replace the row of this account + slot. A failed run keeps the char_id / bag numbers seen before."""
+    old = store(conn, account, slot)
+    keep = dict(old) if old and old['name'] == name else {}
+    fields = dict(char_id=char_id, free_slots=free_slots, capacity=capacity, map_id=map_id, x=x, y=y)
+    fields = {k: v if v is not None else keep.get(k) for k, v in fields.items()}
+    conn.execute('INSERT OR REPLACE INTO stores(account, slot, name, char_id, status, free_slots, capacity, map_id, '
+                 'x, y, error, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+                 (account, slot, name, fields['char_id'], status, fields['free_slots'], fields['capacity'],
+                  fields['map_id'], fields['x'], fields['y'], error, now))
+
+
+def store(conn, account, slot):
+    return conn.execute('SELECT * FROM stores WHERE account=? AND slot=?', (account, slot)).fetchone()
+
+
+def stores(conn, account=None):
+    if account is None:
+        return conn.execute('SELECT * FROM stores ORDER BY account, slot').fetchall()
+    return conn.execute('SELECT * FROM stores WHERE account=? ORDER BY slot', (account,)).fetchall()

@@ -103,6 +103,7 @@ class AccountRun:
                 raise RuntimeError(f'槽{self.slot} 没有角色（这个号只有 {len(roster)} 个角色）')
             char_id, level, name = roster[self.slot - 1]
             r.update(role=name, char_id=char_id)
+            self.before_enter(char_id, name)
             self._step(f'进入槽{self.slot}: {name}')
             enter_role(session, self.slot, self.s.enter_timeout, self.log)
             world = verify_in_world(session, char_id, name, self.log)
@@ -120,6 +121,7 @@ class AccountRun:
                 r.update(map_id=world.map_id, x=round(world.x), y=round(world.y))
             else:
                 raise RuntimeError(f'角色在地图 {world.map_id}，既不是菜鸟训练营也不是逍遥村西区，不处理')
+            self.in_village(session, char_id, name, r)
             r['ok'] = True
         except Exception as e:
             r.update(step=self.step, error=f'{type(e).__name__}: {e}')
@@ -139,6 +141,12 @@ class AccountRun:
     def _step(self, name):
         self.step = name
         self.log.info('== %s ==', name)
+
+    def before_enter(self, char_id, name):
+        """Hook for subclasses (factory/store.py): check the role in this slot before entering it; raise to stop."""
+
+    def in_village(self, session, char_id, name, r):
+        """Hook for subclasses (factory/store.py): more work in 逍遥村西区 before the window closes; raise = failed."""
 
     def _save(self, r):
         STATE_DIR.mkdir(parents=True, exist_ok=True)

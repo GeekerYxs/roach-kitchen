@@ -76,10 +76,20 @@ def _session_body(memory, context, account, size):
     return body
 
 
+def encode_role_name(role):
+    """Role name -> the GBK bytes of the 0x0002 request (the roster decodes names as GBK). Letters, digits and
+    Chinese characters, 1..15 bytes (a Chinese character is 2): e.g. 'box07仓1' = 8 bytes."""
+    try:
+        role_b = role.encode('gbk')
+    except UnicodeEncodeError:
+        raise ValueError(f'角色名 {role!r} 含 GBK 编码不了的字') from None
+    if not 1 <= len(role_b) <= 15 or not role.isalnum():
+        raise ValueError(f'角色名必须是 1..15 字节的字母/数字/汉字（一个汉字算 2 字节）: {role!r}')
+    return role_b
+
+
 def build_create(memory, context, account, role):
-    role_b = role.encode('ascii')
-    if not 1 <= len(role_b) <= 15 or not role_b.isalnum():
-        raise ValueError('角色名必须是 1..15 位 ASCII 字母/数字')
+    role_b = encode_role_name(role)
     body = _session_body(memory, context, account, CREATE_BODY_SIZE)
     # Default appearance values observed from the UI sample (male, blue hair).
     struct.pack_into('<II', body, 265, 3, 0)

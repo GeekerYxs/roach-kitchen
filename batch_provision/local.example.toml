@@ -17,6 +17,15 @@ count = 130                  # mw301 .. mw430
 digits = 2
 password = ""                # 小号密码（所有小号同一个）
 
+# 料理仓库号（一键建仓库号.cmd 用）：全新账号，每个建 4 个角色 <账号>仓1..仓4，专门存收货人的料理。
+# 不能和上面的小号号段重叠；这些账号共用一个密码。
+[store_accounts]
+prefix = "box"
+start = 7
+count = 10                   # box07 .. box16
+digits = 2
+password = ""                # 仓库账号密码
+
 # 工位大号的密码：账号 = "密码"（账号名要和下面 [[station]] 里的 account 一致）
 [passwords]
 xq05 = ""                    # 调度员

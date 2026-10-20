@@ -1,0 +1,40 @@
+# 一键建仓库号：用全新账号（local.toml 的 [store_accounts]，例如 box07..box16）建“料理仓库号”。
+# 每个账号建 4 个角色 <账号>仓1..仓4 → 新手出村 → 在逍遥村西区吃小肉林、小酒池，到宠物商人小美卖掉新手装备和萝卜糕/胡萝卜汁
+# → 背包至少空 free_min 格 → 记进 factory.db 的 stores 表（状态 village_ready = 村里已腾格）。
+# 可以随时关掉、重复双击：已就绪的角色跳过，没做完的从现状接着做。
+# 结果：logs/store_*.log、logs/store_summary_*.json
+
+[game]
+# exe（游戏路径）每台电脑不同，写在 local.toml
+server_index = 0
+
+[accounts]
+from = "store_accounts"      # 账号和密码取 local.toml 的 [store_accounts]，不是小号号段
+
+[batch]
+# 建角（同 一键建角）
+parallel = 4                 # 建角时同时最多开几个窗口
+keep_windows_open = false    # 建完关窗，后面还要逐个角色登录
+kill_on_failure = true       # 建角失败也关窗，免得同一账号再登录时互相挤下线
+roles_per_account = 4
+role_suffix = "仓"           # 角色名 = 账号 + 后缀 + 序号，例如 box07仓1。游戏不收中文名时改成 "ck"（box07ck1）。
+                             # 绝不能用 "r"：以 r+数字 结尾的名字会被总大脑当成小号
+create_interval = 1.5
+create_timeout = 15
+relogin_after_create = true
+# 出村 + 腾背包（同 一键流水线）
+max_windows = 4              # 同时最多开几个窗口（每个角色一个，做完就关）
+launch_interval = 2.0
+inject_delay_ms = 3000
+login_retries = 2
+enter_timeout = 60
+min_free_memory_mb = 3000
+
+[novice]
+escape_action = 8
+timeout = 300
+tick = 0.15
+
+[store]
+free_min = 35                # 做完背包至少要空这么多格（40 格背包：卖 7 格、吃 2 个后应空 35 格）
+timeout = 180                # 每个角色吃+走+卖最多用多少秒
