@@ -5,7 +5,8 @@ from unittest import mock
 
 from factory import supply
 from factory.supply import (HP_ITEM, MP_ITEM, NURSE, PET_ITEM, PETSHOP, SCROLL_ITEM, Gate, ShopClient, SupplySettings,
-                            due, junk, load_sellable, load_supply, needs, plan_buys, shortages)
+                            due, junk, load_supply, needs, plan_buys, shortages)
+from factory.items import Item
 from provisioner.world import BagSlot
 
 RULES = load_supply({}).rules['well']
@@ -61,26 +62,17 @@ class PlanBuys(unittest.TestCase):
 
 
 class Junk(unittest.TestCase):
-    SELLABLE = {500: 0, 501: 1, 502: 3}
+    """Leader rule from factory/items.py (tests/test_factory_items.py has the rule itself)."""
+    ITEMS = {500: Item(500, 0x1000, 0, 10, True, False, '杂物'), 501: Item(501, 0x103, 4, 1020, True, False, '橙武器'),
+             502: Item(502, 0x821, 3, 50, True, False, '蓝技能石'), SCROLL_ITEM: Item(SCROLL_ITEM, 0x1000, 1, 40, True, False, 'x')}
 
-    def test_sells_listed_items_only(self):
-        b = bag((500, 1), (9999, 1), (501, 3), (SCROLL_ITEM, 10))
-        self.assertEqual([s.slot for s in junk(b, self.SELLABLE, {SCROLL_ITEM}, False)], [0, 2])
-
-    def test_blue_only_when_allowed_and_kept_items_never(self):
-        b = bag((502, 1), (500, 1))
-        self.assertEqual([s.slot for s in junk(b, self.SELLABLE, set(), False)], [1])
-        self.assertEqual([s.slot for s in junk(b, self.SELLABLE, set(), True)], [0, 1])
-        self.assertEqual(junk(b, self.SELLABLE, {500, 502}, True), [])
+    def test_sells_by_rule_never_kept_items(self):
+        b = bag((500, 1), (9999, 1), (501, 1), (502, 1), (SCROLL_ITEM, 10))
+        self.assertEqual([s.slot for s in junk(b, self.ITEMS, {SCROLL_ITEM})], [0, 3])
 
     def test_limit(self):
-        self.assertEqual(len(junk(bag(*[(500, 1)] * 30), self.SELLABLE, set(), False)), 20)
-
-    def test_table_has_no_supplies_or_quest_items(self):
-        table = load_sellable()
-        self.assertGreater(len(table), 2000)
-        for item in (SCROLL_ITEM, HP_ITEM, MP_ITEM, PET_ITEM, 10571, 10572, 27002):
-            self.assertNotIn(item, table)
+        self.assertEqual(len(junk(bag(*[(500, 1)] * 30), self.ITEMS, set())), 30)          # whole bag
+        self.assertEqual(len(junk(bag(*[(500, 1)] * 30), self.ITEMS, set(), limit=20)), 20)
 
 
 class Config(unittest.TestCase):

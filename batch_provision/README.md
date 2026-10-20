@@ -39,7 +39,8 @@ DLL 命令 106 = 在游戏窗口线程调用任意游戏函数（RVA + 寄存器
 | `factory/gold.py` + `一键发金币.cmd` | 工序 3：调度员给村里金币不足 190 的小号 500 金币，逐笔串行，只看小号余额够不够（不对账） |
 | `stations.toml` + `一键登录工位.cmd`（`factory/stations.py`） | 常驻工位角色（调度员/古井/海岸/收货人）的账号、密码、槽位；登录后登记到 factory.db。同一角色已开在非本工具窗口时拒绝登录（防挤号） |
 | `factory/wipe.py` + `wipe.toml` + `一键清空小号.cmd` | 一键清空：按号段（如 mw301..mw380）删掉每个小号的全部角色，先关总大脑；数据库同步记已删，约 3.2 小时后总大脑自动重建。报告 `logs/wipe_report_*.md` + `wipe_roles_*.csv` |
-| `factory/supply.py` + `factory.toml` 的 `[supply]` | 队长补给：总大脑在每批开工前看一眼古井队长、海岸队长、调度员的背包，回城卷 / 萝卜糕 / 胡萝卜汁 / 甜点 低于下限就补到上限（海岸军医花袭人、村里宠物商人小美），背包快满先卖杂物（游戏自带自动卖店那几类，重要物品和补给不卖）；失败只记日志，10 分钟后再试，不耽误这一批。单独试：`python -m factory.supply <well|coast|dispatcher> <角色名>` |
+| `factory/supply.py` + `factory.toml` 的 `[supply]` | 队长补给：总大脑在每批开工前看一眼古井队长、海岸队长、调度员的背包，回城卷 / 萝卜糕 / 胡萝卜汁 / 甜点 低于下限就补到上限（海岸军医花袭人、村里宠物商人小美），背包快满先卖杂物（装备、所有技能石、配方、杂物；队长的蓝色及以上装备、补给、辅助品、任务品、绑定物品不卖，规则在 `factory/items.py`）；失败只记日志，10 分钟后再试，不耽误这一批。单独试：`python -m factory.supply <well|coast|dispatcher> <角色名>` |
+| `factory/sell.py` | 小号卖杂物：交完任务、还拿着料理的小号先走到花袭人，脱下身上的装备（专打屁屁扳手），把能卖的全卖掉再回收货点，卖得的钱随后被收货人收走；总大脑自动做（阶段 sell_junk），只做一次。单独试：`python -m factory.sell [factory.toml]`。看背包会怎么卖（只读）：`python -m factory.items [角色名...]` |
 | `factory/treasury.py` + `factory.toml` 的 `[treasury]` | 财政主管（收货人兼任）：调度员、古井队长、海岸队长金币低于下限，就在补给跑腿时去收货人旁边领到目标数（收货人邀请、收货人给钱，和收料理互斥、一次一笔）；收货人保底 50 万不动 |
 | `provisioner/cleanlogs.py` + `一键清空日志.cmd` | 清空本机 `logs/` 和 `runtime/`（可保留最近 N 小时；有游戏窗口在运行时不清 runtime；被占用的文件跳过），不碰 `state/` |
 | `factory/runner.py`、`factory/config.py`、`factory.toml` | 工序共用：找窗口、并发、汇总；配置 |

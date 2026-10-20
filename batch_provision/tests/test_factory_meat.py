@@ -4,7 +4,7 @@ from dataclasses import replace
 
 from factory.meat import ACTION, CONFIRM_WAIT, Memo, decide
 from factory.phase import MEAT_ITEM, POTATO_ITEM, VILLAGE_MAP
-from provisioner.game import use_item_body
+from provisioner.game import move_item_body, use_item_body
 from provisioner.world import BagSlot, WorldState
 
 IDLE = WorldState(char_id=1, map_id=VILLAGE_MAP, x=1266.0, y=1174.0, target_x=0.0, target_y=0.0, flags=0,
@@ -50,6 +50,13 @@ class Meat(unittest.TestCase):
 
 
 class Body(unittest.TestCase):
+    def test_move_item_body_matches_the_captured_unequip(self):
+        # 2026-10-20 capture: the user took the 扳手 (weapon slot 2) off mvp01r1 into bag slot 14
+        self.assertEqual(move_item_body(True, False, 2, 14).hex(), '0000000001000000020effff')
+        self.assertEqual(move_item_body(False, True, 2, 2).hex(), '0000000000010000020 2ffff'.replace(' ', ''))
+        with self.assertRaises(ValueError):
+            move_item_body(True, False, 2, 256)
+
     def test_use_item_body_matches_captured_shape(self):
         body = use_item_body(7)
         self.assertEqual(len(body), 19)

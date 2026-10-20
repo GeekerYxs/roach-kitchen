@@ -15,7 +15,7 @@ from dataclasses import dataclass
 
 from .phase import (ACCEPT_QUEST, DELETE, DELETED, EAT_MEAT, FARMING, HANDIN, LEAVE_TEAM, LEVELING, NOVICE,
                     QUARANTINED, QUEUE_COAST, QUEUE_RECEIVER, QUEUE_TRANSPORT, QUEUE_WELL, RECORD_SHOE, RETURN_HOME,
-                    TARGET_LEVEL, TRANSPORTING, UNKNOWN, WAIT_DISBAND)
+                    SELL_JUNK, TARGET_LEVEL, TRANSPORTING, UNKNOWN, WAIT_DISBAND)
 
 # ---- where an open alt is in the line ----------------------------------------------------------------
 
@@ -23,7 +23,7 @@ UPSTREAM = 'upstream'       # below 11, waiting for the well team (novice, meat,
 WELL = 'well'               # in the well team
 COAST_WAIT = 'coast_wait'   # 11+, on its way to / waiting for a coast team (transport, quest accept, queue)
 FARMING_SIDE = 'farming'    # in a coast team
-DOWNSTREAM = 'downstream'   # hand-in, receiver, delete
+DOWNSTREAM = 'downstream'   # hand-in, junk run, receiver, delete
 FINISHED = 'finished'       # deleted or quarantined: its window should close
 OTHER = 'other'             # leave team / lost / unknown: still holds a window
 
@@ -33,7 +33,7 @@ _SIDE = {
     QUEUE_TRANSPORT: COAST_WAIT, TRANSPORTING: COAST_WAIT, WAIT_DISBAND: COAST_WAIT, ACCEPT_QUEST: COAST_WAIT,
     QUEUE_COAST: COAST_WAIT,
     FARMING: FARMING_SIDE,
-    HANDIN: DOWNSTREAM, QUEUE_RECEIVER: DOWNSTREAM, DELETE: DOWNSTREAM,
+    HANDIN: DOWNSTREAM, SELL_JUNK: DOWNSTREAM, QUEUE_RECEIVER: DOWNSTREAM, DELETE: DOWNSTREAM,
     DELETED: FINISHED, QUARANTINED: FINISHED,
 }
 
@@ -100,7 +100,7 @@ def decide_pull(counts, open_windows, policy, have_coast, have_fresh):
 # ---- 2: which role ------------------------------------------------------------------------------------
 
 # Last-known phases of roles worth resuming, most useful first (a role near the end frees its window soonest).
-COAST_ORDER = (DELETE, QUEUE_RECEIVER, HANDIN, FARMING, QUEUE_COAST, ACCEPT_QUEST, WAIT_DISBAND, TRANSPORTING,
+COAST_ORDER = (DELETE, QUEUE_RECEIVER, SELL_JUNK, HANDIN, FARMING, QUEUE_COAST, ACCEPT_QUEST, WAIT_DISBAND, TRANSPORTING,
                QUEUE_TRANSPORT)
 FRESH_ORDER = (LEVELING, QUEUE_WELL, RECORD_SHOE, EAT_MEAT, NOVICE)
 

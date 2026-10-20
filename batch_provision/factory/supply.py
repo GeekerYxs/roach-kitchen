@@ -21,12 +21,11 @@ Who buys where (user-agreed 2026-10-20: leaders fetch cross-map supplies themsel
       甜点 low or bag nearly full -> 小美 right there (sell, buy); 回城卷/红/蓝 low -> PP鸡 to 81, 花袭人, 回城卷 home
   coast stations (coast leaders), on map 81 before a batch:
       回城卷/红/蓝 low or bag nearly full -> 花袭人 at the landing; 甜点 low -> 回城卷 home, 小美, PP鸡 back
-Low = below [supply.<role>] low; then buy up to target in one go, so trips stay rare. Junk = sellable.csv (the
-categories the game's own 自动卖店 offers, 重要物品 excluded), blue quality only with sell_blue; anything we buy is
-never sold. A failed supply run is logged and retried after retry_after; the batch itself always goes on.
+Low = below [supply.<role>] low; then buy up to target in one go, so trips stay rare. Junk = factory/items.py with the
+leader rule (equipment except blue-or-better, every 技能石, 配方, 杂物; user 2026-10-20); anything we buy is never
+sold. A failed supply run is logged and retried after retry_after; the batch itself always goes on.
 Decisions are pure (tests/test_factory_supply.py).
 """
-import csv
 import math
 import struct
 import sys
@@ -39,7 +38,7 @@ from provisioner.game import NotSent
 from provisioner.memory import ProcessMemory
 from provisioner.world import read_bag, read_bag_capacity, read_dialog, read_gold, read_world
 
-from . import db
+from . import db, items
 from .coast import LANDING, CoastRun
 from .config import ROOT, load_settings
 from .phase import COAST_MAP, SCROLL_ITEM, VILLAGE_MAP
@@ -56,7 +55,8 @@ CLOSE_WAIT = 2.0                # the NPC dialog must be gone this long after �
 SHOP_RANGE = 120                # stand this close to the shop spot before talking (box01 talked from ~0)
 OPEN_SETTLE = 0.6               # after the open, before the 0x55 (box01: the UI took < 0.5 s)
 VERIFY_WAIT = 3.0               # the bag must show the change this long after the 0x55
-SELL_LIMIT = 20                 # junk sold per visit (the game's 自动卖店 also stops at 20)
+SELL_LIMIT = 100                # junk sold per visit = the whole bag (user 2026-10-20: sell everything sellable; the
+                                # game's own 自动卖店 stops at 20, we do not)
 LANDING_SCROLL_WAIT = 8.0
 
 
@@ -81,7 +81,6 @@ class SupplySettings:
     enabled: bool = True
     keep_free: int = 3              # never buy into the last free bag slots
     sell_below_free: int = 8        # fewer free slots than this -> sell junk at 花袭人
-    sell_blue: bool = False         # also sell blue 技能石 / 配方 (the game offers them; off to be safe)
     retry_after: float = 600.0      # a failed supply run is tried again this long after
     timeout: float = 300.0          # one supply run (walking + trips + shopping) at most this long
     rules: dict = field(default_factory=dict)   # role -> {item_id: (low, target)}
@@ -97,12 +96,12 @@ DEFAULT_RULES = {
 def load_supply(data):
     """[supply] + [supply.<role>] (item = [low, target], items: scroll hp mp pet) -> SupplySettings."""
     s = data.get('supply', {})
-    rules = {role: dict(items) for role, items in DEFAULT_RULES.items()}
-    for role, items in s.items():
-        if not isinstance(items, dict):
+    rules = {role: dict(wanted) for role, wanted in DEFAULT_RULES.items()}
+    for role, wanted in s.items():
+        if not isinstance(wanted, dict):
             continue
         rules[role] = {}
-        for key, pair in items.items():
+        for key, pair in wanted.items():
             if key not in ITEM_KEYS:
                 raise ValueError(f'[supply.{role}] 不认识 {key}（可用 {", ".join(ITEM_KEYS)}）')
             low, target = (int(v) for v in pair)
@@ -110,7 +109,7 @@ def load_supply(data):
                 raise ValueError(f'[supply.{role}] {key} 应是 [下限, 上限] 且下限 <= 上限，实际 {pair}')
             rules[role][ITEM_KEYS[key]] = (low, target)
     return SupplySettings(enabled=bool(s.get('enabled', True)), keep_free=int(s.get('keep_free', 3)),
-                          sell_below_free=int(s.get('sell_below_free', 8)), sell_blue=bool(s.get('sell_blue', False)),
+                          sell_below_free=int(s.get('sell_below_free', 8)),
                           retry_after=float(s.get('retry_after_minutes', 10)) * 60,
                           timeout=float(s.get('timeout', 300)), rules=rules)
 
@@ -119,12 +118,6 @@ def load_supply_file(path):
     import tomllib
     path = Path(path)
     return load_supply(tomllib.loads(path.read_text('utf-8')) if path.is_file() else {})
-
-
-def load_sellable(path=Path(__file__).with_name('data') / 'sellable.csv'):
-    """item_id -> quality, for every item the game's 自动卖店 could sell."""
-    with open(path, encoding='utf-8', newline='') as f:
-        return {int(r['item_id']): int(r['quality']) for r in csv.DictReader(f)}
 
 
 # ---- pure decisions ---------------------------------------------------------------------------------------
@@ -164,17 +157,9 @@ def plan_buys(bag, capacity, wanted, shop, gold, keep_free):
     return plan
 
 
-def junk(bag, sellable, keep, sell_blue, limit=SELL_LIMIT):
-    """Bag slots to sell: sellable items (blue only with sell_blue), never one we keep."""
-    out = []
-    for s in bag:
-        quality = sellable.get(s.item_id)
-        if quality is None or s.item_id in keep or (quality >= 3 and not sell_blue):
-            continue
-        out.append(s)
-        if len(out) >= limit:
-            break
-    return out
+def junk(bag, table, keep, limit=SELL_LIMIT):
+    """Bag slots a leader sells (factory/items.py leader rule), never one we keep."""
+    return items.sell_slots(bag, table, keep, leader=True, limit=limit)
 
 
 def needs(bag, capacity, rules, s):
@@ -306,7 +291,7 @@ class SupplyRun(CoastRun):
     def _shop(self, shop, wanted, sell):
         if sell:
             bag, _ = self.bag()
-            slots = junk(bag, self.sellable, set(self.rules) | set(ITEM_NAMES), self.sup.sell_blue)
+            slots = junk(bag, self.sellable, set(self.rules) | set(ITEM_NAMES))
             if slots:
                 self.log.info('背包快满，在%s卖 %d 格杂物', shop.name, len(slots))
                 self.done['sold'] += self.shop.sell(shop, slots)
@@ -485,7 +470,7 @@ def main():
     ts = load_treasury_file(cfg)
     treasury = Treasury(ts, receiver) if ts.enabled else None
     with ProcessMemory(client.session.pid, client.session.base) as mem:
-        run = SupplyRun(conn, station, client, mem, settings, logger, role, supply, load_sellable(), treasury)
+        run = SupplyRun(conn, station, client, mem, settings, logger, role, supply, items.table(), treasury)
         try:
             village = role in ('well', 'dispatcher')
             result = run.village_run() if village else run.coast_run()

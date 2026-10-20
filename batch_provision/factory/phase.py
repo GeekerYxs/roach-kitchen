@@ -39,6 +39,7 @@ ACCEPT_QUEST = 'accept_quest'
 QUEUE_COAST = 'queue_coast'
 FARMING = 'farming'
 HANDIN = 'handin'
+SELL_JUNK = 'sell_junk'         # after the hand-in: take the gear off, sell it and the loot at 花袭人 (user, 2026-10-20)
 QUEUE_RECEIVER = 'queue_receiver'
 DELETE = 'delete'
 DELETED = 'deleted'             # server accepted the delete (stage 10); set by db.mark_deleted, never derived
@@ -62,6 +63,7 @@ class AltObs:
     dishes: int = 0
     scrolls: int = 0
     potatoes: int = 0
+    junk: int = 0               # bag slots + worn items the shop would buy (factory/items.py alt rule)
 
     @property
     def materials_done(self):
@@ -75,6 +77,7 @@ class Ledger:
     shoe_recorded_at: float | None = None
     shoe_used_at: float | None = None
     potato_at: float | None = None
+    sold_at: float | None = None    # the junk run finished once (items a shop refuses must not loop it)
     quarantined: bool = False
 
 
@@ -106,6 +109,8 @@ def derive_phase(obs, ledger, stations):
         if obs.map_id == COAST_MAP:
             if obs.team_leader:
                 return Plan(LEAVE_TEAM, '有料理但还在队里')
+            if obs.junk and ledger.sold_at is None:
+                return Plan(SELL_JUNK, f'有料理 {obs.dishes} 个，先去花袭人卖掉 {obs.junk} 样杂物和装备')
             return Plan(QUEUE_RECEIVER, f'有料理 {obs.dishes} 个，排队交给收货人')
         return _to_coast(obs, leader_role, gold, '有料理但不在海岸')
     if obs.quest == QUEST_DONE:

@@ -131,6 +131,13 @@ class Finish(unittest.TestCase):
     def test_dish_goes_to_receiver(self):
         self.assertEqual(phase(replace(FARMING, quest=P.QUEST_DONE, dishes=1)).phase, P.QUEUE_RECEIVER)
 
+    def test_junk_is_sold_once_before_the_receiver(self):
+        handed_in = replace(FARMING, quest=P.QUEST_DONE, dishes=1, junk=7)
+        self.assertEqual(phase(handed_in).phase, P.SELL_JUNK)
+        self.assertEqual(phase(handed_in, replace(READY, sold_at=20.0)).phase, P.QUEUE_RECEIVER)   # refused leftovers
+        self.assertEqual(phase(replace(handed_in, junk=0)).phase, P.QUEUE_RECEIVER)
+        self.assertEqual(phase(replace(handed_in, team_leader=COAST_LEADER)).phase, P.LEAVE_TEAM)
+
     def test_dish_in_team_leaves_first(self):
         obs = replace(FARMING, quest=P.QUEST_DONE, dishes=1, team_leader=COAST_LEADER)
         self.assertEqual(phase(obs).phase, P.LEAVE_TEAM)

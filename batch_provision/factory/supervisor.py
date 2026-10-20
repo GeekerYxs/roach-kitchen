@@ -13,7 +13,8 @@ One process, several threads:
       dispatcher     -> TransportRun (stage 5, gold top-up included) once team_ready() on queue_transport
                         (`transport_max_wait`); a dispatcher left on map 81 goes home first
   - chores: observe every open alt, save its phase, and run the per-alt jobs: novice exit, eat 小肉林 (stage 1),
-    record 飞鞋 (stage 2), go home when lost, accept quest 78 (stage 6), hand in (stage 8), leave a team nobody
+    record 飞鞋 (stage 2), go home when lost, accept quest 78 (stage 6), hand in (stage 8), sell junk at 花袭人
+    (factory/sell.py), leave a team nobody
     leads for us
   - window manager (main thread): reap dead / disconnected windows, close finished / quarantined ones and ones whose
     phase has no worker yet, and pull the next role by name when a queue is short (decide_pull + pick_roles)
@@ -50,7 +51,8 @@ from .rebuild import RebuildJob
 from .relogin import (KILL_SETTLE, RELOGIN_STATUS, Watch, check_entered, decide_watch, may_kill,
                       other_login_running, probe, relogin_delay, relogin_due)
 from .stations import foreign_windows
-from .supply import Gate as SupplyGate, load_sellable, load_supply_file, run_supply
+from .items import table as item_table
+from .supply import Gate as SupplyGate, load_supply_file, run_supply
 from .treasury import Treasury, load_treasury_file
 from .handin import HandinJob
 from .home import HomeJob
@@ -58,7 +60,7 @@ from .meat import MeatJob
 from .observe import observe
 from .phase import (ACCEPT_QUEST, COAST, COAST_MAP, DELETE, DISPATCHER, EAT_MEAT, HANDIN, LEAVE_TEAM, NOVICE,
                     QUEUE_COAST, QUEUE_RECEIVER, QUEUE_TRANSPORT, QUEUE_WELL, RECEIVER, RECORD_SHOE, RETURN_HOME,
-                    TRANSPORTING, UNKNOWN, VILLAGE_MAP, WAIT_DISBAND, derive_phase)
+                    SELL_JUNK, TRANSPORTING, UNKNOWN, VILLAGE_MAP, WAIT_DISBAND, derive_phase)
 from .phase import WELL as WELL_ROLE
 from .quest import QuestJob
 from .receiver import PostRun, ReceiveJob
@@ -67,6 +69,7 @@ from .shoe import ShoeJob
 from .transport import TransportRun
 from .wellteam import WellTeamRun
 from .welltrain import WellTrainRun
+from .sell import SellJob
 from .schedule import (COAST_WAIT, DOWNSTREAM, FARMING_SIDE, OTHER, PULL_COAST, PULL_FRESH, UPSTREAM, WELL, Known,
                        PullPolicy, close_reason, count_sides, decide_pull, has_candidate, pick_delete, pick_rebuild, pick_roles, retry_quarantined,
                        team_ready)
@@ -308,7 +311,7 @@ class Supervisor:
         self.coast_gate = TeamGate(s.coast_max_wait)
         self.supply = getattr(s, 'supply', None)
         self.supply_gate = SupplyGate(self.supply.retry_after) if self.supply else None
-        self.sellable = load_sellable() if self.supply else {}
+        self.sellable = item_table() if self.supply else {}
         ts = getattr(s, 'treasury', None)
         self.treasury = Treasury(ts, self.receiver_client) if ts and ts.enabled else None
         self.well_gate = TeamGate(s.well_max_wait)
@@ -723,6 +726,8 @@ class Supervisor:
             job, label = QuestJob(c, aw.account, aw.slot, fs, lg), '接任务'
         elif plan.phase == HANDIN:
             job, label = HandinJob(c, aw.account, aw.slot, fs, lg), '交任务'
+        elif plan.phase == SELL_JUNK:
+            job, label = SellJob(c, aw.account, aw.slot, fs, lg), '卖杂物'
         elif plan.phase in ORPHAN_TEAM:
             job, label = LeaveJob(c, lg), '离队'
         else:

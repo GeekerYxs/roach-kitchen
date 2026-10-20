@@ -33,6 +33,10 @@ SESSION_LEVEL = 0xF00
 # Bag (Gemini/Codex item_consumption.py, used live 2026-10-09): session+0x16B0 table, entry count u32 at
 # +0x87F8, entries at +0x78 stride 0x88: int32 valid(1), item_id, kind, pad, quantity.
 BAG_TABLE, BAG_COUNT, BAG_FIRST, BAG_STRIDE, BAG_MAX = 0x16B0, 0x87F8, 0x78, 0x88, 100
+# Equipment (found 2026-10-20, client 2.99): right after the bag, session+0x16B0+0x8808, 13 rows of the bag's layout
+# (stride 0x88, valid 1 / -1, item_id, kind, pad, quantity), row = EEquipSlot (luas/game_define.lua: 0 帽子 1 口罩
+# 2 武器 3 鞋 ... 12 圣物). Checked on mvp01r1 (row 2 = 118 专打屁屁扳手), 伏地魔1 and cap07 (rows match their gear).
+EQUIP_TABLE, EQUIP_ROWS, EQUIP_WEAPON = 0x8808, 13, 2
 # 飞鞋 panel = [ui+0xD84]; its button handler (RVA 0x1c7d50) shows the recorded point from +0x418 map,
 # +0x41C x, +0x420 y. Verified live 2026-10-12: the fields change to the server's position after a 0x82
 # record (also when sent without the UI), on mw01..08.
@@ -253,6 +257,26 @@ def read_bag(mem):
         if valid == 1 and item_id > 0 and quantity > 0:
             slots.append(BagSlot(i, item_id, quantity))
     return tuple(slots)
+
+
+def read_equipment(mem):
+    """Worn items as BagSlots (slot = equipment slot), or None while the session does not exist."""
+    session = mem.u32(mem.base + SESSION_MGR_RVA)
+    if not session:
+        return None
+    raw = mem.read(session + BAG_TABLE + EQUIP_TABLE, EQUIP_ROWS * BAG_STRIDE)
+    out = []
+    for i in range(EQUIP_ROWS):
+        valid, item_id, _, _, quantity = struct.unpack_from('<5i', raw, i * BAG_STRIDE)
+        if valid == 1 and item_id > 0:
+            out.append(BagSlot(i, item_id, max(quantity, 1)))
+    return tuple(out)
+
+
+def free_bag_slot(bag, capacity):
+    """Lowest empty bag slot, or None when the bag is full."""
+    used = {s.slot for s in bag}
+    return next((i for i in range(capacity) if i not in used), None)
 
 
 def read_bag_capacity(mem):

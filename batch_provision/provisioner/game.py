@@ -38,6 +38,13 @@ MAX_BODY = 512
 # <IIiI>(0,0,-1,0) + (0, bag slot, 1). The server looks the item up by slot and uses exactly 1.
 OP_USE_ITEM = 0x0049
 
+# 0x0047 move item, 12 bytes <IBBHBBH>(0, from equipment, to equipment, 0, from slot, to slot, 0xFFFF): sender call
+# at RVA 0x1ce826 (the two flags are its arguments == 0). Captured 2026-10-20 (client 2.99) when the user took the
+# 专打屁屁扳手 off mvp01r1 by hand: 00000000 01 00 0000 02 0e ffff = equipment slot 2 (weapon) -> bag slot 14, the first
+# free one. Replayed by us the same day: bag 2 -> weapon (0, 1, .., 2, 2) and weapon -> bag 2 (1, 0, .., 2, 2) each
+# showed in the equipment table / bag within 0.2 s; (0, 0) swaps two bag slots. use item (0x49) does NOT equip.
+OP_MOVE_ITEM = 0x0047
+
 # 飞鞋 (built-in, character bag): the panel's button handler RVA 0x1c7d50 sends 0x82 = record the current
 # position, 0x83 = return to it, each with 4 bytes taken from an UNINITIALISED stack slot, so the server
 # ignores the body. The server decides position and cooldown. Verified live 2026-10-12 with 4 zero bytes:
@@ -123,6 +130,12 @@ def use_item_body(slot):
     return struct.pack('<IIiI', 0, 0, -1, 0) + bytes((0, slot, 1))
 
 
+def move_item_body(from_equip, to_equip, src, dst):
+    if not (0 <= src < 256 and 0 <= dst < 256):
+        raise ValueError(f'格号 {src} -> {dst} 超出范围')
+    return struct.pack('<IBBHBBH', 0, int(from_equip), int(to_equip), 0, src, dst, 0xFFFF)
+
+
 _k = ctypes.WinDLL('kernel32', use_last_error=True)
 _k.OpenProcess.argtypes = [W.DWORD, W.BOOL, W.DWORD]
 _k.OpenProcess.restype = W.HANDLE
@@ -195,6 +208,10 @@ class Game:
 
     def use_item(self, slot):
         return self.send(OP_USE_ITEM, use_item_body(slot))
+
+    def unequip(self, equip_slot, bag_slot):
+        """Take the item in this equipment slot (world.EQUIP_WEAPON ...) off into this (free) bag slot."""
+        return self.send(OP_MOVE_ITEM, move_item_body(True, False, equip_slot, bag_slot))
 
     def shoe_record(self):
         return self.send(OP_SHOE_RECORD, SHOE_BODY)

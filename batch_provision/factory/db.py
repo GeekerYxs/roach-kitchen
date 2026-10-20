@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS alts (
     shoe_recorded_at REAL,
     shoe_used_at     REAL,
     potato_at        REAL,
+    sold_at          REAL,
     pending_action   TEXT,
     pending_at       REAL,
     station_id       TEXT,
@@ -65,13 +66,13 @@ CREATE TABLE IF NOT EXISTS events (
 );
 """
 
-LEDGER_FIELDS = ('meat_at', 'shoe_recorded_at', 'shoe_used_at', 'potato_at')
+LEDGER_FIELDS = ('meat_at', 'shoe_recorded_at', 'shoe_used_at', 'potato_at', 'sold_at')
 
 # Columns added after a table first shipped: (table, column, type). connect() adds them to older files.
 ADDED_COLUMNS = (
     ('alts', 'pending_action', 'TEXT'), ('alts', 'pending_at', 'REAL'),
     ('stations', 'account', 'TEXT'), ('stations', 'name', 'TEXT'), ('stations', 'pid', 'INTEGER'),
-    ('alts', 'deleted_at', 'REAL'), ('alts', 'release_ms', 'INTEGER'),
+    ('alts', 'deleted_at', 'REAL'), ('alts', 'release_ms', 'INTEGER'), ('alts', 'sold_at', 'REAL'),
 )
 
 
