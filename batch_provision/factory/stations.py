@@ -6,6 +6,7 @@ A game window of the same character WITHOUT our DLL -> refuse (logging in again 
 closes it first). Otherwise log in, enter the configured slot, verify the char id, register.
 """
 import json
+import os
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -17,7 +18,7 @@ from provisioner.login import LaunchThrottle
 
 from . import db
 from .config import ROOT, load_settings
-from .relogin import RELOGIN_STATUS, other_login_running
+from .relogin import other_login_running, relogin_mark
 
 
 def foreign_windows(name):
@@ -95,7 +96,7 @@ def _run(cfg, log_path, logger, enter_settings, stations, factory_cfg, arrange_w
         for s in to_login:              # a running supervisor sees this and does not log the same station in
             if known[s.station_id]:
                 k = known[s.station_id]
-                db.heartbeat(conn, s.station_id, k['role'], k['char_id'], RELOGIN_STATUS, time.time())
+                db.heartbeat(conn, s.station_id, k['role'], k['char_id'], relogin_mark(os.getpid()), time.time())
         jobs = [(s, EnterJob(enter_settings, s.account, throttle)) for s in to_login]
         with ThreadPoolExecutor(max_workers=len(jobs), thread_name_prefix='station') as pool:
             summaries = list(pool.map(lambda sj: sj[1].run(), jobs))

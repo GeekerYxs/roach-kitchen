@@ -1,5 +1,6 @@
 """Stage A: station lost -> close -> relogin decisions (factory/relogin.py) and the supervisor glue around them."""
 import logging
+import os
 import tempfile
 import time
 import unittest
@@ -9,7 +10,7 @@ from unittest import mock
 
 from factory import db, relogin
 from factory.relogin import (FOREIGN, GONE, LOST, OK, Watch, check_entered, decide_watch, health, may_kill,
-                             other_login_running, relogin_delay, relogin_due)
+                             other_login_running, relogin_delay, relogin_due, relogin_mark)
 from factory.schedule import PullPolicy
 from factory.supervisor import Relogin, Supervisor
 from provisioner import native
@@ -71,6 +72,25 @@ class ReloginDecisionTest(unittest.TestCase):
         self.assertTrue(other_login_running('relogin', now - 10, now))
         self.assertFalse(other_login_running('relogin', now - relogin.RELOGIN_FRESH, now))   # stale mark
         self.assertFalse(other_login_running('online', now, now))
+        self.assertFalse(other_login_running(None, now, now))
+
+    def test_mark_of_a_live_process_blocks(self):
+        now = 10_000.0
+        self.assertEqual(relogin_mark(4321), 'relogin:4321')
+        with mock.patch('factory.relogin.native.alive', return_value=True) as alive:
+            self.assertTrue(other_login_running(relogin_mark(4321), now - 10, now))
+            alive.assert_called_once_with(4321)
+            self.assertFalse(other_login_running(relogin_mark(4321), now - relogin.RELOGIN_FRESH, now))
+
+    def test_mark_of_a_killed_process_is_ignored_at_once(self):
+        """2026-10-20 production: every process killed mid-login, 一键登录工位.cmd then refused all 11 stations."""
+        now = 10_000.0
+        with mock.patch('factory.relogin.native.alive', return_value=False):
+            self.assertFalse(other_login_running(relogin_mark(4321), now - 1, now))
+
+    def test_own_process_counts_as_alive(self):
+        now = 10_000.0
+        self.assertTrue(other_login_running(relogin_mark(os.getpid()), now - 1, now))
 
     def test_check_entered(self):
         ok = {'ok': True, 'char_id': ME, 'role': '伏地魔1'}
@@ -219,6 +239,38 @@ class SupervisorReloginTest(unittest.TestCase):
             finally:
                 close(sup)
 
+    def test_mark_left_by_a_killed_login_does_not_block(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sup = make_sup(tmp, [WELL1])
+            try:
+                db.heartbeat(sup.conn, 'well1', 'well', ME, relogin_mark(99999), time.time())
+                st = db.station(sup.conn, 'well1')
+                with mock.patch('factory.supervisor.probe', return_value=(GONE, None)), \
+                        mock.patch('factory.supervisor.foreign_windows', return_value=[]), \
+                        mock.patch('factory.relogin.native.alive', return_value=False), \
+                        mock.patch('factory.supervisor.EnterJob') as job:
+                    job.return_value.run.return_value = OK_SUMMARY
+                    self.assertTrue(sup.try_relogin(sup.conn, st, logging.getLogger('test')))
+                    job.assert_called_once()
+                self.assertEqual(db.station(sup.conn, 'well1')['status'], 'online')
+            finally:
+                close(sup)
+
+    def test_relogin_marks_the_station_with_its_own_pid(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sup = make_sup(tmp, [WELL1])
+            try:
+                st = db.station(sup.conn, 'well1')
+                seen = []
+                with mock.patch('factory.supervisor.probe', return_value=(GONE, None)), \
+                        mock.patch('factory.supervisor.foreign_windows', return_value=[]), \
+                        mock.patch('factory.supervisor.EnterJob') as job:
+                    job.return_value.run.side_effect = lambda: (
+                        seen.append(db.station(sup.conn, 'well1')['status']) or OK_SUMMARY)
+                    sup.try_relogin(sup.conn, st, logging.getLogger('test'))
+                self.assertEqual(seen, [relogin_mark(os.getpid())])
+            finally:
+                close(sup)
 
 
 class FailedBatchReleaseTest(unittest.TestCase):
