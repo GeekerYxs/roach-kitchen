@@ -7,7 +7,12 @@
 #include <string>
 #include <cstring>
 
-static const char* CLIENT_HASH="500cf8f165cfbbf6f8f28ddb01648dbee3de10a1a8068f51b359598560958c27";
+// WAATClient.exe builds this tool accepts (SHA256). 2.99 differs from 2.98 only in build stamps and one byte
+// of a bag-item check (RVA 0x83F72), so every address in the DLL and the controller is the same for both.
+static const char* CLIENT_HASHES[]={
+    "500cf8f165cfbbf6f8f28ddb01648dbee3de10a1a8068f51b359598560958c27", // 2.98
+    "c33ff869a1e54ef354d5e7d65a235879c2301a1f1890f6c88105d8ebd7eded86", // 2.99
+};
 static std::wstring own_dir() { wchar_t p[MAX_PATH];GetModuleFileNameW(nullptr,p,MAX_PATH);std::wstring s=p;return s.substr(0,s.find_last_of(L"\\/")); }
 static bool valid_build(const std::wstring& file) {
     HANDLE f=CreateFileW(file.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);
@@ -22,7 +27,8 @@ static bool valid_build(const std::wstring& file) {
     if(hash)CryptDestroyHash(hash);
     if(provider)CryptReleaseContext(provider,0);
     CloseHandle(f);
-    return ok && !strcmp(hex,CLIENT_HASH);
+    if(ok)for(const char* want:CLIENT_HASHES)if(!strcmp(hex,want))return true;
+    return false;
 }
 static bool inject(HANDLE process,DWORD pid,const std::wstring& path) {
     // Original EXE 0040B1C0 chain: allocate, write DLL path, remote LoadLibrary.
