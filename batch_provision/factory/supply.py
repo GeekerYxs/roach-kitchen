@@ -138,9 +138,13 @@ def shortages(bag, rules):
 
 def plan_buys(bag, capacity, wanted, shop, gold, keep_free):
     """[(shelf slot, item, qty)] for this shop: fill existing stacks first, then new slots while more than keep_free
-    stay empty, and only what the gold pays for. Each entry is one 0x55 (qty <= 99)."""
-    free = capacity - len(bag) - keep_free
-    plan = []
+    stay empty, and only what the gold pays for. Each entry is one 0x55 (qty <= 99).
+    An item the bag holds none of (used up) that got nothing that way still gets ONE stack in a reserved slot
+    (user, 2026-10-21: 回城卷 / 药 matter more than room for drops; a bag of unsellables must not starve a leader)."""
+    empty = max(0, capacity - len(bag))
+    free, reserve = empty - keep_free, min(keep_free, empty)
+    have = counts(bag)
+    plan, got = [], {}
     for item, amount in wanted.items():
         if item not in shop.shelf or amount <= 0:
             continue
@@ -151,11 +155,42 @@ def plan_buys(bag, capacity, wanted, shop, gold, keep_free):
             free -= 1
         amount = min(amount, room, gold // PRICE[item])
         gold -= amount * PRICE[item]
+        got[item] = amount
         while amount > 0:
             qty = min(amount, MAX_QTY)
             plan.append((shop.shelf[item], item, qty))
             amount -= qty
+    for item, amount in wanted.items():
+        if item not in shop.shelf or amount <= 0 or have.get(item) or got.get(item) or reserve <= 0:
+            continue
+        qty = min(amount, STACK[item], gold // PRICE[item])
+        if qty > 0:
+            reserve -= 1
+            gold -= qty * PRICE[item]
+            plan.append((shop.shelf[item], item, qty))
     return plan
+
+
+def blocked(bag, capacity, sell_below_free, table, keep):
+    """Right after selling junk: None when at least sell_below_free bag slots are empty; else (empty slots, the 3
+    things other than supplies that take the most slots as [(name, slots)]). Such a leader cannot be cleared by
+    selling (blue+ gear, bound or unpriced items) and would walk to the shop before every batch."""
+    free = capacity - len(bag)
+    if free >= sell_below_free:
+        return None
+    slots = {}
+    for b in bag:
+        if b.item_id in keep:
+            continue
+        it = table.get(b.item_id)
+        name = it.name if it else f'物品 {b.item_id}'
+        slots[name] = slots.get(name, 0) + 1
+    return free, sorted(slots.items(), key=lambda t: (-t[1], t[0]))[:3]
+
+
+def blocked_text(who, free, capacity, top):
+    hogs = '、'.join(f'{n}×{k}格' for n, k in top) or '补给品'
+    return f'！{who} 背包卖完杂物后只空 {free}/{capacity} 格，占地方的：{hogs}；请手动清理'
 
 
 def sell_body(npc, entries):
@@ -266,7 +301,7 @@ class SupplyRun(CoastRun):
         self.role, self.sup, self.sellable, self.treasury = role, supply, sellable, treasury
         self.rules = supply.rules.get(role, {})
         self.shop = ShopClient(self.lgame, mem, logger)
-        self.done = {'bought': {}, 'sold': 0, 'paid': 0, 'gold_before': read_gold(mem)}
+        self.done = {'bought': {}, 'sold': 0, 'paid': 0, 'gold_before': read_gold(mem), 'blocked': None}
 
     def check(self):
         if time.monotonic() - self.started > self.sup.timeout:
@@ -319,10 +354,16 @@ class SupplyRun(CoastRun):
     def _shop(self, shop, wanted, sell):
         if sell:
             bag, _ = self.bag()
-            slots = junk(bag, self.sellable, set(self.rules) | set(ITEM_NAMES))
+            keep = set(self.rules) | set(ITEM_NAMES)
+            slots = junk(bag, self.sellable, keep)
             if slots:
                 self.log.info('背包快满，在%s卖 %d 格杂物', shop.name, len(slots))
                 self.done['sold'] += self.shop.sell(shop, slots)
+            bag, cap = self.bag()
+            stuck = blocked(bag, cap, self.sup.sell_below_free, self.sellable, keep)
+            if stuck:
+                self.done['blocked'] = blocked_text(self.leader.name, stuck[0], cap, stuck[1])
+                self.log.error('%s', self.done['blocked'])
         bag, cap = self.bag()
         gold = read_gold(self.lmem) or 0
         plan = plan_buys(bag, cap, wanted, shop, gold, self.sup.keep_free)
@@ -404,7 +445,8 @@ class SupplyRun(CoastRun):
         gold = read_gold(self.lmem)
         before = self.done['gold_before']
         out = {'bought': {ITEM_NAMES[i]: n for i, n in self.done['bought'].items()}, 'sold': self.done['sold'],
-               'paid': self.done['paid'], 'gold_change': None if gold is None or before is None else gold - before}
+               'paid': self.done['paid'], 'gold_change': None if gold is None or before is None else gold - before,
+               'blocked': self.done['blocked']}
         if out['paid']:
             db.log_event(self.conn, time.time(), 'treasury', f'财政主管拨款 {out["paid"]}', station_id=self.sid())
         if out['bought'] or out['sold']:

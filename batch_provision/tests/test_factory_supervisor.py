@@ -288,3 +288,27 @@ class NextDeleteTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class BagBlockedTest(unittest.TestCase):
+    """status() alarm for a leader whose bag selling could not clear (factory/supply.py blocked)."""
+
+    def sup(self):
+        return SimpleNamespace(lock=threading.Lock(), bag_blocked={}, supply=SimpleNamespace(sell_below_free=8))
+
+    def test_set_by_a_run_and_cleared_by_the_next(self):
+        s = self.sup()
+        Supervisor.note_blocked(s, 'coast1', {'blocked': '！cap07 背包…'}, [], 40)
+        self.assertEqual(s.bag_blocked, {'coast1': '！cap07 背包…'})
+        Supervisor.note_blocked(s, 'coast1', {'blocked': None}, [], 40)
+        self.assertEqual(s.bag_blocked, {})
+
+    def test_without_a_run_cleared_only_when_the_bag_has_room(self):
+        s = self.sup()
+        s.bag_blocked['coast1'] = 'x'
+        Supervisor.note_blocked(s, 'coast1', None, [object()] * 35, 40)     # failed / paused run, 5 free: keep
+        self.assertEqual(s.bag_blocked, {'coast1': 'x'})
+        Supervisor.note_blocked(s, 'coast1', None, None, None)                # bag unreadable: keep
+        self.assertEqual(s.bag_blocked, {'coast1': 'x'})
+        Supervisor.note_blocked(s, 'coast1', None, [object()] * 30, 40)     # 10 free: cleared
+        self.assertEqual(s.bag_blocked, {})

@@ -42,7 +42,7 @@ from provisioner.memory import ProcessMemory
 from provisioner.minimize import Minimizer
 from provisioner.novice import NoviceJob, NoviceSettings
 from provisioner.pipeline import OwnWindows, online_elsewhere, remember_roster
-from provisioner.world import read_bag, read_team, read_world
+from provisioner.world import read_bag, read_bag_capacity, read_team, read_world
 
 from . import db
 from .coast import CoastRun
@@ -331,6 +331,7 @@ class Supervisor:
         us = getattr(s, 'unload', None)
         self.unloader = StoreUnload(us, s.factory, s.login, self.throttle, self.own, logger) if us else None
         self.unload_after = 0.0         # monotonic: no unload before (after a failed one)
+        self.bag_blocked = {}           # station_id -> alarm text: bag still short of room after selling (supply)
         self.relogin = getattr(s, 'relogin', None)
         self.station_pids = frozenset()     # read by the minimizer thread: never minimize a station window
         self.watches = {}               # station_id -> relogin.Watch
@@ -637,8 +638,24 @@ class Supervisor:
         if self.supply is None or (not self.supply.enabled and self.treasury is None):
             return
         db.heartbeat(conn, st['station_id'], st['role'], st['char_id'], 'supplying', time.time())
-        run_supply(conn, st, client, mem, self.s.factory, self.supply, self.sellable, self.supply_gate, lg, village,
-                   self.treasury)
+        res = run_supply(conn, st, client, mem, self.s.factory, self.supply, self.sellable, self.supply_gate, lg,
+                         village, self.treasury)
+        self.note_blocked(st['station_id'], res, read_bag(mem), read_bag_capacity(mem))
+
+    def note_blocked(self, sid, res, bag, cap):
+        """Keep status()'s alarm for a leader whose bag selling could not clear: set / cleared by a supply run's
+        result; without a run (nothing due, failed, paused) cleared only once the bag has room again."""
+        with self.lock:
+            if res is not None:
+                text = res.get('blocked')
+            elif bag is not None and cap is not None and cap - len(bag) >= self.supply.sell_below_free:
+                text = None
+            else:
+                return
+            if text:
+                self.bag_blocked[sid] = text
+            else:
+                self.bag_blocked.pop(sid, None)
 
     def receiver_lock(self):
         return self.treasury.lock if self.treasury else contextlib.nullcontext()
@@ -1056,6 +1073,10 @@ class Supervisor:
                       len(alts), self.s.policy.max_windows, pending, sides, dishes, bag, waiting, self.deleted,
                       '' if self.s.delete else '（删除未启用）', self.rebuilt,
                       '' if self.s.rebuild_after else '（重建未启用）', st)
+        with self.lock:
+            stuck = list(self.bag_blocked.values())
+        for text in stuck:
+            self.log.warning('%s', text)
         alarm = bag_alarm(room, self.s.factory.receiver_bag_warn)
         if alarm == 'full':
             self.log.error('！！%s：收货已停，请换收货人（docs/DEPLOY.md 第 10 节）', bag)
