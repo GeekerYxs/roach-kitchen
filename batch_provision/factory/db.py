@@ -89,7 +89,7 @@ ADDED_COLUMNS = (
     ('alts', 'pending_action', 'TEXT'), ('alts', 'pending_at', 'REAL'),
     ('stations', 'account', 'TEXT'), ('stations', 'name', 'TEXT'), ('stations', 'pid', 'INTEGER'),
     ('alts', 'deleted_at', 'REAL'), ('alts', 'release_ms', 'INTEGER'), ('alts', 'sold_at', 'REAL'),
-    ('stores', 'gold', 'INTEGER'), ('stores', 'potato_at', 'REAL'),
+    ('stores', 'gold', 'INTEGER'), ('stores', 'potato_at', 'REAL'), ('stores', 'dishes', 'INTEGER'),
 )
 
 
@@ -385,20 +385,23 @@ def station_roles(conn):
 
 STORE_VILLAGE_READY = 'village_ready'     # 村里已腾格: sold the novice gear, ate 小肉林 / 小酒池, free slots checked
 STORE_READY = 'ready'                     # 就绪: has its gold, logged out at the receiver's post (factory/storeship.py)
+STORE_FULL = 'full'                       # 装满: no empty bag slot left for a 料理 stack (factory/storeuse.py)
 STORE_FAILED = 'failed'
 
 
 def save_store(conn, account, slot, name, status, now, char_id=None, free_slots=None, capacity=None, map_id=None,
-               x=None, y=None, error=None, gold=None):
+               x=None, y=None, error=None, gold=None, dishes=None):
     """Insert or replace the row of this account + slot. A failed run keeps the char_id / bag numbers seen before."""
     old = store(conn, account, slot)
     keep = dict(old) if old and old['name'] == name else {}
-    fields = dict(char_id=char_id, free_slots=free_slots, capacity=capacity, map_id=map_id, x=x, y=y, gold=gold)
+    fields = dict(char_id=char_id, free_slots=free_slots, capacity=capacity, map_id=map_id, x=x, y=y, gold=gold,
+                  dishes=dishes)
     fields = {k: v if v is not None else keep.get(k) for k, v in fields.items()}
     conn.execute('INSERT OR REPLACE INTO stores(account, slot, name, char_id, status, free_slots, capacity, map_id, '
-                 'x, y, error, updated_at, gold, potato_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                 'x, y, error, updated_at, gold, potato_at, dishes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                  (account, slot, name, fields['char_id'], status, fields['free_slots'], fields['capacity'],
-                  fields['map_id'], fields['x'], fields['y'], error, now, fields['gold'], keep.get('potato_at')))
+                  fields['map_id'], fields['x'], fields['y'], error, now, fields['gold'], keep.get('potato_at'),
+                  fields['dishes']))
 
 
 def mark_store_potato(conn, account, slot, now):

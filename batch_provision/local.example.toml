@@ -26,6 +26,11 @@ count = 10                   # box07 .. box16
 digits = 2
 password = ""                # 仓库账号密码
 
+# 总大脑这次用哪些仓库账号接收货人的料理（阶段 2c）：只用 stores 表里 ready 的角色，按名单顺序、槽号顺序装满一个换下一个。
+# 空表 = 不用。名单里某个账号一个就绪角色都没有，总大脑不启动。第一次实测可以加 unload_max_stacks = 1（只交 1 格）。
+[receiver]
+stores = []                  # 例如 ["box07", "box08"]
+
 # 工位大号的密码：账号 = "密码"（账号名要和下面 [[station]] 里的 account 一致）
 [passwords]
 xq05 = ""                    # 调度员
