@@ -11,7 +11,8 @@ Two halves, both in factory/supervisor.py:
   - relogin (the station's worker thread): its process is gone -> log in with stations.toml (+ local.toml
     passwords), enter its slot, check char id and name, register it again; failures back off up to 10 min.
 Never logs in when the same character shows in a window without our DLL (that would kick the user's window), and
-never while 一键登录工位.cmd is logging that station in (status 'relogin', fresh heartbeat; both sides check it).
+never while 一键登录工位.cmd is logging that station in (status 'relogin:<pid>', fresh heartbeat, that process
+alive; both sides check it).
 Decisions are pure (tests/test_factory_relogin.py).
 """
 from dataclasses import dataclass
@@ -77,9 +78,21 @@ def relogin_due(h, watch, now):
     return h in (GONE, FOREIGN) and watch.blocked is None and now >= watch.next_try
 
 
+def relogin_mark(pid):
+    """stations.status written before a login: which process is logging the station in."""
+    return f'{RELOGIN_STATUS}:{pid}'
+
+
 def other_login_running(status, heartbeat_at, now):
-    """Someone (一键登录工位.cmd or the supervisor) is logging this station in right now."""
-    return status == RELOGIN_STATUS and now - (heartbeat_at or 0) < RELOGIN_FRESH
+    """Someone (一键登录工位.cmd or the supervisor) is logging this station in right now.
+    2026-10-20 production: after a network fault the user killed every process mid-login; the marks they left
+    blocked 一键登录工位.cmd for 5 min. A mark whose process is gone is ignored at once. A bare 'relogin' (written
+    before the pid was added) only has the time limit."""
+    status = status or ''
+    if status.partition(':')[0] != RELOGIN_STATUS or now - (heartbeat_at or 0) >= RELOGIN_FRESH:
+        return False
+    pid = status.partition(':')[2]
+    return not pid.isdigit() or native.alive(int(pid))
 
 
 def check_entered(summary, expected_char_id, expected_name):

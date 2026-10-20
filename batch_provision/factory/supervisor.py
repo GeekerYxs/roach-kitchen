@@ -25,6 +25,7 @@ Ctrl+C stops; windows stay open and the next start adopts them (roles of the con
 """
 import contextlib
 import logging
+import os
 import sys
 import threading
 import time
@@ -48,8 +49,8 @@ from .coast import CoastRun
 from .config import load_settings
 from .delete import AccountDeleteJob, DeleteSettings
 from .rebuild import RebuildJob
-from .relogin import (KILL_SETTLE, RELOGIN_STATUS, Watch, check_entered, decide_watch, may_kill,
-                      other_login_running, probe, relogin_delay, relogin_due)
+from .relogin import (KILL_SETTLE, Watch, check_entered, decide_watch, may_kill, other_login_running, probe,
+                      relogin_delay, relogin_due, relogin_mark)
 from .stations import foreign_windows
 from .items import table as item_table
 from .supply import Gate as SupplyGate, load_supply_file, run_supply
@@ -503,7 +504,7 @@ class Supervisor:
             return False
         if self.stop.is_set():
             return False
-        db.heartbeat(conn, sid, st['role'], st['char_id'], RELOGIN_STATUS, time.time())
+        db.heartbeat(conn, sid, st['role'], st['char_id'], relogin_mark(os.getpid()), time.time())
         lg.warning('工位不在线，自动重登 %s 槽%d（第 %d 次）', cfg.account.name, cfg.account.slot, w.fails + 1)
         r = EnterJob(self.relogin.enter, cfg.account, self.throttle).run()
         err, permanent = check_entered(r, st['char_id'], name)
