@@ -4,7 +4,8 @@ when its bag fills up, so nobody has to restock the leaders by hand.
 Entry (manual / test): python -m factory.supply [factory.toml] <role> <character name>
 In production the supervisor calls village_supply() / coast_supply() at the start of a batch.
 
-Shops (user, 2026-10-20; requests verified live on box01, client 2.98):
+Shops (user, 2026-10-20; buying verified live on box01, client 2.98; selling on cap07, client 2.99: 6 junk slots
+sold at 花袭人 for +578 = half the ItemLib price, supplies and 重要物品 kept):
   军医花袭人 NPC 409, map 81 at the PP鸡 landing (1152,932), shelf 5: 0 萝卜糕 64002 (5), 2 胡萝卜汁 63954 (5),
       4 回城卷 9801 (100); options 1 购买杂货, 2 出售物品
   宠物商人小美 NPC 329, map 1 at the village start (1338,1155) where a 回城卷 lands, shelf 13: 7 甜点 8573 (240);

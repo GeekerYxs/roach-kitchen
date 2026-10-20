@@ -12,6 +12,9 @@ also hold, so trades stay strictly serial. Order as the alt -> receiver gold tra
 swapped: the receiver invites, the station accepts, the GIVER (receiver) offers and confirms, the station offers 0
 and confirms. Verified when the station has the amount more and the receiver the amount less (a quiz popup may add
 100 to either side meanwhile); 5 s without it -> re-read and trade again, 3 tries.
+Live 2026-10-20 (client 2.99, receiver 小强杀手二号): coast leader cap07 got 100 000 (coast route, 2.8 s) and the
+dispatcher 1 000 000 (village route PP鸡 -> receiver -> 回城卷 home, 20.6 s); the receiver lost exactly the amount,
+no fee.
 Decisions are pure (tests/test_factory_treasury.py).
 """
 import math
@@ -36,7 +39,7 @@ QUIZ_SLACK = 200            # a quiz popup pays 100: tolerate a little extra on 
 class TreasurySettings:
     enabled: bool = True
     reserve: int = 500_000          # the receiver never pays out below this
-    max_per_trade: int = 1_000_000  # one trade at most this much (larger single trades not live-tested yet)
+    max_per_trade: int = 1_000_000  # one trade at most this much (100 000 and 1 000 000 live; larger untested)
     rules: dict = field(default_factory=dict)    # role -> (low, target)
 
 
