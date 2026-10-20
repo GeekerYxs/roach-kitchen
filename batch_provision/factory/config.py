@@ -39,6 +39,7 @@ class Settings:
     receive_post_timeout: float
     receive_timeout: float
     receive_lease: float
+    receiver_bag_warn: int = 3
 
 
 def _point(value, name):
@@ -91,4 +92,5 @@ def load_settings(path):
                     receiver_post=_point(f.get('receiver_post', [1780, 1370]), 'receiver_post'),
                     receive_post_timeout=float(f.get('receive_post_timeout', 180)),
                     receive_timeout=float(f.get('receive_timeout', 60)),
-                    receive_lease=float(f.get('receive_lease', 120)))
+                    receive_lease=float(f.get('receive_lease', 120)),
+                    receiver_bag_warn=int(f.get('receiver_bag_warn', 3)))

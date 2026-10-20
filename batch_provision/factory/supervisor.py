@@ -63,7 +63,7 @@ from .phase import (ACCEPT_QUEST, COAST, COAST_MAP, DELETE, DISPATCHER, EAT_MEAT
                     SELL_JUNK, TRANSPORTING, UNKNOWN, VILLAGE_MAP, WAIT_DISBAND, derive_phase)
 from .phase import WELL as WELL_ROLE
 from .quest import QuestJob
-from .receiver import PostRun, ReceiveJob
+from .receiver import PostRun, ReceiveJob, bag_alarm, bag_text, hours_left, read_room
 from .runner import ROLE_NAME
 from .shoe import ShoeJob
 from .transport import TransportRun
@@ -322,6 +322,8 @@ class Supervisor:
                               coast_buffer=s.policy.coast_buffer * coasts,
                               coast_backlog=s.policy.coast_backlog * coasts)
         self.last_quarantine_check = 0.0
+        self.recv_room = (None, 0.0)    # (receiver_body's last BagRoom, monotonic time it was read)
+        self.full_warned = -1e9         # last 'receiver bag full' error, monotonic
         self.relogin = getattr(s, 'relogin', None)
         self.station_pids = frozenset()     # read by the minimizer thread: never minimize a station window
         self.watches = {}               # station_id -> relogin.Watch
@@ -557,11 +559,17 @@ class Supervisor:
                     if w is None or w.map_id != COAST_MAP or abs(w.x - px) + abs(w.y - py) > POST_RANGE:
                         lg.info('收货人不在收货点，先回去')
                         return
+                    if self.bag_full(rmem, lg):
+                        db.heartbeat(conn, sid, RECEIVER, recv.char_id, 'bag_full', time.time())
+                        self.stop.wait(10.0)
+                        continue
                     alts = self.snapshot()
                     for r in db.waiting(conn, QUEUE_RECEIVER, time.time()):
                         cid = r['char_id']
                         if self.stop.is_set() or cid not in alts:
                             continue
+                        if self.bag_full(rmem, lg):     # the 料理 just received may have filled the last slot
+                            break
                         if not db.claim(conn, sid, [cid], fs.receive_lease, time.time()):
                             continue
                         c = alts[cid][0]
@@ -575,6 +583,19 @@ class Supervisor:
                     self.stop.wait(2.0)
             finally:
                 rgame.close()
+
+    def bag_full(self, rmem, lg):
+        """Read the receiver's bag for status(); True when not one more 料理 fits. Then no alt is claimed: a trade
+        into a full bag fails and would quarantine the alt (db.MAX_RETRIES), so the alts wait in their queue."""
+        room = read_room(rmem)
+        self.recv_room = (room, time.monotonic())
+        if bag_alarm(room, self.s.factory.receiver_bag_warn) != 'full':
+            return False
+        if time.monotonic() - self.full_warned >= STATUS_EVERY:
+            self.full_warned = time.monotonic()
+            lg.error('%s，停止收货（小号留在队列里等着，不隔离）；请换收货人（docs/DEPLOY.md 第 10 节）或把料理转走',
+                     bag_text(room))
+        return True
 
     def receiver_client(self, conn):
         """The treasury = the receiver station's window (procs.Client), or None when it is not online."""
@@ -996,10 +1017,26 @@ class Supervisor:
         dishes = self.conn.execute("SELECT COUNT(*) FROM events WHERE kind='receive' AND at>=?", (self.started_at,)
                                    ).fetchone()[0]
         waiting = self.conn.execute('SELECT COUNT(*) FROM alts WHERE phase=? AND quarantined=0', (DELETE,)).fetchone()[0]
-        self.log.info('窗口 %d/%d（登录中 %d）| %s | 本次收料理 %d | 待删 %d 本次删 %d%s | 本次重建 %d%s | 工位: %s',
-                      len(alts), self.s.policy.max_windows, pending, sides, dishes, waiting, self.deleted,
+        room, read_at = self.recv_room
+        if time.monotonic() - read_at > 2 * STATUS_EVERY:      # receiver offline or busy: do not show old numbers
+            room = None
+        bag = bag_text(room, self.bag_hours(room))
+        self.log.info('窗口 %d/%d（登录中 %d）| %s | 本次收料理 %d | %s | 待删 %d 本次删 %d%s | 本次重建 %d%s | 工位: %s',
+                      len(alts), self.s.policy.max_windows, pending, sides, dishes, bag, waiting, self.deleted,
                       '' if self.s.delete else '（删除未启用）', self.rebuilt,
                       '' if self.s.rebuild_after else '（重建未启用）', st)
+        alarm = bag_alarm(room, self.s.factory.receiver_bag_warn)
+        if alarm == 'full':
+            self.log.error('！！%s：收货已停，请换收货人（docs/DEPLOY.md 第 10 节）', bag)
+        elif alarm == 'low':
+            self.log.warning('！%s，快满了（报警线 %d 格）：请准备换收货人', bag, self.s.factory.receiver_bag_warn)
+
+    def bag_hours(self, room):
+        """Hours until the receiver's bag is full at this run's 料理 rate over the last hour."""
+        seconds = min(3600.0, time.time() - self.started_at)
+        received = self.conn.execute("SELECT COUNT(*) FROM events WHERE kind='receive' AND at>=?",
+                                     (time.time() - seconds,)).fetchone()[0]
+        return hours_left(room, received, seconds)
 
     # ---- main
     def run(self):
