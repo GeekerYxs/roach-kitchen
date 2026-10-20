@@ -46,7 +46,7 @@ from . import items
 from .coast import Walk, decide_goto
 from .config import ROOT, load_settings
 from .gold import GoldJob
-from .phase import COAST_MAP, DISPATCHER, POTATO_ITEM, VILLAGE_MAP, WELL
+from .phase import COAST_MAP, DISPATCHER, POTATO_ITEM, SCROLL_ITEM, VILLAGE_MAP, WELL
 from .stations import login_stations
 from .store import VillagePrep, load_store, store_names
 from .transport import TransportRun
@@ -60,6 +60,7 @@ STALL = 6.0
 # per batch): such a fresh status means the supervisor is driving that leader now
 SUPERVISOR_STATUS = {'waiting': 60.0, 'training': 60.0, 'forming': 600.0, 'transporting': 600.0, 'supplying': 600.0}
 SHIP_STATUS, TRAIN_STATUS = 'store_ship', 'store_train'
+PP_LEVEL = 10            # PP鸡 refuses roles below this level (live 2026-10-21)
 EAT_WAIT = 5.0           # the 地瓜 count must drop this long after the 0x49
 BAG_SETTLE = 0.5         # right after entering the world the bag reads empty (box08仓2 2026-10-21: read 2 ms after
 BAG_WAIT = 5.0           # entering, its 2 地瓜 not loaded yet): the same non-empty reading twice this far apart counts
@@ -142,6 +143,18 @@ def decide_spawn(world, last_nav, now):
     if now - last_nav < NAV_RETRY:
         return Decision('wait', '等寻路开始')
     return Decision('walk', f'离出生点 {distance:.0f}，走过去', (VILLAGE_MAP, *SPAWN))
+
+
+def decide_train(level, scrolls, min_level, pp_level=PP_LEVEL):
+    """A store role in the village: go to the well? It comes back only by its own 回城卷 (no 飞鞋 point; box09仓1
+    2026-10-21 went in a second time without one and stayed in 651). 'train' | 'skip' | 'fail'."""
+    if level is None or level >= min_level:
+        return Decision('skip', f'{level} 级，不用带练')
+    if scrolls > 0:
+        return Decision('train', f'{level} 级，带练到 {min_level} 级（回城卷 {scrolls} 个）')
+    if level >= pp_level:
+        return Decision('skip', f'{level} 级，没有回城卷不能去古井；已够 PP鸡 的 {pp_level} 级，直接坐船')
+    return Decision('fail', f'{level} 级，背包里没有回城卷，去了古井回不来；请先给它一个回城卷')
 
 
 def bag_settled(previous, current):
@@ -483,7 +496,14 @@ class ShipRun(AccountRun):
             try:
                 level = read_level(mem)
                 r['level'] = level
-                if world.map_id == VILLAGE_MAP and level is not None and level < self.ship.min_level:
+                train = None
+                if world.map_id == VILLAGE_MAP:
+                    bag = self._loaded_bag(mem)
+                    train = decide_train(level, item_count(bag or (), SCROLL_ITEM), self.ship.min_level)
+                    self.log.info('%s', train.reason)
+                    if train.kind == 'fail':
+                        raise RuntimeError(train.reason)
+                if train is not None and train.kind == 'train':
                     self._step(f'古井队长带练到 {self.ship.min_level} 级（现在 {level} 级）')
                     self._potato(mem, game)
                     self._to_spawn(session, mem, game, char_id)

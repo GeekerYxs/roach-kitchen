@@ -10,8 +10,8 @@ from factory import db
 from factory.phase import COAST_MAP, VILLAGE_MAP
 from factory.items import Item
 from factory.storeship import (Ferry, Rider, ShipSettings, StoreGoldJob, StoreTrainRun, StoreTransport, bag_settled,
-                               decide_park, decide_spawn, junk_slots, load_ship, ship_order, should_sail,
-                               supervisor_busy)
+                               decide_park, decide_spawn, decide_train, junk_slots, load_ship, ship_order,
+                               should_sail, supervisor_busy)
 from provisioner.world import BagSlot
 from factory.wellteam import SPAWN
 from provisioner.world import WorldState
@@ -198,6 +198,19 @@ class FerryQueue(unittest.TestCase):
         self.assertTrue(a.done.is_set() and b.done.is_set())
         self.assertIn('调度员掉线', a.error)
         self.assertIn('调度员掉线', f.board(('box07', 3), rider(3)))
+
+
+class Train(unittest.TestCase):
+    def test_fresh_role_with_scroll_trains(self):
+        self.assertEqual(decide_train(2, 1, 11).kind, 'train')
+
+    def test_trained_enough_skips(self):
+        self.assertEqual(decide_train(11, 0, 11).kind, 'skip')
+        self.assertEqual(decide_train(13, 1, 11).kind, 'skip')
+
+    def test_no_scroll_never_goes_to_the_well(self):
+        self.assertEqual(decide_train(10, 0, 11).kind, 'skip')     # box09仓1: PP鸡 takes it already
+        self.assertEqual(decide_train(2, 0, 11).kind, 'fail')
 
 
 class Bag(unittest.TestCase):
