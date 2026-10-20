@@ -63,8 +63,8 @@ class Rule(unittest.TestCase):
         self.assertEqual([s.slot for s in sell_slots(blue, self.ITEMS)], [0, 1])               # alts sell it
         self.assertEqual([s.slot for s in sell_slots(b, self.ITEMS, limit=2)], [0, 1])
 
-    def test_shop_pays_half_per_piece(self):
-        self.assertEqual(shop_value(bag((1, 1), (3, 5), (5, 3)), self.ITEMS), 40 + 25 + 9)
+    def test_shop_pays_half_per_stack(self):
+        self.assertEqual(shop_value(bag((1, 1), (3, 5), (5, 3)), self.ITEMS), 40 + 25 + 10)     # 7 x 3 = 21 -> 10
 
     def test_inventory_lines(self):
         lines = inventory_lines(bag((5, 1), (777, 2)), self.ITEMS)

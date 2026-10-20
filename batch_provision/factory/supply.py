@@ -12,7 +12,7 @@ sold at 花袭人 for +578 = half the ItemLib price, supplies and 重要物品 k
       options 1 购买宠物道具, 3 出售物品
 Requests: open = 0x50 <I 0><I npc> + 0x51 <I 0><I option><I 0>; then ONE
 0x55 <I 0><I npc><B 1><B 0 buy | 1 sell><H 0><B shelf slot | bag slot><B qty>. Every buy needs a fresh open (a
-second 0x55 without one is ignored). A buy fills the existing stack first, then new bag slots. Afterwards the NPC
+second 0x55 without one is ignored). A sell carries up to 20 (bag slot, qty) pairs after the count byte (sell_body). A buy fills the existing stack first, then new bag slots. Afterwards the NPC
 dialog is closed (离开 = SelectNpcDialogEntry(0)): left open, the next NPC's dialog is misread (live 2026-10-20:
 小美's dialog was taken for PP鸡's).
 
@@ -55,8 +55,9 @@ CLOSE_WAIT = 2.0                # the NPC dialog must be gone this long after �
 SHOP_RANGE = 120                # stand this close to the shop spot before talking (box01 talked from ~0)
 OPEN_SETTLE = 0.6               # after the open, before the 0x55 (box01: the UI took < 0.5 s)
 VERIFY_WAIT = 3.0               # the bag must show the change this long after the 0x55
-SELL_LIMIT = 100                # junk sold per visit = the whole bag (user 2026-10-20: sell everything sellable; the
-                                # game's own 自动卖店 stops at 20, we do not)
+SELL_LIMIT = 100                # junk sold per visit = the whole bag, in requests of SELL_BATCH slots
+SELL_BATCH = 20                 # slots per 0x55 sell request: the client's builder (RVA 0x1fc0b0) packs at most 20, and
+                                # the server refuses more (user, 2026-10-20)
 LANDING_SCROLL_WAIT = 8.0
 
 
@@ -157,6 +158,26 @@ def plan_buys(bag, capacity, wanted, shop, gold, keep_free):
     return plan
 
 
+def sell_body(npc, entries):
+    """0x55 sell: <I 0><I npc><B n><B 1 = sell><H 0> + n x <B bag slot><B qty>, 12 + 2n bytes, n <= SELL_BATCH.
+    The client's builder (RVA 0x1fc0b0, disassembled 2026-10-20) writes the entry count at offset 8 and length
+    (n + 6) * 2; with n = 1 it is the 14-byte request verified live (box01 / cap07)."""
+    if not 0 < len(entries) <= SELL_BATCH:
+        raise ValueError(f'一次卖 {len(entries)} 格，应为 1..{SELL_BATCH}')
+    body = struct.pack('<IIBBH', 0, npc, len(entries), 1, 0)
+    for slot, qty in entries:
+        if not (0 <= slot < 256 and 0 < qty < 256):
+            raise ValueError(f'背包格 {slot} / 数量 {qty} 超出范围')
+        body += struct.pack('<BB', slot, qty)
+    return body
+
+
+def still_there(bag, slots):
+    """The given slots that still hold the same item (= not sold)."""
+    have = {(b.slot, b.item_id) for b in bag}
+    return [s for s in slots if (s.slot, s.item_id) in have]
+
+
 def junk(bag, table, keep, limit=SELL_LIMIT):
     """Bag slots a leader sells (factory/items.py leader rule), never one we keep."""
     return items.sell_slots(bag, table, keep, leader=True, limit=limit)
@@ -196,6 +217,9 @@ class ShopClient:
     def _request(self, shop, sell, slot, qty):
         self.game.send(OP_SHOP, struct.pack('<IIBBHBB', 0, shop.npc, 1, int(sell), 0, slot, qty))
 
+    def _sell_request(self, shop, slots):
+        self.game.send(OP_SHOP, sell_body(shop.npc, [(s.slot, s.quantity) for s in slots]))
+
     def _wait(self, done):
         end = self.clock() + VERIFY_WAIT
         while self.clock() < end:
@@ -215,14 +239,18 @@ class ShopClient:
         return ok
 
     def sell(self, shop, slots):
-        """Sell the given bag slots, one verified request each. -> number sold."""
+        """Sell the given bag slots, up to SELL_BATCH per request (one fresh open each), verified in the bag.
+        -> number sold."""
         sold = 0
-        for s in slots:
+        for i in range(0, len(slots), SELL_BATCH):
+            batch = slots[i:i + SELL_BATCH]
             self.open(shop, shop.sell_option)
-            self._request(shop, True, s.slot, s.quantity)
-            if self._wait(lambda bag: all(b.slot != s.slot or b.item_id != s.item_id for b in bag)):
-                sold += 1
-            else:
+            self._sell_request(shop, batch)
+            self._wait(lambda bag: not still_there(bag, batch))
+            left = still_there(read_bag(self.mem) or (), batch)
+            sold += len(batch) - len(left)
+            self.log.info('%s 一次卖 %d 格，成功 %d 格', shop.name, len(batch), len(batch) - len(left))
+            for s in left:
                 self.log.warning('%s 卖 背包第 %d 格（物品 %d ×%d）没成功', shop.name, s.slot, s.item_id, s.quantity)
         return sold
 

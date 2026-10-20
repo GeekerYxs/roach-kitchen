@@ -5,7 +5,7 @@ from unittest import mock
 
 from factory import supply
 from factory.supply import (HP_ITEM, MP_ITEM, NURSE, PET_ITEM, PETSHOP, SCROLL_ITEM, Gate, ShopClient, SupplySettings,
-                            due, junk, load_supply, needs, plan_buys, shortages)
+                            due, junk, load_supply, needs, plan_buys, sell_body, shortages)
 from factory.items import Item
 from provisioner.world import BagSlot
 
@@ -140,15 +140,34 @@ class Requests(unittest.TestCase):
         self.client.sell(PETSHOP, list(bag((500, 1))))
         self.assertEqual([b for op, b in self.sent() if op == 0x51][0], struct.pack('<III', 0, 3, 0))
 
-    def test_sell_reopens_per_slot_with_sell_option(self):
+    def test_sell_packs_slots_into_one_request(self):
         junk_bag = bag((500, 1), (501, 4))
-        self.bags = [junk_bag, bag((501, 4)), ()]
+        self.bags = [junk_bag, ()]
         self.assertEqual(self.client.sell(NURSE, list(junk_bag)), 2)
         shop = [b for op, b in self.sent() if op == 0x55]
-        self.assertEqual(shop, [struct.pack('<IIBBHBB', 0, 409, 1, 1, 0, 0, 1),
-                                struct.pack('<IIBBHBB', 0, 409, 1, 1, 0, 1, 4)])
-        self.assertEqual([b for op, b in self.sent() if op == 0x51][0], struct.pack('<III', 0, 2, 0))
+        self.assertEqual(shop, [struct.pack('<IIBBHBBBB', 0, 409, 2, 1, 0, 0, 1, 1, 4)])
+        self.assertEqual([b for op, b in self.sent() if op == 0x51], [struct.pack('<III', 0, 2, 0)])
 
+    def test_sell_batches_of_20_each_with_a_fresh_open(self):
+        big = bag(*[(500, 1)] * 25)
+        self.bags = [big, big[20:], ()]
+        self.assertEqual(self.client.sell(NURSE, list(big)), 25)
+        shop = [b for op, b in self.sent() if op == 0x55]
+        self.assertEqual([b[8] for b in shop], [20, 5])
+        self.assertEqual([len(b) for b in shop], [52, 22])
+        self.assertEqual(len([op for op, _ in self.sent() if op == 0x50]), 2)
+
+    def test_sell_counts_only_slots_that_left_the_bag(self):
+        junk_bag = bag((500, 1), (501, 4))
+        self.bags = [(BagSlot(1, 501, 4),)] * 40           # slot 1 refused
+        self.assertEqual(self.client.sell(NURSE, list(junk_bag)), 1)
+
+    def test_sell_body(self):
+        self.assertEqual(sell_body(409, [(3, 2)]), struct.pack('<IIBBHBB', 0, 409, 1, 1, 0, 3, 2))   # live 1-slot shape
+        with self.assertRaises(ValueError):
+            sell_body(409, [(1, 1)] * 21)
+        with self.assertRaises(ValueError):
+            sell_body(409, [])
 
 if __name__ == '__main__':
     unittest.main()

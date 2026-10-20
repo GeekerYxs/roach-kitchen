@@ -113,8 +113,9 @@ def unequip_plan(equipment, bag, capacity, items):
 
 
 def shop_value(slots, items):
-    """Gold the shop pays for these slots (half the ItemLib price, rounded down per piece)."""
-    return sum(items[s.item_id].price // 2 * s.quantity for s in slots)
+    """Gold the shop pays for these slots: half of each stack's ItemLib price, rounded down per stack (live 2026-10-20:
+    4 小强的后腿 at 29 paid 58, not 4 x 14)."""
+    return sum(items[s.item_id].price * s.quantity // 2 for s in slots)
 
 
 def inventory_lines(bag, items, keep=frozenset(), leader=False):
