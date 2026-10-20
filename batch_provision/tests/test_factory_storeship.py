@@ -9,8 +9,9 @@ from types import SimpleNamespace
 from factory import db
 from factory.phase import COAST_MAP, VILLAGE_MAP
 from factory.items import Item
-from factory.storeship import (Ferry, Rider, ShipSettings, StoreGoldJob, StoreTrainRun, StoreTransport, decide_park,
-                               decide_spawn, junk_slots, load_ship, ship_order, should_sail, supervisor_busy)
+from factory.storeship import (Ferry, Rider, ShipSettings, StoreGoldJob, StoreTrainRun, StoreTransport, bag_settled,
+                               decide_park, decide_spawn, junk_slots, load_ship, ship_order, should_sail,
+                               supervisor_busy)
 from provisioner.world import BagSlot
 from factory.wellteam import SPAWN
 from provisioner.world import WorldState
@@ -197,6 +198,16 @@ class FerryQueue(unittest.TestCase):
         self.assertTrue(a.done.is_set() and b.done.is_set())
         self.assertIn('调度员掉线', a.error)
         self.assertIn('调度员掉线', f.board(('box07', 3), rider(3)))
+
+
+class Bag(unittest.TestCase):
+    def test_bag_must_be_loaded_before_looking_for_the_potato(self):
+        potato = (BagSlot(7, 32004, 2), BagSlot(8, 9801, 1))
+        self.assertFalse(bag_settled(None, ()))            # box08仓2: read 2 ms after entering -> empty
+        self.assertFalse(bag_settled((), ()))
+        self.assertFalse(bag_settled(None, potato))        # one reading is not enough
+        self.assertFalse(bag_settled(potato[:1], potato))  # still filling in
+        self.assertTrue(bag_settled(potato, potato))
 
 
 class Junk(unittest.TestCase):

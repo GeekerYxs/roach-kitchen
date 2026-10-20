@@ -61,6 +61,8 @@ STALL = 6.0
 SUPERVISOR_STATUS = {'waiting': 60.0, 'training': 60.0, 'forming': 600.0, 'transporting': 600.0, 'supplying': 600.0}
 SHIP_STATUS, TRAIN_STATUS = 'store_ship', 'store_train'
 EAT_WAIT = 5.0           # the 地瓜 count must drop this long after the 0x49
+BAG_SETTLE = 0.5         # right after entering the world the bag reads empty (box08仓2 2026-10-21: read 2 ms after
+BAG_WAIT = 5.0           # entering, its 2 地瓜 not loaded yet): the same non-empty reading twice this far apart counts
 GOLD_RETRY_PAUSE = 2.0   # after a gold trade that did not arrive: close the role's dialog, wait, try again
 
 
@@ -140,6 +142,11 @@ def decide_spawn(world, last_nav, now):
     if now - last_nav < NAV_RETRY:
         return Decision('wait', '等寻路开始')
     return Decision('walk', f'离出生点 {distance:.0f}，走过去', (VILLAGE_MAP, *SPAWN))
+
+
+def bag_settled(previous, current):
+    """Two bag readings BAG_SETTLE apart: loaded? (a store role always carries something after stage 2a)"""
+    return bool(current) and previous == current
 
 
 def decide_park(world, post, post_range, settle):
@@ -525,9 +532,10 @@ class ShipRun(AccountRun):
             if row is not None and row['potato_at'] is not None:
                 self.log.info('地瓜已经吃过（%s），不再吃', time.strftime('%m-%d %H:%M', time.localtime(row['potato_at'])))
                 return
-            slot = next((s for s in read_bag(mem) or () if s.item_id == POTATO_ITEM), None)
+            bag = self._loaded_bag(mem)
+            slot = next((s for s in bag or () if s.item_id == POTATO_ITEM), None)
             if slot is None:
-                self.log.info('背包里没有地瓜，不吃')
+                self.log.info('背包里没有地瓜，不吃（背包 %d 格）', len(bag or ()))
                 return
             db.mark_store_potato(conn, self.account.name, self.slot, time.time())   # before sending: never twice
         finally:
@@ -545,6 +553,16 @@ class ShipRun(AccountRun):
                 self.log.info('吃地瓜 %d -> %d', before, before - 1)
                 return
         self.log.warning('地瓜 %.0fs 内数量没变（%d），按已吃处理，不再吃', EAT_WAIT, before)
+
+    def _loaded_bag(self, mem):
+        """The bag once the client has loaded it (same non-empty reading twice), or the last reading after BAG_WAIT."""
+        end, previous = time.monotonic() + BAG_WAIT, None
+        while True:
+            current = read_bag(mem)
+            if bag_settled(previous, current) or time.monotonic() >= end:
+                return current
+            previous = current
+            time.sleep(BAG_SETTLE)
 
     def _to_spawn(self, session, mem, game, char_id):
         started, last_nav, last = time.monotonic(), -1e9, None
