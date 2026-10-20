@@ -198,6 +198,8 @@ class Member:
 
 
 class TransportRun:
+    who = '调度员'       # the leader in log lines (factory/storeship.py also forms well-leader teams with it)
+
     def __init__(self, conn, station, disp, disp_mem, alts, settings, logger):
         self.conn, self.station, self.disp, self.dmem = conn, station, disp, disp_mem
         self.alts, self.s, self.log = alts, settings, logger     # alts: {char_id: (client, account, slot)}
@@ -286,10 +288,10 @@ class TransportRun:
             world, team = read_world(self.dmem), read_team(self.dmem)
             d = decide_leader(world, team, self.disp.char_id, set(self.alts), world.still_for if world else 0)
             if d.reason != last:
-                self.log.info('%s', d.reason.replace('队长', '调度员'))
+                self.log.info('%s', d.reason.replace('队长', self.who))
             last = d.reason
             if d.kind == 'fail':
-                raise RuntimeError(d.reason.replace('队长', '调度员'))
+                raise RuntimeError(d.reason.replace('队长', self.who))
             if d.kind == 'ready':
                 return team
             if d.kind == 'walk':

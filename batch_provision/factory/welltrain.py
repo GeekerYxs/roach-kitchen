@@ -330,6 +330,7 @@ class WellTrainRun:
         self.skill_level = self.pet_level = 0
         self.last_reason = None
         self.last_observe = -1e9
+        self.target = TARGET_LEVEL          # factory/storeship.py trains store roles to [ship] min_level
 
     def close(self):
         for m in self.members.values():
@@ -356,7 +357,49 @@ class WellTrainRun:
     def drop(self, m, error):
         m.state, m.error = 'dropped', error
         m.log.error('移出本批: %s', error)
+        self.release(m)
+
+    # The alt bookkeeping in factory.db (leases, observations, pending return actions, failures). factory/storeship.py
+    # overrides these: store roles are not alts.
+    def release(self, m):
         db.release(self.conn, self.station['station_id'], [m.c.char_id], time.time())
+
+    def claim(self, cids):
+        return db.claim(self.conn, self.station['station_id'], cids, self.s.well_lease, time.time())
+
+    def bookkeep(self, wall):
+        sid = self.station['station_id']
+        db.renew(self.conn, sid, [m.c.char_id for m in self.active()], self.s.well_lease, wall)
+        db.heartbeat(self.conn, sid, WELL, self.leader.char_id, 'training', wall)
+        roles = db.station_roles(self.conn)
+        for m in self.active():
+            obs = observe(m.mem, read_world(m.mem))
+            if obs is not None:
+                db.save_observation(self.conn, obs, derive_phase(obs, db.ledger(self.conn, m.c.char_id), roles), wall)
+
+    def shoe_ok(self, m, w, wall):
+        record = read_shoe_record(m.mem)
+        obs = observe(m.mem, w)
+        return (obs is not None and record is not None and record[0] == VILLAGE_MAP
+                and return_method(obs, db.ledger(self.conn, m.c.char_id), wall) == 'shoe')
+
+    def note_home(self, m, wall):
+        row = db.alt(self.conn, m.c.char_id)
+        if row['pending_action'] == ACTION_SHOE:
+            db.complete_action(self.conn, m.c.char_id, wall, shoe_used_at=row['pending_at'] or wall)
+        elif row['pending_action'] == ACTION_SCROLL:
+            db.complete_action(self.conn, m.c.char_id, wall)
+        db.release(self.conn, self.station['station_id'], [m.c.char_id], wall)
+
+    def note_return(self, m, action, wall):
+        db.mark_pending(self.conn, m.c.char_id, action, wall)
+
+    def note_return_failed(self, m, reason, wall):
+        db.clear_pending(self.conn, m.c.char_id, wall, reason)
+
+    def note_stuck(self, m, reason, wall):
+        db.record_failure(self.conn, m.c.char_id, reason, wall)
+        db.release(self.conn, self.station['station_id'], [m.c.char_id], wall)
 
     # ---- setup
     def setup(self):
@@ -371,7 +414,7 @@ class WellTrainRun:
         chosen = list(team.members[1:])
         if not chosen:
             return []
-        got = db.claim(self.conn, self.station['station_id'], chosen, self.s.well_lease, time.time())
+        got = self.claim(chosen)
         for cid in set(chosen) - set(got):
             self.log.warning('%s 被别的工位占着或已隔离，本批不管它', self.alts[cid][0].name)
         for cid in got:
@@ -395,15 +438,7 @@ class WellTrainRun:
         if now - self.last_observe < OBSERVE_EVERY:
             return
         self.last_observe = now
-        wall = time.time()
-        sid = self.station['station_id']
-        db.renew(self.conn, sid, [m.c.char_id for m in self.active()], self.s.well_lease, wall)
-        db.heartbeat(self.conn, sid, WELL, self.leader.char_id, 'training', wall)
-        roles = db.station_roles(self.conn)
-        for m in self.active():
-            obs = observe(m.mem, read_world(m.mem))
-            if obs is not None:
-                db.save_observation(self.conn, obs, derive_phase(obs, db.ledger(self.conn, m.c.char_id), roles), wall)
+        self.bookkeep(time.time())
 
     def check_roster(self, leader_team, now):
         roster = set(leader_team.members) if leader_team else set()
@@ -518,20 +553,12 @@ class WellTrainRun:
     def step_member_return(self, m, now):
         w, team = read_world(m.mem), read_team(m.mem)
         wall = time.time()
-        row = db.alt(self.conn, m.c.char_id)
-        record = read_shoe_record(m.mem)
-        obs = observe(m.mem, w)
-        shoe_ok = (obs is not None and record is not None and record[0] == VILLAGE_MAP
-                   and return_method(obs, db.ledger(self.conn, m.c.char_id), wall) == 'shoe')
-        d = decide_member_return(w, team, self.leader.char_id, shoe_ok, scroll_slot(read_bag(m.mem)), m.home, now)
+        d = decide_member_return(w, team, self.leader.char_id, self.shoe_ok(m, w, wall), scroll_slot(read_bag(m.mem)),
+                                 m.home, now)
         m.say('home', d)
         if d.kind == 'done':
-            if row['pending_action'] == ACTION_SHOE:
-                db.complete_action(self.conn, m.c.char_id, wall, shoe_used_at=row['pending_at'] or wall)
-            elif row['pending_action'] == ACTION_SCROLL:
-                db.complete_action(self.conn, m.c.char_id, wall)
             m.state = 'home'
-            db.release(self.conn, self.station['station_id'], [m.c.char_id], wall)
+            self.note_home(m, wall)
         elif d.kind == 'leave':
             try:
                 m.game.team_leave()
@@ -539,21 +566,19 @@ class WellTrainRun:
                 m.log.warning('退队请求没发出: %s', e)
             m.home.left_at = now
         elif d.kind == 'unconfirmed':
-            db.clear_pending(self.conn, m.c.char_id, wall, d.reason)
+            self.note_return_failed(m, d.reason, wall)
             m.home.tried.add(m.home.method)
             m.home.method = m.home.sent_at = None
         elif d.kind == 'stuck':
             m.state, m.error = 'stuck', d.reason
             m.log.error('%s', d.reason)
-            db.record_failure(self.conn, m.c.char_id, d.reason, wall)
-            db.release(self.conn, self.station['station_id'], [m.c.char_id], wall)
+            self.note_stuck(m, d.reason, wall)
         elif d.kind in ('shoe', 'scroll'):
-            action = ACTION_SHOE if d.kind == 'shoe' else ACTION_SCROLL
-            db.mark_pending(self.conn, m.c.char_id, action, wall)
+            self.note_return(m, ACTION_SHOE if d.kind == 'shoe' else ACTION_SCROLL, wall)
             try:
                 m.game.shoe_return() if d.kind == 'shoe' else m.game.use_item(d.arg)
             except NotSent as e:
-                db.clear_pending(self.conn, m.c.char_id, wall, str(e))
+                self.note_return_failed(m, str(e), wall)
                 m.home.tried.add(d.kind)
                 return
             m.home.method, m.home.sent_at = d.kind, now
@@ -599,9 +624,9 @@ class WellTrainRun:
             if not returning:
                 self.check_roster(leader_team, now)
                 training = [m for m in self.active() if m.state == 'training']
-                if all(m.level is not None and m.level >= TARGET_LEVEL for m in training):
+                if all(m.level is not None and m.level >= self.target for m in training):
                     returning = True
-                    self.log.info('全员到 %d 级（%s），开始回城', TARGET_LEVEL,
+                    self.log.info('全员到 %d 级（%s），开始回城', self.target,
                                   ', '.join(f'{m.c.name} {m.level}' for m in training) or '没有队员')
                 else:
                     self.step_route(lw, now)

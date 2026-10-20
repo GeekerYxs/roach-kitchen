@@ -8,8 +8,8 @@ from types import SimpleNamespace
 
 from factory import db
 from factory.phase import COAST_MAP, VILLAGE_MAP
-from factory.storeship import (Ferry, Rider, ShipSettings, StoreGoldJob, StoreTransport, decide_park, decide_spawn,
-                               load_ship, ship_order, should_sail, supervisor_busy)
+from factory.storeship import (Ferry, Rider, ShipSettings, StoreGoldJob, StoreTrainRun, StoreTransport, decide_park,
+                               decide_spawn, load_ship, ship_order, should_sail, supervisor_busy)
 from factory.wellteam import SPAWN
 from provisioner.world import WorldState
 
@@ -35,6 +35,13 @@ class Settings(unittest.TestCase):
         with self.assertRaises(ValueError):
             load_ship({'ship': {'gold': 100}})
 
+    def test_slots_and_level(self):
+        s = load_ship({'ship': {'slots': [1], 'min_level': 12}})
+        self.assertEqual((s.slots, s.min_level), ((1,), 12))
+        for bad in ([], [0], [5]):
+            with self.assertRaises(ValueError, msg=bad):
+                load_ship({'ship': {'slots': bad}})
+
 
 class Order(unittest.TestCase):
     def test_slot_major_and_only_village_ready(self):
@@ -42,6 +49,10 @@ class Order(unittest.TestCase):
                 row('box07', 3, db.STORE_FAILED)]
         self.assertEqual(ship_order(rows, NAMES),
                          [('box07', 1, 'box07仓1'), ('box08', 1, 'box08仓1'), ('box07', 2, 'box07仓2')])
+
+    def test_only_chosen_slots(self):
+        rows = [row('box07', 1), row('box07', 2), row('box08', 1)]
+        self.assertEqual(ship_order(rows, NAMES, (1,)), [('box07', 1, 'box07仓1'), ('box08', 1, 'box08仓1')])
 
     def test_unconfigured_account_or_other_name_skipped(self):
         rows = [row('box09', 1), row('box07', 1, name='别的名字'), row('box07', 9)]
@@ -54,6 +65,8 @@ class Guard(unittest.TestCase):
         self.assertTrue(supervisor_busy('waiting', now - 5, now))
         self.assertFalse(supervisor_busy('waiting', now - 120, now))       # stopped a while ago
         self.assertTrue(supervisor_busy('transporting', now - 200, now))
+        self.assertTrue(supervisor_busy('training', now - 15, now))
+        self.assertFalse(supervisor_busy('store_train', now, now))
         self.assertFalse(supervisor_busy('online', now, now))              # just logged in by 一键登录工位
         self.assertFalse(supervisor_busy('idle', now, now))
         self.assertFalse(supervisor_busy('store_ship', now, now))          # an earlier run of this tool
@@ -124,12 +137,20 @@ class Hooks(unittest.TestCase):
                          [False] * (db.MAX_RETRIES - 1) + [True])
         self.assertEqual(conn.execute("SELECT count(*) FROM sqlite_master").fetchone()[0], 0)
 
+    def test_train_hooks_write_nothing(self):
+        conn = sqlite3.connect(':memory:')
+        run = StoreTrainRun.__new__(StoreTrainRun)
+        run.conn = conn
+        m = SimpleNamespace(c=SimpleNamespace(char_id=7))
+        self.assertEqual(run.claim([7]), [7])
+        self.assertFalse(run.shoe_ok(m, None, 0.0))     # store roles go home by 回城卷
+        run.release(m), run.note_home(m, 0.0), run.note_return(m, 'x', 0.0), run.note_return_failed(m, 'e', 0.0)
+        run.note_stuck(m, 'e', 0.0)
+        self.assertEqual(conn.execute("SELECT count(*) FROM sqlite_master").fetchone()[0], 0)
+
 
 def ferry(gather=20.0):
-    fs = SimpleNamespace(transport_team_size=4, gold_amount=500, gold_topup_below=380, db_path=':memory:')
-    f = Ferry.__new__(Ferry)
-    f.s, f.ship, f.log = fs, ShipSettings(gather=gather, timeout=5.0), None
-    f.cond, f.queue, f.coming, f.closed, f.broken, f.trips = threading.Condition(), [], set(), False, None, 0
+    f = Ferry('调度员', None, None, 4, ShipSettings(gather=gather), 5.0, ':memory:', None)
     return f
 
 
