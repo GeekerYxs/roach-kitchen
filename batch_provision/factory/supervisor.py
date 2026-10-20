@@ -22,6 +22,7 @@ Stage A (factory/relogin.py): a station whose window shows no character for `sta
 station whose process is gone is logged in again from stations.toml (`station_relogin`).
 Ctrl+C stops; windows stay open and the next start adopts them (roles of the configured accounts with our DLL).
 """
+import contextlib
 import logging
 import sys
 import threading
@@ -50,6 +51,7 @@ from .relogin import (KILL_SETTLE, RELOGIN_STATUS, Watch, check_entered, decide_
                       other_login_running, probe, relogin_delay, relogin_due)
 from .stations import foreign_windows
 from .supply import Gate as SupplyGate, load_sellable, load_supply_file, run_supply
+from .treasury import Treasury, load_treasury_file
 from .handin import HandinJob
 from .home import HomeJob
 from .meat import MeatJob
@@ -118,6 +120,7 @@ class SupSettings:
     minimize: bool = False              # [batch] minimize: minimize this tool's alt windows once (provisioner/minimize)
     arrange: bool = True                # [batch] arrange: lay the station windows out (provisioner/layout)
     supply: object = None               # factory.supply.SupplySettings ([supply] in factory.toml), None = off
+    treasury: object = None             # factory.treasury.TreasurySettings ([treasury] in factory.toml), None = off
 
 
 @dataclass(frozen=True)
@@ -163,7 +166,8 @@ def load_supervisor(path):
                        float(s.get('quarantine_retry_hours', 2)) * 3600, relogin, relogin_error,
                        bool(data.get('batch', {}).get('minimize', False)),
                        bool(data.get('batch', {}).get('arrange', True)),
-                       load_supply_file(ROOT / s.get('factory', 'factory.toml')))
+                       load_supply_file(ROOT / s.get('factory', 'factory.toml')),
+                       load_treasury_file(ROOT / s.get('factory', 'factory.toml')))
 
 
 # ---- the run --------------------------------------------------------------------------------------------
@@ -305,6 +309,8 @@ class Supervisor:
         self.supply = getattr(s, 'supply', None)
         self.supply_gate = SupplyGate(self.supply.retry_after) if self.supply else None
         self.sellable = load_sellable() if self.supply else {}
+        ts = getattr(s, 'treasury', None)
+        self.treasury = Treasury(ts, self.receiver_client) if ts and ts.enabled else None
         self.well_gate = TeamGate(s.well_max_wait)
         # well_buffer, coast_buffer and coast_backlog are per leader of that kind: more leaders, longer queues
         wells = max(1, len(self.station_rows(WELL_ROLE)))
@@ -557,7 +563,8 @@ class Supervisor:
                             continue
                         c = alts[cid][0]
                         try:
-                            res = ReceiveJob(conn, sid, recv, rmem, rgame, c, fs, log.for_account(c.name)).run()
+                            with self.receiver_lock():      # a treasury top-up uses the receiver too
+                                res = ReceiveJob(conn, sid, recv, rmem, rgame, c, fs, log.for_account(c.name)).run()
                         finally:
                             db.release(conn, sid, [cid], time.time())
                         self._failed(conn, cid, res)
@@ -566,12 +573,22 @@ class Supervisor:
             finally:
                 rgame.close()
 
+    def receiver_client(self, conn):
+        """The treasury = the receiver station's window (procs.Client), or None when it is not online."""
+        row = conn.execute('SELECT char_id FROM stations WHERE role=? ORDER BY station_id', (RECEIVER,)).fetchone()
+        return self.scan().get(row['char_id']) if row else None
+
     def supply_errand(self, conn, st, client, mem, lg, village):
-        """Between two batches: buy what runs low / sell junk (factory/supply.py). Never raises."""
-        if self.supply is None or not self.supply.enabled:
+        """Between two batches: buy what runs low, sell junk (factory/supply.py), get gold from the treasury when
+        short (factory/treasury.py). Never raises."""
+        if self.supply is None or (not self.supply.enabled and self.treasury is None):
             return
         db.heartbeat(conn, st['station_id'], st['role'], st['char_id'], 'supplying', time.time())
-        run_supply(conn, st, client, mem, self.s.factory, self.supply, self.sellable, self.supply_gate, lg, village)
+        run_supply(conn, st, client, mem, self.s.factory, self.supply, self.sellable, self.supply_gate, lg, village,
+                   self.treasury)
+
+    def receiver_lock(self):
+        return self.treasury.lock if self.treasury else contextlib.nullcontext()
 
     def wait_for_team(self, conn, st, phase, size, max_wait, lg, pid):
         """Block until team_ready() for the station's queue (only the open, readable alt windows count).

@@ -42,6 +42,7 @@ from . import db
 from .coast import LANDING, CoastRun
 from .config import ROOT, load_settings
 from .phase import COAST_MAP, SCROLL_ITEM, VILLAGE_MAP
+from .treasury import Treasury, load_treasury_file, pay, shortfall
 
 HP_ITEM, MP_ITEM, PET_ITEM = 64002, 63954, 8573          # 萝卜糕, 胡萝卜汁, 甜点
 ITEM_KEYS = {'scroll': SCROLL_ITEM, 'hp': HP_ITEM, 'mp': MP_ITEM, 'pet': PET_ITEM}
@@ -246,12 +247,12 @@ class SupplyRun(CoastRun):
     """One station's supply errand. Walks with the coast leaders' code (to_coast = back to 81, PP鸡 from the
     village; goto = walk on 81), so the receiver-style subclass needs no team."""
 
-    def __init__(self, conn, station, client, mem, settings, logger, role, supply, sellable):
+    def __init__(self, conn, station, client, mem, settings, logger, role, supply, sellable, treasury=None):
         super().__init__(conn, station, client, mem, {}, settings, logger)
-        self.role, self.sup, self.sellable = role, supply, sellable
+        self.role, self.sup, self.sellable, self.treasury = role, supply, sellable, treasury
         self.rules = supply.rules.get(role, {})
         self.shop = ShopClient(self.lgame, mem, logger)
-        self.done = {'bought': {}, 'sold': 0, 'gold_before': read_gold(mem)}
+        self.done = {'bought': {}, 'sold': 0, 'paid': 0, 'gold_before': read_gold(mem)}
 
     def check(self):
         if time.monotonic() - self.started > self.sup.timeout:
@@ -333,6 +334,17 @@ class SupplyRun(CoastRun):
                 return w
         raise RuntimeError(f'回城卷 {LANDING_SCROLL_WAIT:.0f}s 后还没回到村里')
 
+    def money(self):
+        """Gold this station should get from the treasury now (0 = enough / no treasury)."""
+        return shortfall(self.role, read_gold(self.lmem), self.treasury.s) if self.treasury else 0
+
+    def bank(self, amount):
+        """Walk to the receiver post on map 81 and get `amount` from the treasury."""
+        self.log.info('金币低于下限，去收货人（财政主管）那里领 %d', amount)
+        self.goto(self.s.receiver_post, '去收货人那里领金币', 'supplying')
+        self.done['paid'] += pay(self.treasury, self.conn, self.leader, self.lgame, self.lmem, amount, self.log,
+                                 gap=self.s.trade_step_gap, tick=self.s.tick)
+
     def clear_dialog(self):
         if read_dialog(self.lmem) is not None:
             self.log.info('先关掉开着的 NPC 对话框')
@@ -343,12 +355,16 @@ class SupplyRun(CoastRun):
         self.clear_dialog()
         bag, cap = self.bag()
         coast, village, sell = needs(bag, cap, self.rules, self.sup)
+        money = self.money()
         if village or sell:
             self.visit(PETSHOP, village, sell)
-        if coast:
-            self.log.info('去海岸花袭人补给（%s）', describe(coast, False))
+        if coast or money:
+            self.log.info('去海岸补给（%s）', describe(coast, False, money))
             self.to_coast()
-            self.visit(NURSE, coast, False)
+            if money:
+                self.bank(money)
+            if coast:
+                self.visit(NURSE, coast, False)
             self.scroll_home()
         return self.summary()
 
@@ -356,6 +372,9 @@ class SupplyRun(CoastRun):
         """Coast leader before a batch: on 81 (to_coast brings it back from anywhere)."""
         self.clear_dialog()
         self.to_coast()
+        money = self.money()
+        if money:
+            self.bank(money)
         bag, cap = self.bag()
         coast, village, sell = needs(bag, cap, self.rules, self.sup)
         if coast or sell:
@@ -371,25 +390,30 @@ class SupplyRun(CoastRun):
         gold = read_gold(self.lmem)
         before = self.done['gold_before']
         out = {'bought': {ITEM_NAMES[i]: n for i, n in self.done['bought'].items()}, 'sold': self.done['sold'],
-               'gold_change': None if gold is None or before is None else gold - before}
+               'paid': self.done['paid'], 'gold_change': None if gold is None or before is None else gold - before}
+        if out['paid']:
+            db.log_event(self.conn, time.time(), 'treasury', f'财政主管拨款 {out["paid"]}', station_id=self.sid())
         if out['bought'] or out['sold']:
             db.log_event(self.conn, time.time(), 'supply', f'买 {out["bought"]} 卖 {out["sold"]} 格 金币变化 '
                          f'{out["gold_change"]}', station_id=self.sid())
         return out
 
 
-def describe(items, sell):
+def describe(items, sell, money=0):
     parts = [f'{ITEM_NAMES[i]} {n}' for i, n in items.items()]
     if sell:
         parts.append('卖杂物')
+    if money:
+        parts.append(f'领金币 {money}')
     return '、'.join(parts) or '无'
 
 
-def due(role, bag, capacity, supply):
-    """True when this station has something to buy or sell now (cheap check before starting a run)."""
+def due(role, bag, capacity, supply, gold=None, treasury=None):
+    """True when this station has something to buy, sell or collect now (cheap check before starting a run)."""
     rules = supply.rules.get(role, {})
     coast, village, sell = needs(bag, capacity, rules, supply)
-    return supply.enabled and bool(rules) and bool(coast or village or sell)
+    shop = supply.enabled and bool(rules) and bool(coast or village or sell)
+    return shop or bool(treasury and shortfall(role, gold, treasury.s))
 
 
 class Gate:
@@ -409,15 +433,16 @@ class Gate:
         self.failed_at.pop(sid, None)
 
 
-def run_supply(conn, station, client, mem, settings, supply, sellable, gate, logger, village):
-    """Supervisor hook: one supply errand if due, never raising. village: True = village station."""
+def run_supply(conn, station, client, mem, settings, supply, sellable, gate, logger, village, treasury=None):
+    """Supervisor hook: one supply errand (shopping and / or a treasury top-up) if due, never raising.
+    village: True = village station."""
     sid = station['station_id']
-    if not supply.enabled or not gate.open(sid):
+    if not gate.open(sid):
         return None
     bag, cap = read_bag(mem), read_bag_capacity(mem)
-    if bag is None or cap is None or not due(station['role'], bag, cap, supply):
+    if bag is None or cap is None or not due(station['role'], bag, cap, supply, read_gold(mem), treasury):
         return None
-    run = SupplyRun(conn, station, client, mem, settings, logger, station['role'], supply, sellable)
+    run = SupplyRun(conn, station, client, mem, settings, logger, station['role'], supply, sellable, treasury)
     try:
         result = run.village_run() if village else run.coast_run()
         gate.ok(sid)
@@ -451,8 +476,15 @@ def main():
         return 2
     conn = db.connect(settings.db_path)
     station = {'station_id': f'supply-{name}', 'role': role, 'char_id': client.char_id}
+
+    def receiver(c):        # the treasury: the registered receiver station's window
+        row = c.execute("SELECT char_id FROM stations WHERE role='receiver' ORDER BY station_id").fetchone()
+        return next((x for x in procs.discover(logger) if row and x.char_id == row['char_id']), None)
+
+    ts = load_treasury_file(cfg)
+    treasury = Treasury(ts, receiver) if ts.enabled else None
     with ProcessMemory(client.session.pid, client.session.base) as mem:
-        run = SupplyRun(conn, station, client, mem, settings, logger, role, supply, load_sellable())
+        run = SupplyRun(conn, station, client, mem, settings, logger, role, supply, load_sellable(), treasury)
         try:
             village = role in ('well', 'dispatcher')
             result = run.village_run() if village else run.coast_run()
