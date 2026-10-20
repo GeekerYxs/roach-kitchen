@@ -255,6 +255,16 @@ def read_bag(mem):
     return tuple(slots)
 
 
+def read_bag_capacity(mem):
+    """Number of bag slots (40 on box01, 2026-10-20: the same count read_bag walks; empty slots have valid -1),
+    or None while the session does not exist."""
+    session = mem.u32(mem.base + SESSION_MGR_RVA)
+    if not session:
+        return None
+    count = mem.u32(session + BAG_TABLE + BAG_COUNT)
+    return count if 0 < count <= BAG_MAX else None
+
+
 def read_gold(mem):
     session = mem.u32(mem.base + SESSION_MGR_RVA)
     if not session:

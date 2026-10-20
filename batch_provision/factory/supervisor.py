@@ -49,6 +49,7 @@ from .rebuild import RebuildJob
 from .relogin import (KILL_SETTLE, RELOGIN_STATUS, Watch, check_entered, decide_watch, may_kill,
                       other_login_running, probe, relogin_delay, relogin_due)
 from .stations import foreign_windows
+from .supply import Gate as SupplyGate, load_sellable, load_supply_file, run_supply
 from .handin import HandinJob
 from .home import HomeJob
 from .meat import MeatJob
@@ -116,6 +117,7 @@ class SupSettings:
     relogin_error: str | None = None    # why relogin is off although configured on
     minimize: bool = False              # [batch] minimize: minimize this tool's alt windows once (provisioner/minimize)
     arrange: bool = True                # [batch] arrange: lay the station windows out (provisioner/layout)
+    supply: object = None               # factory.supply.SupplySettings ([supply] in factory.toml), None = off
 
 
 @dataclass(frozen=True)
@@ -160,7 +162,8 @@ def load_supervisor(path):
                        rebuild_after, float(s.get('rebuild_retry_minutes', 20)) * 60,
                        float(s.get('quarantine_retry_hours', 2)) * 3600, relogin, relogin_error,
                        bool(data.get('batch', {}).get('minimize', False)),
-                       bool(data.get('batch', {}).get('arrange', True)))
+                       bool(data.get('batch', {}).get('arrange', True)),
+                       load_supply_file(ROOT / s.get('factory', 'factory.toml')))
 
 
 # ---- the run --------------------------------------------------------------------------------------------
@@ -299,6 +302,9 @@ class Supervisor:
         self.lock = threading.Lock()
         self.stop = threading.Event()
         self.coast_gate = TeamGate(s.coast_max_wait)
+        self.supply = getattr(s, 'supply', None)
+        self.supply_gate = SupplyGate(self.supply.retry_after) if self.supply else None
+        self.sellable = load_sellable() if self.supply else {}
         self.well_gate = TeamGate(s.well_max_wait)
         # well_buffer, coast_buffer and coast_backlog are per leader of that kind: more leaders, longer queues
         wells = max(1, len(self.station_rows(WELL_ROLE)))
@@ -513,6 +519,9 @@ class Supervisor:
 
     def coast_body(self, conn, st, leader, lg):
         with ProcessMemory(leader.session.pid, leader.session.base) as mem:
+            team = read_team(mem)
+            if team is not None and len(team.members) <= 1:
+                self.supply_errand(conn, st, leader, mem, lg, village=False)
             run = GatedCoastRun(conn, st, leader, mem, self.snapshot, self.coast_gate, self.s.factory, lg, self.stop)
             try:
                 results = run.run()
@@ -557,6 +566,13 @@ class Supervisor:
             finally:
                 rgame.close()
 
+    def supply_errand(self, conn, st, client, mem, lg, village):
+        """Between two batches: buy what runs low / sell junk (factory/supply.py). Never raises."""
+        if self.supply is None or not self.supply.enabled:
+            return
+        db.heartbeat(conn, st['station_id'], st['role'], st['char_id'], 'supplying', time.time())
+        run_supply(conn, st, client, mem, self.s.factory, self.supply, self.sellable, self.supply_gate, lg, village)
+
     def wait_for_team(self, conn, st, phase, size, max_wait, lg, pid):
         """Block until team_ready() for the station's queue (only the open, readable alt windows count).
         pid: the station's own process; gone (closed as lost) -> stop waiting."""
@@ -583,6 +599,7 @@ class Supervisor:
             if w is None or team is None:
                 raise RuntimeError('读不到古井队长的状态')
             if w.map_id == VILLAGE_MAP and len(team.members) <= 1:
+                self.supply_errand(conn, st, leader, mem, lg, village=True)
                 self.wait_for_team(conn, st, QUEUE_WELL, fs.well_team_size, self.s.well_max_wait, lg,
                                    leader.session.pid)
                 db.heartbeat(conn, st['station_id'], WELL_ROLE, leader.char_id, 'forming', time.time())
@@ -611,6 +628,7 @@ class Supervisor:
             if w is None:
                 raise RuntimeError('读不到调度员的状态')
             if w.map_id != COAST_MAP:
+                self.supply_errand(conn, st, disp, mem, lg, village=True)
                 self.wait_for_team(conn, st, QUEUE_TRANSPORT, fs.transport_team_size, self.s.transport_max_wait, lg,
                                    disp.session.pid)
             db.heartbeat(conn, st['station_id'], DISPATCHER, disp.char_id, 'transporting', time.time())
