@@ -5,7 +5,7 @@ from dataclasses import replace
 
 from factory.phase import MEADOW_MAP, SCROLL_ITEM, VILLAGE_MAP, WELL_MAP
 from factory.welltrain import (CLICK_WAIT, ENTRANCE, ENTRANCE_NPC, FOLLOW_WAIT, MAX_CLICKS, MAX_SKILL_SENDS, NAV_RETRY,
-                               PATROL, RESEND, RETURN_WAIT, SETTLE, STALL, TALENT_BACKOFF, TALENT_MISSES, TALENT_WAIT,
+                               RESEND, RETURN_WAIT, SETTLE, STALL, TALENT_BACKOFF, TALENT_MISSES, TALENT_WAIT,
                                Fight, Home, Route, Talent, decide_battle, decide_fighter, decide_leader_return,
                                decide_member_return, decide_route, decide_talent, scroll_slot)
 from provisioner.game import talent_body
@@ -17,6 +17,7 @@ W = WorldState(char_id=LEADER, map_id=VILLAGE_MAP, x=1266.0, y=1174.0, target_x=
                busy=False, in_battle=False, nav_active=False, verification=False)
 AT_ENTRANCE = replace(W, map_id=MEADOW_MAP, x=ENTRANCE[0], y=ENTRANCE[1])
 IN_WELL = replace(W, map_id=WELL_MAP, x=2160.0, y=1580.0)
+PATROL = ((2214, 1653), (1000, 260))
 
 
 def route_at(w, **kw):
@@ -30,67 +31,67 @@ def route_at(w, **kw):
 
 class RouteTests(unittest.TestCase):
     def test_village_navigates_to_meadow_entrance(self):
-        d = decide_route(W, [VILLAGE_MAP], route_at(W), 100)
+        d = decide_route(W, [VILLAGE_MAP], route_at(W), 100, PATROL)
         self.assertEqual((d.kind, d.arg), ('navigate', (MEADOW_MAP, *ENTRANCE, None)))
 
     def test_no_renavigate_too_soon_and_wait_while_walking(self):
         memo = route_at(W, last_nav=99.5)
-        self.assertEqual(decide_route(W, [], memo, 100).kind, 'wait')
+        self.assertEqual(decide_route(W, [], memo, 100, PATROL).kind, 'wait')
         walking = replace(W, nav_active=True)
         memo = route_at(walking)
-        self.assertEqual(decide_route(walking, [], memo, 1).kind, 'wait')
+        self.assertEqual(decide_route(walking, [], memo, 1, PATROL).kind, 'wait')
 
     def test_stalled_navigation_is_cancelled(self):
         walking = replace(W, nav_active=True)
         memo = route_at(walking)
-        self.assertEqual(decide_route(walking, [], memo, STALL + 1).kind, 'cancel_nav')
+        self.assertEqual(decide_route(walking, [], memo, STALL + 1, PATROL).kind, 'cancel_nav')
 
     def test_battle_and_verification(self):
-        self.assertEqual(decide_route(replace(W, in_battle=True), [], route_at(W), 1).kind, 'battle')
-        self.assertEqual(decide_route(replace(W, verification=True), [], route_at(W), 1).kind, 'wait')
+        self.assertEqual(decide_route(replace(W, in_battle=True), [], route_at(W), 1, PATROL).kind, 'battle')
+        self.assertEqual(decide_route(replace(W, verification=True), [], route_at(W), 1, PATROL).kind, 'wait')
 
     def test_entrance_clicks_after_settling_with_members_there(self):
         memo = route_at(AT_ENTRANCE)
-        self.assertEqual(decide_route(AT_ENTRANCE, [MEADOW_MAP], memo, SETTLE / 2).kind, 'wait')
-        d = decide_route(AT_ENTRANCE, [MEADOW_MAP] * 4, memo, SETTLE + 0.1)
+        self.assertEqual(decide_route(AT_ENTRANCE, [MEADOW_MAP], memo, SETTLE / 2, PATROL).kind, 'wait')
+        d = decide_route(AT_ENTRANCE, [MEADOW_MAP] * 4, memo, SETTLE + 0.1, PATROL)
         self.assertEqual((d.kind, d.arg), ('click', ENTRANCE_NPC))
 
     def test_entrance_waits_for_followers_then_goes_anyway(self):
         memo = route_at(AT_ENTRANCE)
-        self.assertEqual(decide_route(AT_ENTRANCE, [VILLAGE_MAP, MEADOW_MAP], memo, 5).kind, 'wait')
-        self.assertEqual(decide_route(AT_ENTRANCE, [VILLAGE_MAP], memo, FOLLOW_WAIT + 1).kind, 'click')
+        self.assertEqual(decide_route(AT_ENTRANCE, [VILLAGE_MAP, MEADOW_MAP], memo, 5, PATROL).kind, 'wait')
+        self.assertEqual(decide_route(AT_ENTRANCE, [VILLAGE_MAP], memo, FOLLOW_WAIT + 1, PATROL).kind, 'click')
 
     def test_entrance_cancels_navigation_first(self):
         w = replace(AT_ENTRANCE, nav_active=True)
-        self.assertEqual(decide_route(w, [], route_at(w), 5).kind, 'cancel_nav')
+        self.assertEqual(decide_route(w, [], route_at(w), 5, PATROL).kind, 'cancel_nav')
 
     def test_click_waits_then_gives_up(self):
         memo = route_at(AT_ENTRANCE, clicked_at=10.0, clicks=1)
-        self.assertEqual(decide_route(AT_ENTRANCE, [], memo, 10 + CLICK_WAIT - 1).kind, 'wait')
-        self.assertEqual(decide_route(AT_ENTRANCE, [], memo, 10 + CLICK_WAIT + 1).kind, 'click')
+        self.assertEqual(decide_route(AT_ENTRANCE, [], memo, 10 + CLICK_WAIT - 1, PATROL).kind, 'wait')
+        self.assertEqual(decide_route(AT_ENTRANCE, [], memo, 10 + CLICK_WAIT + 1, PATROL).kind, 'click')
         memo = route_at(AT_ENTRANCE, clicked_at=10.0, clicks=MAX_CLICKS)
-        self.assertEqual(decide_route(AT_ENTRANCE, [], memo, 100).kind, 'fail')
+        self.assertEqual(decide_route(AT_ENTRANCE, [], memo, 100, PATROL).kind, 'fail')
 
     def test_entrance_dialog_option(self):
         w = replace(AT_ENTRANCE, dialog=Dialog('', ((1, '进入阴森古井'), (0, '离开'))))
-        d = decide_route(w, [], route_at(w), 5)
+        d = decide_route(w, [], route_at(w), 5, PATROL)
         self.assertEqual((d.kind, d.arg), ('select', 1))
         w = replace(AT_ENTRANCE, dialog=Dialog('', ((1, '甲'), (2, '乙'), (0, '离开'))))
-        self.assertEqual(decide_route(w, [], route_at(w), 5).kind, 'fail')
+        self.assertEqual(decide_route(w, [], route_at(w), 5, PATROL).kind, 'fail')
 
     def test_well_patrols_between_points(self):
-        d = decide_route(IN_WELL, [], route_at(IN_WELL), 100)
+        d = decide_route(IN_WELL, [], route_at(IN_WELL), 100, PATROL)
         self.assertEqual((d.kind, d.arg), ('navigate', (WELL_MAP, *PATROL[0], 0)))
         at_a = replace(IN_WELL, x=PATROL[0][0], y=PATROL[0][1], nav_active=True)
         memo = route_at(at_a, last_nav=99.9)
-        d = decide_route(at_a, [], memo, 100)
+        d = decide_route(at_a, [], memo, 100, PATROL)
         self.assertEqual((d.kind, d.arg), ('navigate', (WELL_MAP, *PATROL[1], 1)))
         memo.record(d, at_a, 100)
         self.assertEqual(memo.patrol, 1)
-        self.assertEqual(decide_route(at_a, [], memo, 100.1).kind, 'wait')   # walking to B now
+        self.assertEqual(decide_route(at_a, [], memo, 100.1, PATROL).kind, 'wait')   # walking to B now
 
     def test_unknown_map_fails(self):
-        self.assertEqual(decide_route(replace(W, map_id=81), [], route_at(W), 1).kind, 'fail')
+        self.assertEqual(decide_route(replace(W, map_id=81), [], route_at(W), 1, PATROL).kind, 'fail')
 
     def test_map_change_resets_entrance_memory(self):
         memo = route_at(AT_ENTRANCE, clicked_at=5.0, clicks=2)

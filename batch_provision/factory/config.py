@@ -20,6 +20,7 @@ class Settings:
     well_form_timeout: float
     well_lease: float
     well_train_timeout: float
+    well_patrol: tuple
     leader_skill: int
     pet_magic: int
     pet_mp_min: int
@@ -73,6 +74,7 @@ def load_settings(path):
                     well_form_timeout=float(f.get('well_form_timeout', 120)),
                     well_lease=float(f.get('well_lease', 1200)),
                     well_train_timeout=float(f.get('well_train_timeout', 1800)),
+                    well_patrol=_patrol(f.get('well_patrol', [[2214, 1653], [1000, 260]]), 'well_patrol'),
                     leader_skill=int(f.get('leader_skill', 803)), pet_magic=int(f.get('pet_magic', 1504)),
                     pet_mp_min=int(f.get('pet_mp_min', 100)), member_attack=bool(f.get('member_attack', False)),
                     transport_team_size=transport_size,

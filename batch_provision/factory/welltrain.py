@@ -3,7 +3,7 @@ spends the members' talent points on 体质 as soon as they appear, then everybo
 
 Entry: python -m factory.welltrain [factory.toml]
 The batch = registered alts in the well leader's team (stage 4a, 一键古井组队.cmd). Every tick, from what is read:
-  route    village -> 夕阳草原 entrance (130: 2544,2904) -> NPC 10152 -> 651 -> patrol A(2214,1653) <-> B(2100,1500)
+  route    village -> 夕阳草原 entrance (130: 2544,2904) -> NPC 10152 -> 651 -> patrol A <-> B (well_patrol)
   battle   leader casts 扫射 803 on the first live enemy each time its SP changes, its pet casts 烈焰爆发 1504
            (normal attack when the skill is missing, the pet is short of MP, or the same SP got no reaction)
   talent   any member with talent points left gets all of them on 体质 (request 0x0070), in battle or not
@@ -34,7 +34,6 @@ from .runner import ROLE_NAME
 ENTRANCE = (2544, 2904)          # 夕阳草原 spot next to the well entrance NPC (old mwxqll run 2026-10-09)
 ENTRANCE_NPC = 10152
 ENTRANCE_RANGE = 80
-PATROL = ((2214, 1653), (2100, 1500))   # inside 651; native navigation works there (old run, 3 battles)
 ARRIVE = 30                      # this close to a patrol point counts as there
 NAV_RETRY = 2.0                  # do not re-issue navigation more often than this
 STALL = 6.0                      # navigating without moving 15 px for this long -> cancel and re-issue
@@ -75,7 +74,7 @@ class Route:
     clicked_at: float | None = None
     clicks: int = 0
     last_select: float = -1e9
-    patrol: int = 0              # index into PATROL of the point we are walking to
+    patrol: int = 0              # index into the patrol points of the point we are walking to
     map_id: int | None = None
 
     def observe(self, w, now):
@@ -117,8 +116,9 @@ def _walk(w, map_id, target, memo, now, why, patrol=None):
                     (map_id, *target, patrol))
 
 
-def decide_route(w, member_maps, memo, now):
-    """Leader out of battle. member_maps: current map of each member still in the batch.
+def decide_route(w, member_maps, memo, now, points):
+    """Leader out of battle. member_maps: current map of each member still in the batch; points: the two patrol
+    points inside the well (A, B).
     'battle' | 'wait' | 'navigate' | 'cancel_nav' | 'click' | 'select' | 'fail'."""
     if w is None:
         return Decision('wait', '队长加载中')
@@ -129,10 +129,10 @@ def decide_route(w, member_maps, memo, now):
     if w.busy:
         return Decision('wait', f'队长忙 flags={w.flags:#x}')
     if w.map_id == WELL_MAP:
-        target = PATROL[memo.patrol]
+        target = points[memo.patrol]
         if math.dist((w.x, w.y), target) <= ARRIVE:
             nxt = 1 - memo.patrol
-            return Decision('navigate', f'到 {"AB"[memo.patrol]} 点，巡逻去 {"AB"[nxt]} 点', (WELL_MAP, *PATROL[nxt], nxt))
+            return Decision('navigate', f'到 {"AB"[memo.patrol]} 点，巡逻去 {"AB"[nxt]} 点', (WELL_MAP, *points[nxt], nxt))
         return _walk(w, WELL_MAP, target, memo, now, f'巡逻去 {"AB"[memo.patrol]} 点', memo.patrol)
     if w.map_id not in (VILLAGE_MAP, MEADOW_MAP):
         return Decision('fail', f'队长在意外的地图 {w.map_id}')
@@ -497,7 +497,7 @@ class WellTrainRun:
         if lw is not None and not lw.in_battle:
             self.leave_battle(now)          # before deciding: resets the stall timer the decision reads
         self.route.observe(lw, now)
-        d = decide_route(lw, maps, self.route, now)
+        d = decide_route(lw, maps, self.route, now, self.s.well_patrol)
         if d.kind == 'battle':
             self.step_battle(now)
             return
