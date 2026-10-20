@@ -129,6 +129,7 @@ class GoldJob:
                             raise RuntimeError(d.reason)
                         if d.kind == 'unconfirmed':
                             memo = Memo()
+                            self.unconfirmed(alt_w, disp_w, game)
                             if self.failed(d.reason):
                                 raise RuntimeError(f'连续失败 {db.MAX_RETRIES} 次，已隔离')
                             time.sleep(1.0)     # let a half-open trade time out before inviting again
@@ -155,6 +156,9 @@ class GoldJob:
 
     def quarantined(self):
         return db.alt(self.conn, self.alt.char_id)['quarantined']
+
+    def unconfirmed(self, alt_w, disp_w, game):
+        """After a trade whose gold did not arrive, before the next try (factory/storeship.py logs and tidies)."""
 
     def failed(self, reason):
         """One unconfirmed trade. -> True when that was the last allowed try."""

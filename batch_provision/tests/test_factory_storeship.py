@@ -8,8 +8,10 @@ from types import SimpleNamespace
 
 from factory import db
 from factory.phase import COAST_MAP, VILLAGE_MAP
+from factory.items import Item
 from factory.storeship import (Ferry, Rider, ShipSettings, StoreGoldJob, StoreTrainRun, StoreTransport, decide_park,
-                               decide_spawn, load_ship, ship_order, should_sail, supervisor_busy)
+                               decide_spawn, junk_slots, load_ship, ship_order, should_sail, supervisor_busy)
+from provisioner.world import BagSlot
 from factory.wellteam import SPAWN
 from provisioner.world import WorldState
 
@@ -29,6 +31,7 @@ def row(account, slot, status=db.STORE_VILLAGE_READY, name=None):
 class Settings(unittest.TestCase):
     def test_defaults(self):
         self.assertEqual(load_ship({}), ShipSettings())
+        self.assertEqual(ShipSettings().min_level, 11)          # like the alts (PP鸡 needs 10)
         self.assertEqual(load_ship({'ship': {'gold': 2000, 'gather': 5}}).gold, 2000)
 
     def test_gold_must_pay_the_teleport(self):
@@ -121,10 +124,13 @@ class Hooks(unittest.TestCase):
 
     def test_gold_job_counts_its_own_tries(self):
         job = StoreGoldJob.__new__(StoreGoldJob)
-        job.tries = 0
+        job.tries, job.max_tries = 0, 5
         job.register()
         self.assertFalse(job.quarantined())
-        self.assertEqual([job.failed('x') for _ in range(db.MAX_RETRIES)], [False] * (db.MAX_RETRIES - 1) + [True])
+        self.assertEqual([job.failed('x') for _ in range(4)], [False] * 4)
+        with self.assertRaises(RuntimeError) as cm:                # the 5th: the role waits for the next trip
+            job.failed('5s 内金币没到')
+        self.assertNotIn('隔离', str(cm.exception))
 
     def test_transport_hooks_write_nothing(self):
         conn = sqlite3.connect(':memory:')
@@ -193,6 +199,14 @@ class FerryQueue(unittest.TestCase):
         self.assertIn('调度员掉线', f.board(('box07', 3), rider(3)))
 
 
+class Junk(unittest.TestCase):
+    def test_well_drops_sold_with_the_alt_rule(self):
+        table = {1: Item(1, 0x103, 1, 20, True, False, '掉的剑'), 2: Item(2, 0x400, 1, 40, True, False, '回城卷'),
+                 3: Item(3, 0x1000, 1, 5, True, False, '杂物')}
+        bag = (BagSlot(0, 1, 1), BagSlot(1, 2, 1), BagSlot(2, 3, 7), BagSlot(3, 99999, 1))
+        self.assertEqual([s.slot for s in junk_slots(bag, table)], [0, 2])
+
+
 class StoreRows(unittest.TestCase):
     def setUp(self):
         self.conn = db.connect(':memory:')
@@ -205,6 +219,12 @@ class StoreRows(unittest.TestCase):
         r = db.store(self.conn, 'box07', 1)
         self.assertEqual((r['status'], r['free_slots'], r['map_id'], r['x'], r['y'], r['gold']),
                          (db.STORE_READY, 35, COAST_MAP, 1781, 1369, 810))
+
+    def test_potato_mark_survives_later_saves(self):
+        db.save_store(self.conn, 'box07', 1, 'box07仓1', db.STORE_VILLAGE_READY, 1.0, char_id=216305)
+        db.mark_store_potato(self.conn, 'box07', 1, 5.0)
+        db.save_store(self.conn, 'box07', 1, 'box07仓1', db.STORE_VILLAGE_READY, 6.0, error='金币没到账')
+        self.assertEqual(db.store(self.conn, 'box07', 1)['potato_at'], 5.0)
 
 
 if __name__ == '__main__':

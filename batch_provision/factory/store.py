@@ -103,8 +103,9 @@ class Decision:
     arg: object = None
 
 
-def decide(world, bag, capacity, table, eaten, free_min, shop=PETSHOP):
-    """One step of stage 2a from what the client shows now. eaten: kinds already eaten this run."""
+def decide(world, bag, capacity, table, eaten, free_min, shop=PETSHOP, rule=sell_slots):
+    """One step of stage 2a from what the client shows now. eaten: kinds already eaten this run.
+    rule(bag, table) -> slots to sell (stage 2b sells the well drops with the alt rule, factory/items.py)."""
     if world is None or bag is None or capacity is None:
         return Decision('wait', '加载中')
     if world.map_id != VILLAGE_MAP:
@@ -117,7 +118,7 @@ def decide(world, bag, capacity, table, eaten, free_min, shop=PETSHOP):
     if food:
         kind, slot = food
         return Decision('eat', f'吃{EAT_NAMES[slot.item_id]}（背包第 {slot.slot} 格，{slot.quantity} 个）', food)
-    junk = sell_slots(bag, table)
+    junk = rule(bag, table)
     if junk:
         distance = math.dist((world.x, world.y), shop.spot)
         if distance > SHOP_RANGE:
@@ -138,9 +139,10 @@ def decide(world, bag, capacity, table, eaten, free_min, shop=PETSHOP):
 class VillagePrep:
     """Steps 3-5 for one entered store role (its window, ProcessMemory and Game are opened here)."""
 
-    def __init__(self, session, char_id, settings, logger, table=None):
+    def __init__(self, session, char_id, settings, logger, table=None, rule=sell_slots):
         self.session, self.char_id, self.s, self.log = session, char_id, settings, logger
         self.table = table if table is not None else items.table()
+        self.rule = rule
 
     def run(self):
         """-> dict(free, capacity, bag, eaten, sold, x, y); raises RuntimeError when the role is not ready."""
@@ -171,7 +173,7 @@ class VillagePrep:
             world, bag, capacity = read_world(mem), read_bag(mem), read_bag_capacity(mem)
             if world and world.char_id != self.char_id:
                 raise RuntimeError(f'角色变了 {self.char_id} -> {world.char_id}')
-            d = decide(world, bag, capacity, self.table, eaten, self.s.free_min)
+            d = decide(world, bag, capacity, self.table, eaten, self.s.free_min, rule=self.rule)
             if d.reason != last_reason:
                 self.log.info('%s', d.reason)
             last_reason = d.reason

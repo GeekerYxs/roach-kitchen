@@ -3,11 +3,13 @@
 Entry: python -m factory.storeship [store.toml]   (一键仓库号就位.cmd)
 Starts from the factory.db stores rows with status village_ready (stage 2a, factory/store.py): roles standing at the
 village spawn (1266,1174) with 35 empty bag slots. Per role (one window each, provisioner AccountRun, closed after):
-  village, level < [ship] min_level (PP鸡 needs level 10, live 2026-10-21):
-                    board the well boat -> a well leader (the first enabled [[station]] role well) forms a team at the
-                    spawn (stage-5 invite code), trains it in 阴森古井 until everyone is min_level (factory/welltrain.py
-                    WellTrainRun, the stage-4b code), members go home by their 回城卷, the leader by its own
-  village:          board the ferry -> the dispatcher ([[station]] role dispatcher) walks to the spawn, gives [ship] gold
+  village, level < [ship] min_level (PP鸡 needs level 10, live 2026-10-21; 11 like the alts):
+                    eat ONE 地瓜 (stores.potato_at, never twice), board the well boat -> a well leader (the first
+                    enabled [[station]] role well) forms a team at the spawn (stage-5 invite code), trains it in 阴森古井
+                    until everyone is min_level (factory/welltrain.py WellTrainRun, the stage-4b code), members go home
+                    by their 回城卷 (lands next to 小美), the leader by its own
+  village:          sell the well drops at 小美 with the alt rule (factory/items.py; factory/store.py VillagePrep), check
+                    [store] free_min empty slots, then board the ferry (twice at most) -> the dispatcher ([[station]] role dispatcher) walks to the spawn, gives [ship] gold
                     (factory/gold.py trade, verified by the role's gold), forms a team, takes it to 平静海岸2区 through
                     PP鸡 and goes home by 回城卷, which disbands the team (factory/transport.py TransportRun, stage 5)
   coast (map 81):   walk to factory.toml receiver_post (1780,1370), stand still, check the position
@@ -36,15 +38,17 @@ from provisioner.login import LaunchThrottle
 from provisioner.memory import ProcessMemory
 from provisioner.pipeline import AccountRun, OwnWindows
 from provisioner.procs import Client, game_pids
-from provisioner.world import read_gold, read_level, read_world
+from provisioner.game import NotSent
+from provisioner.world import item_count, read_bag, read_dialog, read_gold, read_level, read_team, read_world
 
 from . import db
+from . import items
 from .coast import Walk, decide_goto
 from .config import ROOT, load_settings
 from .gold import GoldJob
-from .phase import COAST_MAP, DISPATCHER, VILLAGE_MAP, WELL
+from .phase import COAST_MAP, DISPATCHER, POTATO_ITEM, VILLAGE_MAP, WELL
 from .stations import login_stations
-from .store import store_names
+from .store import VillagePrep, load_store, store_names
 from .transport import TransportRun
 from .welltrain import WellTrainRun
 from .wellteam import SPAWN
@@ -56,12 +60,16 @@ STALL = 6.0
 # per batch): such a fresh status means the supervisor is driving that leader now
 SUPERVISOR_STATUS = {'waiting': 60.0, 'training': 60.0, 'forming': 600.0, 'transporting': 600.0, 'supplying': 600.0}
 SHIP_STATUS, TRAIN_STATUS = 'store_ship', 'store_train'
+EAT_WAIT = 5.0           # the 地瓜 count must drop this long after the 0x49
+GOLD_RETRY_PAUSE = 2.0   # after a gold trade that did not arrive: close the role's dialog, wait, try again
 
 
 @dataclass(frozen=True)
 class ShipSettings:
     gold: int = 1000            # each store role gets this much from the dispatcher (verified: role gold >= gold)
-    min_level: int = 10         # PP鸡 refuses roles below this level: a well leader trains them first
+    min_level: int = 11         # PP鸡 refuses roles below 10: a well leader trains them first (11 like the alts)
+    gold_tries: int = 5         # gold trades per ferry trip before the role waits for the next trip
+    ferry_tries: int = 2        # trips a role boards before giving up for this run
     slots: tuple = (1, 2, 3, 4)  # which slots of each store account this run handles
     timeout: float = 600.0      # one role: waiting for the ferry, then the walk to the post
     train_timeout: float = 2400.0   # one role: waiting for the well boat and the training
@@ -73,7 +81,8 @@ class ShipSettings:
 
 def load_ship(data):
     s = data.get('ship', {})
-    out = ShipSettings(gold=int(s.get('gold', 1000)), min_level=int(s.get('min_level', 10)),
+    out = ShipSettings(gold=int(s.get('gold', 1000)), min_level=int(s.get('min_level', 11)),
+                       gold_tries=int(s.get('gold_tries', 5)), ferry_tries=int(s.get('ferry_tries', 2)),
                        slots=tuple(int(x) for x in s.get('slots', (1, 2, 3, 4))),
                        timeout=float(s.get('timeout', 600)), train_timeout=float(s.get('train_timeout', 2400)),
                        gather=float(s.get('gather', 20)), post_range=float(s.get('post_range', 40)),
@@ -148,11 +157,12 @@ def decide_park(world, post, post_range, settle):
 # ---- the leaders' runs for store roles (no alts rows: no leases, pending actions or quarantine) -------------
 
 class StoreGoldJob(GoldJob):
-    """The stage-3 gold trade for a store role: failures counted here (3 tries)."""
+    """The stage-3 gold trade for a store role: tries counted here; after a trade whose gold did not arrive, log
+    what both sides show (box09仓1 2026-10-21: 3 trades, gold stayed 65, cause unknown) and close the role's dialog."""
 
-    def __init__(self, *args):
+    def __init__(self, *args, max_tries=5):
         super().__init__(*args)
-        self.tries = 0
+        self.tries, self.max_tries = 0, max_tries
 
     def register(self):
         pass
@@ -160,13 +170,36 @@ class StoreGoldJob(GoldJob):
     def quarantined(self):
         return False
 
+    def unconfirmed(self, alt_w, disp_w, game):
+        alt_d, disp_d = read_dialog(game.mem), read_dialog(self.disp_mem)
+        alt_t, disp_t = read_team(game.mem), read_team(self.disp_mem)
+        self.log.warning('金币没到账，现场: 仓库号 %s 对话框=%s 队伍=%s；调度员 %s 对话框=%s 队伍=%s',
+                         describe_world(alt_w), alt_d, alt_t, describe_world(disp_w), disp_d, disp_t)
+        if alt_d is not None:
+            self.log.info('仓库号有对话框开着，先关掉')
+            try:
+                game.select_dialog(0)
+            except NotSent as e:
+                self.log.warning('关对话框没发出: %s', e)
+        time.sleep(GOLD_RETRY_PAUSE)
+
     def failed(self, reason):
         self.tries += 1
-        return self.tries >= db.MAX_RETRIES
+        if self.tries >= self.max_tries:
+            raise RuntimeError(f'交易 {self.tries} 次金币都没到账（{reason}）')
+        return False
+
+
+def describe_world(w):
+    if w is None:
+        return '读不到'
+    return (f'地图 {w.map_id} ({w.x:.0f},{w.y:.0f}) flags={w.flags:#x} 忙={w.busy} 战斗={w.in_battle} '
+            f'寻路={w.nav_active} 验证={w.verification}')
 
 
 class StoreTransport(TransportRun):
     """The stage-5 team + trip for store roles: alts = the riders of this trip."""
+    gold_tries = 5
 
     def __init__(self, *args):
         super().__init__(*args)
@@ -195,7 +228,8 @@ class StoreTransport(TransportRun):
         return self.tries[m.c.char_id] >= db.MAX_RETRIES
 
     def gold_job(self, m):
-        return StoreGoldJob(self.conn, self.disp, self.dmem, self.dgame, m.c, m.account, m.slot, self.s, m.log)
+        return StoreGoldJob(self.conn, self.disp, self.dmem, self.dgame, m.c, m.account, m.slot, self.s, m.log,
+                            max_tries=self.gold_tries)
 
     def board(self):
         """Leader to the spawn, riders into its team. -> the members that joined."""
@@ -424,9 +458,11 @@ class Ferry:
 class ShipRun(AccountRun):
     """provisioner pipeline for one store role (login -> enter), then well + ferry + walk to the post; stores row."""
 
-    def __init__(self, s, account, slot, expected, throttle, own, account_lock, run_id, ship, fsettings, well, ferry):
+    def __init__(self, s, account, slot, expected, throttle, own, account_lock, run_id, ship, fsettings, store_s,
+                 well, ferry):
         super().__init__(s, account, slot, throttle, own, account_lock, run_id)
-        self.expected, self.ship, self.fs, self.well, self.ferry = expected, ship, fsettings, well, ferry
+        self.expected, self.ship, self.fs, self.store_s = expected, ship, fsettings, store_s
+        self.well, self.ferry = well, ferry
         self.key = (account.name, slot)
 
     def before_enter(self, char_id, name):
@@ -442,6 +478,7 @@ class ShipRun(AccountRun):
                 r['level'] = level
                 if world.map_id == VILLAGE_MAP and level is not None and level < self.ship.min_level:
                     self._step(f'古井队长带练到 {self.ship.min_level} 级（现在 {level} 级）')
+                    self._potato(mem, game)
                     self._to_spawn(session, mem, game, char_id)
                     error = self.well.board(self.key, Rider(client, self.account.name, self.slot, self.log))
                     if error:
@@ -451,13 +488,10 @@ class ShipRun(AccountRun):
                 else:
                     self.well.gone(self.key)
                 if world.map_id == VILLAGE_MAP:
-                    self._step('出生点等调度员')
-                    self._to_spawn(session, mem, game, char_id)
-                    self.log.info('%s 级，金币 %s，上船', level, read_gold(mem))
-                    self._step('调度员发金币 + PP鸡')
-                    error = self.ferry.board(self.key, Rider(client, self.account.name, self.slot, self.log))
-                    if error:
-                        raise RuntimeError(error)
+                    self._step('在小美卖杂物')
+                    sold = VillagePrep(session, char_id, self.store_s, self.log, rule=junk_slots).run()
+                    r.update(free=sold['free'], sold=sold['sold'])
+                    self._ride(session, mem, game, client, char_id, level)
                 elif world.map_id != COAST_MAP:
                     raise RuntimeError(f'角色在地图 {world.map_id}，既不是逍遥村西区也不是平静海岸2区，不处理')
                 else:
@@ -467,6 +501,50 @@ class ShipRun(AccountRun):
                 r.update(self._park(session, mem, game, char_id))
             finally:
                 game.close()
+
+    def _ride(self, session, mem, game, client, char_id, level):
+        """Board the dispatcher's ferry; a role it could not take (e.g. gold not arrived) boards the next trip."""
+        for attempt in range(1, self.ship.ferry_tries + 1):
+            self._step('出生点等调度员' + (f'（第 {attempt} 次）' if attempt > 1 else ''))
+            self._to_spawn(session, mem, game, char_id)
+            self.log.info('%s 级，金币 %s，上船', level, read_gold(mem))
+            self._step('调度员发金币 + PP鸡')
+            error = self.ferry.board(self.key, Rider(client, self.account.name, self.slot, self.log))
+            if not error:
+                return
+            w = read_world(mem)
+            if w is None or w.map_id != VILLAGE_MAP or attempt == self.ship.ferry_tries:
+                raise RuntimeError(error)
+            self.log.warning('这趟没送成（%s），等下一趟', error)
+
+    def _potato(self, mem, game):
+        """Eat ONE 地瓜 (double exp for an hour) before the well, like the alts; stores.potato_at keeps it to one."""
+        conn = db.connect(self.fs.db_path)
+        try:
+            row = db.store(conn, self.account.name, self.slot)
+            if row is not None and row['potato_at'] is not None:
+                self.log.info('地瓜已经吃过（%s），不再吃', time.strftime('%m-%d %H:%M', time.localtime(row['potato_at'])))
+                return
+            slot = next((s for s in read_bag(mem) or () if s.item_id == POTATO_ITEM), None)
+            if slot is None:
+                self.log.info('背包里没有地瓜，不吃')
+                return
+            db.mark_store_potato(conn, self.account.name, self.slot, time.time())   # before sending: never twice
+        finally:
+            conn.close()
+        before = item_count(read_bag(mem) or (), POTATO_ITEM)
+        try:
+            game.use_item(slot.slot)
+        except NotSent as e:
+            self.log.warning('吃地瓜没发出去: %s', e)
+            return
+        end = time.monotonic() + EAT_WAIT
+        while time.monotonic() < end:
+            time.sleep(0.2)
+            if item_count(read_bag(mem) or (), POTATO_ITEM) < before:
+                self.log.info('吃地瓜 %d -> %d', before, before - 1)
+                return
+        self.log.warning('地瓜 %.0fs 内数量没变（%d），按已吃处理，不再吃', EAT_WAIT, before)
 
     def _to_spawn(self, session, mem, game, char_id):
         started, last_nav, last = time.monotonic(), -1e9, None
@@ -541,14 +619,25 @@ class ShipRun(AccountRun):
             old = db.store(conn, self.account.name, self.slot)
             status = db.STORE_READY if r['ok'] else (old['status'] if old else db.STORE_VILLAGE_READY)
             db.save_store(conn, self.account.name, self.slot, self.expected, status, time.time(),
-                          char_id=r.get('char_id'), map_id=r.get('map_id'), x=r.get('x'), y=r.get('y'),
-                          gold=r.get('gold'), error=r.get('error'))
+                          char_id=r.get('char_id'), free_slots=r.get('free'), map_id=r.get('map_id'), x=r.get('x'),
+                          y=r.get('y'), gold=r.get('gold'), error=r.get('error'))
             db.log_event(conn, time.time(), 'store', f'{self.expected} {status} {r.get("level")} 级 地图 '
                          f'{r.get("map_id")} ({r.get("x")},{r.get("y")}) 金币 {r.get("gold")}'
                          f'{" " + r["error"] if r.get("error") else ""}', char_id=r.get('char_id'))
         finally:
             conn.close()
         return r
+
+
+def junk_slots(bag, table):
+    """After the well: everything the alt rule sells (factory/items.py), the drops included."""
+    return items.sell_slots(bag, table)
+
+
+def make_ferry_run(conn, station, client, lmem, riders, fs, ship):
+    run = StoreTransport(conn, station, client, lmem, riders, fs, log.for_account('调度员'))
+    run.gold_tries = ship.gold_tries
+    return run
 
 
 # ---- the leaders --------------------------------------------------------------------------------------------
@@ -593,7 +682,8 @@ def main():
     try:
         create = config.load(cfg_path)
         pipe = config.load_pipeline(cfg_path)
-        ship = load_ship(config._read(cfg_path))
+        data = config._read(cfg_path)
+        ship, store_s = load_ship(data), load_store(data)
         names = {a.name: store_names(create, a.name) for a in create.accounts}
         fs = load_settings(ROOT / 'factory.toml')
     except Exception as e:
@@ -619,7 +709,7 @@ def main():
                  lambda c, st, cl, mem, riders: StoreTrain(c, st, cl, mem, riders, fs, ship, log.for_account('古井队长')),
                  fs.well_team_size, ship, ship.train_timeout, fs.db_path, log.for_account('古井队长'))
     ferry = Ferry('调度员', lambda c: station_online(c, logger, DISPATCHER, SHIP_STATUS),
-                  lambda c, st, cl, mem, riders: StoreTransport(c, st, cl, mem, riders, gold_fs, log.for_account('调度员')),
+                  lambda c, st, cl, mem, riders: make_ferry_run(c, st, cl, mem, riders, gold_fs, ship),
                   fs.transport_team_size, ship, ship.timeout, fs.db_path, log.for_account('调度员'))
     accounts = {a.name: a for a in create.accounts}
     throttle = LaunchThrottle(pipe.launch_interval, pipe.min_free_memory_mb)
@@ -632,7 +722,7 @@ def main():
     try:
         with ThreadPoolExecutor(max_workers=pipe.max_windows, thread_name_prefix='ship') as pool:
             results = list(pool.map(lambda t: ShipRun(pipe, accounts[t[0]], t[1], t[2], throttle, own, locks[t[0]],
-                                                      run_id, ship, fs, well, ferry).run(), todo))
+                                                      run_id, ship, fs, store_s, well, ferry).run(), todo))
     finally:
         well.close()
         ferry.close()

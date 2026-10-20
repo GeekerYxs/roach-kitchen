@@ -89,7 +89,7 @@ ADDED_COLUMNS = (
     ('alts', 'pending_action', 'TEXT'), ('alts', 'pending_at', 'REAL'),
     ('stations', 'account', 'TEXT'), ('stations', 'name', 'TEXT'), ('stations', 'pid', 'INTEGER'),
     ('alts', 'deleted_at', 'REAL'), ('alts', 'release_ms', 'INTEGER'), ('alts', 'sold_at', 'REAL'),
-    ('stores', 'gold', 'INTEGER'),
+    ('stores', 'gold', 'INTEGER'), ('stores', 'potato_at', 'REAL'),
 )
 
 
@@ -396,9 +396,14 @@ def save_store(conn, account, slot, name, status, now, char_id=None, free_slots=
     fields = dict(char_id=char_id, free_slots=free_slots, capacity=capacity, map_id=map_id, x=x, y=y, gold=gold)
     fields = {k: v if v is not None else keep.get(k) for k, v in fields.items()}
     conn.execute('INSERT OR REPLACE INTO stores(account, slot, name, char_id, status, free_slots, capacity, map_id, '
-                 'x, y, error, updated_at, gold) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                 'x, y, error, updated_at, gold, potato_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                  (account, slot, name, fields['char_id'], status, fields['free_slots'], fields['capacity'],
-                  fields['map_id'], fields['x'], fields['y'], error, now, fields['gold']))
+                  fields['map_id'], fields['x'], fields['y'], error, now, fields['gold'], keep.get('potato_at')))
+
+
+def mark_store_potato(conn, account, slot, now):
+    """The store role ate its one 地瓜 (stage 2b, before the well): never again."""
+    conn.execute('UPDATE stores SET potato_at=? WHERE account=? AND slot=?', (now, account, slot))
 
 
 def store(conn, account, slot):
