@@ -9,42 +9,116 @@ server_index = 0
 
 # 本机使用的小号号段（建角、总大脑、删除、流水线、接力、进游戏共用）。
 # 规则：两台电脑的号段绝对不能重叠（同一账号在两边登录会互相挤下线）。
-# 一条线（1 古井 + 2 海岸，约 42 料理/小时）需要约 60 个账号 = 240 个角色槽。
+# 3 古井 + 6 海岸（约 100 料理/小时）需要约 130 个账号；算法见 docs/DEPLOY.md 第 4 节。
 [accounts]
 prefix = "mw"
 start = 301
-count = 60                   # mw301 .. mw360
+count = 130                  # mw301 .. mw430
 digits = 2
-password = ""                # 小号密码
+password = ""                # 小号密码（所有小号同一个）
 
-# 工位大号的密码：账号 = "密码"（账号名要和 stations.toml 里的 account 一致）
+# 工位大号的密码：账号 = "密码"（账号名要和下面 [[station]] 里的 account 一致）
 [passwords]
-xq01 = ""
-qooqp6 = ""
-qooqp7 = ""
-qooqp8 = ""
-hz01 = ""
-# bb01 = ""                 # 第三个海岸队长（启用 coast3 时）
+xq05 = ""                    # 调度员
+ha01 = ""                    # 古井队长 1..3
+xq03 = ""
+cap02 = ""
+cap07 = ""                   # 海岸队长 1..6
+cap08 = ""
+cap09 = ""
+cap10 = ""
+cap11 = ""
+cap12 = ""
+xq02 = ""                    # 收货人（兼财政主管）
 
-# 本机工位（可选）：这台电脑用的工位和 stations.toml 不一样时（比如换了收货人，或两台电脑各跑一条线），
-# 把 stations.toml 里全部 [[station]] 段复制到这里再改。这里只要写了一个 [[station]]，就完全不看 stations.toml 的工位列表。
-# 换人时 id 保持不变（例如收货人一直叫 receiver1），密码写在上面的 [passwords]。
+# 本机工位：每个工位一段。只要写了一个 [[station]]，就完全不看 stations.toml 的工位列表。
+# 每个工位大号要求（PP鸡权限、宠物烈焰爆发 1504、开局金币、放在哪）见 docs/DEPLOY.md 第 3 节。
+# id 一旦定了就别改；换人时只改 account / slot / name，然后：停总大脑 → 一键登录工位.cmd → 一键总大脑.cmd。
 # 做到一半换人也行：登录工位时发现同一 id 换了角色，会立刻放开旧角色占着的小号，它们自己退队、带着进度重新排队。
-# 换下来的旧号窗口程序不再管，请手动关掉。
-# 改完：停总大脑 → 双击 一键登录工位.cmd → 双击 一键总大脑.cmd。
-# [[station]]
-# id = 'receiver1'
-# role = 'receiver'
-# account = 'hz01'
-# slot = 1
-# name = '自由一号'
+# slot = 这个账号的第几个角色（1..4）；name = 角色名（填了会核对没登错号）。
+[[station]]
+id = 'dispatcher1'
+role = 'dispatcher'          # 调度员：给小号金币、坐 PP鸡 送小号去海岸
+account = 'xq05'
+slot = 1
+name = '小强杀手五号'
 
-# 本机机器差异（可选）：比如内存小的电脑把小号窗口上限调低
-# [supervisor]
-# max_windows = 20
+[[station]]
+id = 'well1'
+role = 'well'                # 古井队长：带小号练到 11 级
+account = 'ha01'
+slot = 1
+name = '海岸女队长一号'
 
-# 本机总大脑开的小号窗口自动最小化（可选，窗口多时建议打开）。每个窗口只最小化一次，点开看的不会再被最小化；
+[[station]]
+id = 'well2'
+role = 'well'
+account = 'xq03'
+slot = 1
+name = '小强杀手三号'
+
+[[station]]
+id = 'well3'
+role = 'well'
+account = 'cap02'
+slot = 1
+name = 'cap02'
+
+[[station]]
+id = 'coast1'
+role = 'coast'               # 海岸队长：带小号刷腿和鸡屁股
+account = 'cap07'
+slot = 1
+name = 'cap07'
+
+[[station]]
+id = 'coast2'
+role = 'coast'
+account = 'cap08'
+slot = 1
+name = 'cap08'
+
+[[station]]
+id = 'coast3'
+role = 'coast'
+account = 'cap09'
+slot = 1
+name = 'cap09'
+
+[[station]]
+id = 'coast4'
+role = 'coast'
+account = 'cap10'
+slot = 1
+name = '真男人r1'
+
+[[station]]
+id = 'coast5'
+role = 'coast'
+account = 'cap11'
+slot = 1
+name = '真男人r2'
+
+[[station]]
+id = 'coast6'
+role = 'coast'
+account = 'cap12'
+slot = 1
+name = '真男人r3'
+
+[[station]]
+id = 'receiver1'
+role = 'receiver'            # 收货人：收料理和小号金币，兼财政主管给别的工位拨钱
+account = 'xq02'
+slot = 1
+name = '小强杀手二号'
+
+# 小号窗口上限（不含工位）。32 GB 内存写 40；内存不够时程序会自己暂停开新窗口
+[supervisor]
+max_windows = 40
+
+# 小号窗口自动最小化（窗口多时一定要开）；空闲内存低于 min_free_memory_mb 暂停开新窗口。
 # 工位窗口从不最小化，而是排在主屏幕上（arrange，默认开；不想排就写 arrange = false）
-# [batch]
-# minimize = true
-# arrange = false
+[batch]
+minimize = true
+min_free_memory_mb = 1500
