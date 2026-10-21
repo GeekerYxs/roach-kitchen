@@ -82,7 +82,22 @@ class _Uncapped:
 
 
 class LoginFailed(RuntimeError):
-    pass
+    def __init__(self, message, code=None):
+        super().__init__(message)
+        self.code = code        # launcher.exe exit code of the last attempt (3 = game version changed)
+
+
+# Called with (account name, ok, launcher exit code) once per login() call, after its retries. The supervisor sets it
+# to spot many accounts failing at once (factory/outage.py); a hook error never breaks a login.
+RESULT_HOOK = None
+
+
+def _report(account, ok, code):
+    if RESULT_HOOK is not None:
+        try:
+            RESULT_HOOK(account.name, ok, code)
+        except Exception:       # noqa: BLE001
+            pass
 
 
 def login(settings, account, runtime, throttle, log, kill_on_failure=False):
@@ -95,6 +110,7 @@ def login(settings, account, runtime, throttle, log, kill_on_failure=False):
                 log.info('启动游戏并登录 (第 %d/%d 次)', attempt, attempts)
                 session = native.launch(settings, account, result_file, log)
             log.info('已到选角界面 pid=%d hwnd=%#x base=%#x', session.pid, session.hwnd, session.base)
+            _report(account, True, 0)
             return session
         except native.LaunchError as e:
             pid = e.result.get('pid')
@@ -102,7 +118,8 @@ def login(settings, account, runtime, throttle, log, kill_on_failure=False):
             if not e.retryable or attempt == attempts:
                 if pid and kill_on_failure:
                     native.kill(pid)
-                raise LoginFailed(f'登录失败: {e}') from e
+                _report(account, False, e.result.get('code'))
+                raise LoginFailed(f'登录失败: {e}', e.result.get('code')) from e
             if pid and native.alive(pid):
                 log.warning('关闭失败的进程 pid=%d 后重试', pid)
                 native.kill(pid)

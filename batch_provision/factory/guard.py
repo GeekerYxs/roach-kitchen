@@ -14,18 +14,23 @@ and started the supervisor again, and the line ran. The guard does that by itsel
     stops too, a restart would not help
   - planned maintenance ([maintenance], factory/maintenance.py, stage B2): drain before it, close everything, after
     it a canary login every canary_every_minutes; the first success starts the supervisor again
+  - mass login failure ([outage], factory/outage.py, stage B3): the supervisor exits 4 -> close everything; this PC
+    offline -> recheck every net_check_minutes, canary as soon as it is back; online -> wait wait_minutes, then a
+    canary every canary_every_minutes. The game exe changed (launcher exit 3; supervisor exits 5, or a canary sees it)
+    -> close everything and stop: a human updates the program
 Decisions are pure (tests/test_factory_guard.py).
 """
+import os
 import subprocess
 import sys
 import time
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from provisioner import config, log, native, procs
 
-from . import db, heartbeat, maintenance
+from . import db, heartbeat, maintenance, outage
 from .maintenance import CLOSED, DRAIN
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -64,6 +69,10 @@ def judge(exit_code, beat, child_pid, started, now, stall_seconds):
     """One look at the supervisor child. beat: heartbeat.read(); a beat of another pid (an old run) is ignored and
     the clock runs from the child's start instead."""
     if exit_code is not None:
+        if exit_code == outage.EXIT_OUTAGE:
+            return outage.OUTAGE
+        if exit_code == outage.EXIT_VERSION:
+            return outage.VERSION
         return FINAL if exit_code in FINAL_CODES else EXITED
     at = beat['at'] if beat is not None and beat['pid'] == child_pid else started
     return STALLED if now - at >= stall_seconds else RUN
@@ -100,16 +109,19 @@ def kill_targets(rows, root, dll_pids, station_pids, kill_stations):
 
 
 def canary(sup, account, logger):
-    """Log one alt account in to the role-selection screen and close it again: (ok, detail). Touches no role."""
-    from provisioner.login import LaunchThrottle, login, read_session
+    """Log one alt account in to the role-selection screen and close it again: (ok, detail, version changed).
+    Touches no role."""
+    from provisioner.login import LaunchThrottle, LoginFailed, login, read_session
     session = None
     try:
         session = login(sup.login, account, ROOT / 'runtime', LaunchThrottle.of(sup.login), logger,
                         kill_on_failure=True)
         _, roster = read_session(session, account.name, logger)
-        return True, f'{account.name} 登录成功，选角列表 {len(roster)} 个角色'
-    except Exception as e:      # noqa: BLE001 - every failure means "not yet"
-        return False, f'{account.name}: {e}'
+        return True, f'{account.name} 登录成功，选角列表 {len(roster)} 个角色', False
+    except LoginFailed as e:
+        return False, f'{account.name}: {e}', e.code == outage.VERSION_EXIT
+    except Exception as e:      # noqa: BLE001 - every other failure means "not yet"
+        return False, f'{account.name}: {e}', False
     finally:
         if session is not None:
             native.close(session, timeout=5)
@@ -120,16 +132,18 @@ def when(dt):
 
 
 class Guard:
-    def __init__(self, cfg, s, db_path, logger, maint=None, canary_fn=None, now=datetime.now):
+    def __init__(self, cfg, s, db_path, logger, maint=None, canary_fn=None, now=datetime.now, outage_s=None,
+                 net_ok=None):
         self.cfg, self.s, self.db_path, self.log = cfg, s, db_path, logger
         self.maint, self.canary_fn, self.now = maint, canary_fn, now
+        self.outage, self.net_ok = outage_s, net_ok
         self.child = None
         self.started = 0.0
         self.drained = None         # window (start, end) drain.json was written for
 
     def start(self):
         self.child = subprocess.Popen([sys.executable, '-X', 'utf8', '-m', 'factory.supervisor', str(self.cfg)],
-                                      cwd=ROOT)
+                                      cwd=ROOT, env={**os.environ, outage.GUARD_ENV: '1'})
         self.started = time.time()
         self.log.info('总大脑已启动 pid=%d', self.child.pid)
 
@@ -186,14 +200,59 @@ class Guard:
                 left = (w[1] - self.now()).total_seconds()
                 time.sleep(max(1.0, min(60.0, left)))
                 continue
-            ok, detail = self.canary_fn(tries)
+            ok, detail, version = self.canary_fn(tries)
             tries += 1
+            if version:
+                return outage.VERSION
             if ok:
                 self.log.info('试登成功（%s），维护结束，重新开工', detail)
                 self.undrain()
-                return
+                return None
             self.log.warning('试登失败（第 %d 次）：%s；%.0f 分钟后再试', tries, detail, self.maint.canary_every / 60)
             time.sleep(self.maint.canary_every)
+
+    def wait_outage(self):
+        """Everything is closed after a mass login failure: find out whether this PC or the server is down, wait,
+        canary. None = a canary got in; VERSION = the game exe changed; CLOSED = planned maintenance took over."""
+        o, tries, offline, due = self.outage, 0, False, None
+        while True:
+            if self.maint_phase()[0] == CLOSED:
+                return CLOSED
+            if not self.net_ok():
+                if not offline:
+                    self.log.error('本机连不上外网（%s），是这台电脑 / 云电脑的网络问题；每 %.0f 分钟查一次，通了马上试登',
+                                   ', '.join(f'{h}:{p}' for h, p in o.net_hosts), o.net_check / 60)
+                offline, due = True, None
+                time.sleep(o.net_check)
+                continue
+            now = self.now()
+            if due is None:
+                if offline:
+                    self.log.info('外网通了，马上试登')
+                    due = now
+                else:
+                    self.log.error('外网正常，多半是游戏服务器的问题（临时维护？）；%.0f 分钟后开始用小号试登，之后每 %.0f 分钟一次',
+                                   o.wait / 60, o.canary_every / 60)
+                    due = now + timedelta(seconds=o.wait)
+                offline = False
+            if now < due:
+                time.sleep(max(1.0, min(60.0, (due - now).total_seconds())))
+                continue
+            ok, detail, version = self.canary_fn(tries)
+            tries += 1
+            if version:
+                return outage.VERSION
+            if ok:
+                self.log.info('试登成功（%s），重新开工', detail)
+                return None
+            self.log.warning('试登失败（第 %d 次）：%s；%.0f 分钟后再试', tries, detail, o.canary_every / 60)
+            due = self.now() + timedelta(seconds=o.canary_every)
+
+    def version_stop(self):
+        self.undrain()
+        self.log.error('！！游戏版本变了（登录器校验游戏 EXE 的 SHA256 不通过，多半是维护后客户端更新）。已关掉全部窗口，'
+                       '守护停下：请更新程序（重新定位地址、编译 DLL）后再双击 一键守护.cmd')
+        return outage.EXIT_VERSION
 
     def run(self):
         history = []
@@ -202,7 +261,8 @@ class Guard:
             if ph == CLOSED:
                 self.log.warning('计划维护 %s-%s 快开始了（或已开始），关掉全部窗口', when(win[0]), f'{win[1]:%H:%M}')
                 self.kill_all(kill_stations=True)
-                self.wait_maintenance(win)
+                if self.wait_maintenance(win) == outage.VERSION:
+                    return self.version_stop()
                 history.clear()
                 continue
             if ph == DRAIN:
@@ -220,6 +280,21 @@ class Guard:
             now = time.time()
             verdict = judge(code, beat, self.child.pid, self.started, now, self.s.stall_seconds)
             if verdict == RUN:
+                continue
+            if verdict == outage.VERSION:
+                self.kill_all(kill_stations=True)
+                return self.version_stop()
+            if verdict == outage.OUTAGE:
+                self.log.error('总大脑报告大面积登录失败，停工：关掉全部窗口，不再反复登录')
+                self.kill_all(kill_stations=True)
+                if not self.outage:
+                    self.log.error('[outage] 没开，按普通退出处理：%.0f 秒后重启', self.s.kill_settle)
+                    time.sleep(self.s.kill_settle)
+                    continue
+                got = self.wait_outage()
+                if got == outage.VERSION:
+                    return self.version_stop()
+                history.clear()
                 continue
             if verdict == FINAL:
                 self.log.error('总大脑退出（代码 %d：%s），重启解决不了，守护也停下。处理好后再双击 一键守护.cmd',
@@ -251,10 +326,11 @@ def main():
         data = config._read(cfg)
         s = load_guard(data)
         maint = maintenance.load_maintenance(data)
+        outage_s = outage.load_outage(data)
         from .supervisor import load_supervisor     # the same config the supervisor will load
         sup = load_supervisor(cfg)
-        if maint and not sup.login.accounts:
-            raise ValueError('计划维护后要用小号试登，但本机没有配置小号号段（local.toml [accounts]）')
+        if (maint or outage_s) and not sup.login.accounts:
+            raise ValueError('维护 / 停工后要用小号试登，但本机没有配置小号号段（local.toml [accounts]）')
     except Exception as e:
         logger.error('配置错误 (%s): %s', cfg, e)
         return 2
@@ -277,9 +353,16 @@ def main():
                     f'；下一次 {when(nxt[0])}-{nxt[1]:%H:%M}' if nxt else '')
     else:
         logger.info('计划维护：没配置（supervisor.toml [maintenance]）')
+    if outage_s:
+        logger.info('大面积登录失败自动停工：%.0f 分钟内 %d 个以上账号登不上就停；外网通则等 %.0f 分钟再试登，之后每 %.0f 分钟',
+                    outage_s.window / 60, outage_s.min_accounts, outage_s.wait / 60, outage_s.canary_every / 60)
+    else:
+        logger.info('大面积登录失败自动停工：关（supervisor.toml [outage] enabled = false）')
     accounts = sup.login.accounts
+    hosts = outage_s.net_hosts if outage_s else ()
     guard = Guard(cfg, s, sup.factory.db_path, logger, maint,
-                  lambda i: canary(sup, accounts[i % len(accounts)], log.for_account('canary')))
+                  lambda i: canary(sup, accounts[i % len(accounts)], log.for_account('canary')),
+                  outage_s=outage_s, net_ok=lambda: outage.internet_ok(hosts))
     try:
         return guard.run()
     except KeyboardInterrupt:

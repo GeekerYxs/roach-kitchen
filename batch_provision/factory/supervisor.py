@@ -35,6 +35,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from provisioner import config, layout, log, native, procs
+from provisioner import login as login_mod
 from provisioner.enter import EnterJob, enter_role, verify_in_world
 from provisioner.game import Game, NotSent
 from provisioner.login import LaunchThrottle, login, read_session
@@ -44,7 +45,7 @@ from provisioner.novice import NoviceJob, NoviceSettings
 from provisioner.pipeline import OwnWindows, last_rosters, online_elsewhere, remember_roster
 from provisioner.world import read_bag, read_bag_capacity, read_team, read_world
 
-from . import db, heartbeat, maintenance
+from . import db, heartbeat, maintenance, outage
 from .coast import CoastRun
 from .config import load_settings
 from .delete import AccountDeleteJob, DeleteSettings
@@ -134,6 +135,7 @@ class SupSettings:
     treasury: object = None             # factory.treasury.TreasurySettings ([treasury] in factory.toml), None = off
     unload: object = None               # factory.storeuse.UnloadSettings ([receiver] stores), None = no store roles
     window_budget: str = ''             # how policy.max_windows was cut to the per-IP window limit (logged at start)
+    outage: object = None               # factory.outage.OutageSettings ([outage]), None = off
 
 
 @dataclass(frozen=True)
@@ -202,7 +204,7 @@ def load_supervisor(path):
                        bool(data.get('batch', {}).get('arrange', True)),
                        load_supply_file(ROOT / s.get('factory', 'factory.toml')),
                        load_treasury_file(ROOT / s.get('factory', 'factory.toml')),
-                       load_unload(data, read_local(path)), budget)
+                       load_unload(data, read_local(path)), budget, outage.load_outage(data))
 
 
 # ---- the run --------------------------------------------------------------------------------------------
@@ -364,6 +366,9 @@ class Supervisor:
         self.station_pids = frozenset()     # read by the minimizer thread: never minimize a station window
         self.watches = {}               # station_id -> relogin.Watch
         self._drain = (-DRAIN_EVERY, None)    # (monotonic read time, reason) of state/drain.json
+        self.logins = outage.LoginLog()       # every login's result (provisioner.login.RESULT_HOOK), stage B3
+        self.guarded = False                  # started by the guard: a mass login failure ends this process
+        self.outage_warned = 0.0
         self.logins = ThreadPoolExecutor(max_workers=s.parallel_logins, thread_name_prefix='login')
         self.chores = ThreadPoolExecutor(max_workers=12, thread_name_prefix='chore')
         self.quiet = logging.LoggerAdapter(logging.getLogger('prov.scan'), {'account': 'scan'})
@@ -1158,6 +1163,27 @@ class Supervisor:
             self.log.warning('！%s，快满了（报警线 %d 格）：%s', bag, self.s.factory.receiver_bag_warn,
                              '会交给仓库号' if self.unloader else '请准备换收货人，或在 local.toml [receiver] stores 写仓库账号')
 
+    def check_outage(self):
+        """Many accounts failing to log in (stage B3): under the guard, exit with a code it acts on; alone, warn."""
+        if not self.s.outage:
+            return None
+        v = outage.verdict(self.logins.rows(), time.time(), self.s.outage)
+        if v is None:
+            return None
+        if v == outage.VERSION:
+            text = '登录器报游戏版本不对（游戏客户端更新了？），重试没用，要人工更新程序'
+        else:
+            text = (f'{self.s.outage.window / 60:.0f} 分钟内 {self.s.outage.min_accounts} 个以上账号登录失败、'
+                    '一个都没登上（服务器维护 / 断网？）')
+        if self.guarded:
+            self.stop.set()
+            self.log.error('%s：总大脑退出，交给守护处理', text)
+            return outage.EXIT_VERSION if v == outage.VERSION else outage.EXIT_OUTAGE
+        if time.monotonic() - self.outage_warned >= 600:
+            self.log.error('%s（没用一键守护，不会自动停工）', text)
+            self.outage_warned = time.monotonic()
+        return None
+
     def bag_hours(self, room):
         """Hours until the receiver's bag is full at this run's 料理 rate over the last hour."""
         seconds = min(3600.0, time.time() - self.started_at)
@@ -1211,6 +1237,8 @@ class Supervisor:
             if time.monotonic() - last_beat >= heartbeat.EVERY:
                 heartbeat.write(heartbeat.PATH, os.getpid(), self.started_at)
                 last_beat = time.monotonic()
+            if (code := self.check_outage()) is not None:
+                return code
             try:
                 self.manage()
             except Exception as e:
@@ -1236,6 +1264,8 @@ def main():
         logger.error('配置错误 (%s): %s', cfg, e)
         return 2
     sup = Supervisor(s, logger)
+    sup.guarded = os.environ.get(outage.GUARD_ENV) == '1'
+    login_mod.RESULT_HOOK = sup.logins.add
     try:
         return sup.run()
     except KeyboardInterrupt:

@@ -97,3 +97,17 @@ once = []
 drain_minutes = 10
 close_minutes = 5
 canary_every_minutes = 20
+
+[outage]
+# 大面积登录失败自动停工（一键守护负责；单独双击一键总大脑时只报警，不停工）。临时维护、服务器故障、这台电脑断网都算。
+# window_minutes 分钟内有 min_accounts 个以上不同账号登录失败、而且一个都没登上 -> 总大脑退出，守护关掉全部窗口（含工位），然后：
+#   这台电脑连不上外网（net_hosts 都连不上）-> 每 net_check_minutes 分钟查一次，通了马上用一个小号试登；
+#   外网正常（游戏服务器的问题）-> 等 wait_minutes 分钟再试登，之后每 canary_every_minutes 分钟一次。试登成功就重新开工。
+# 登录器报游戏版本不对（客户端更新了）-> 关掉全部窗口，守护停下，等人更新程序。
+enabled = true
+window_minutes = 10
+min_accounts = 3
+wait_minutes = 60
+canary_every_minutes = 20
+net_check_minutes = 5
+net_hosts = ["www.baidu.com:443", "www.qq.com:443"]

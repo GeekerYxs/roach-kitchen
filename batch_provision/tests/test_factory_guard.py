@@ -7,7 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from factory import guard, heartbeat, maintenance
+from factory import guard, heartbeat, maintenance, outage
 from factory.guard import (EXITED, FINAL, RUN, STALLED, GuardSettings, descendants, judge, kill_targets, load_guard,
                            may_restart)
 
@@ -122,56 +122,106 @@ class FakeClock:
         self.t += timedelta(seconds=seconds)
 
 
-class MaintenanceRunTest(unittest.TestCase):
-    """The guard's loop around a Thursday window, with the supervisor, kills and logins faked."""
+class GuardLoop:
+    """Runs the guard's loop with the supervisor, kills, logins and network faked on a fake clock."""
 
-    def run_guard(self, start, canary_results):
+    def run_guard(self, start, canary_results, exits=(), net=(), outage_s=None, final_code=2):
+        """exits: exit code the supervisor returns on its Nth start (None = runs until the end); after all of them
+        it exits final_code. canary_results: (ok, version) per canary. net: internet_ok() answers, then True."""
         clock = FakeClock(start)
         events = []
         maint = maintenance.MaintSettings(weekly=(maintenance.parse_weekly('thu 10:00-12:00'),))
-        tries = iter(canary_results)
+        tries, nets, starts = iter(canary_results), iter(net), iter(exits)
 
         def canary(i):
-            ok = next(tries)
+            ok, version = next(tries)
             events.append(('canary', clock.t.strftime('%H:%M'), ok))
-            return ok, 'mw301'
+            return ok, 'mw301', version
 
-        g = guard.Guard(Path('x'), GuardSettings(check_every=60), ':memory:', QUIET,
-                        maint, canary, clock.now)
-        polls = iter([None] * 200)
+        def net_ok():
+            up = next(nets, True)
+            events.append(('net', clock.t.strftime('%H:%M'), up))
+            return up
+
+        g = guard.Guard(Path('x'), GuardSettings(check_every=60), ':memory:', QUIET, maint, canary, clock.now,
+                        outage_s=outage_s, net_ok=net_ok)
 
         def start():
             events.append(('start', clock.t.strftime('%H:%M')))
-            g.child = SimpleNamespace(pid=SUP, poll=lambda: next(polls, 2))      # finally exits 2 -> guard stops
+            code = next(starts, final_code)
+            polls = iter([None] * 3 if code is not None else [None] * 300)
+            g.child = SimpleNamespace(pid=SUP, poll=lambda: next(polls, code if code is not None else final_code))
             g.started = 0.0
 
         def kill_all(kill_stations=None):
             events.append(('kill', clock.t.strftime('%H:%M')))
             g.child = None
 
-        with tempfile.TemporaryDirectory() as d,                 mock.patch.object(maintenance, 'DRAIN_PATH', Path(d) / 'drain.json'),                 mock.patch.object(heartbeat, 'read', lambda path: {'pid': SUP, 'at': 1e18}),                 mock.patch.object(guard.time, 'sleep', clock.sleep),                 mock.patch.object(g, 'start', start), mock.patch.object(g, 'kill_all', kill_all):
-            drains = []
+        drains = []
+        with tempfile.TemporaryDirectory() as d, \
+                mock.patch.object(maintenance, 'DRAIN_PATH', Path(d) / 'drain.json'), \
+                mock.patch.object(heartbeat, 'read', lambda path: {'pid': SUP, 'at': 1e18}), \
+                mock.patch.object(guard.time, 'sleep', clock.sleep), \
+                mock.patch.object(g, 'start', start), mock.patch.object(g, 'kill_all', kill_all):
             real_drain = g.drain
             g.drain = lambda win, reason: (drains.append(clock.t.strftime('%H:%M')), real_drain(win, reason))
             code = g.run()
-            self.assertEqual(code, 2)
             self.assertFalse((Path(d) / 'drain.json').exists())
-        return events, drains
+        return code, events, drains
+
+
+class MaintenanceRunTest(GuardLoop, unittest.TestCase):
+    """The guard's loop around a Thursday window."""
 
     def test_started_inside_the_window_waits_then_canary(self):
-        events, _ = self.run_guard(datetime(2026, 10, 22, 11, 0), [False, True])
-        self.assertEqual(events[0], ('kill', '11:00'))
-        self.assertEqual(events[1], ('canary', '12:00', False))
-        self.assertEqual(events[2], ('canary', '12:20', True))
-        self.assertEqual(events[3], ('start', '12:20'))
+        code, events, _ = self.run_guard(datetime(2026, 10, 22, 11, 0), [(False, False), (True, False)])
+        self.assertEqual(code, 2)
+        self.assertEqual(events[:4], [('kill', '11:00'), ('canary', '12:00', False), ('canary', '12:20', True),
+                                      ('start', '12:20')])
 
     def test_running_line_drains_then_closes(self):
-        events, drains = self.run_guard(datetime(2026, 10, 22, 9, 45), [True])
-        self.assertEqual(events[0], ('start', '09:45'))
+        code, events, drains = self.run_guard(datetime(2026, 10, 22, 9, 45), [(True, False)], exits=[None])
+        self.assertEqual(events[:4], [('start', '09:45'), ('kill', '09:55'), ('canary', '12:00', True),
+                                      ('start', '12:00')])
         self.assertEqual(drains[0], '09:50')
-        self.assertEqual(events[1], ('kill', '09:55'))
-        self.assertEqual(events[2], ('canary', '12:00', True))
-        self.assertEqual(events[3], ('start', '12:00'))
+
+    def test_version_changed_after_maintenance_stops(self):
+        code, events, _ = self.run_guard(datetime(2026, 10, 22, 11, 0), [(False, True)])
+        self.assertEqual(code, outage.EXIT_VERSION)
+        self.assertEqual(events[-1], ('canary', '12:00', False))
+
+
+class OutageRunTest(GuardLoop, unittest.TestCase):
+    """The supervisor exits 4 (mass login failure) on a Tuesday afternoon."""
+    TUE = datetime(2026, 10, 20, 15, 0)
+
+    def test_server_down_waits_an_hour_then_canary(self):
+        code, events, _ = self.run_guard(self.TUE, [(False, False), (True, False)], exits=[outage.EXIT_OUTAGE],
+                                         outage_s=outage.OutageSettings())
+        self.assertEqual(code, 2)
+        e = [x for x in events if x[0] != 'net']
+        self.assertEqual(e[:5], [('start', '15:00'), ('kill', '15:04'), ('canary', '16:04', False),
+                                 ('canary', '16:24', True), ('start', '16:24')])
+
+    def test_pc_offline_checks_every_5_min_and_tries_at_once(self):
+        code, events, _ = self.run_guard(self.TUE, [(True, False)], exits=[outage.EXIT_OUTAGE], net=[False, False],
+                                         outage_s=outage.OutageSettings())
+        self.assertEqual(events[:7], [('start', '15:00'), ('kill', '15:04'), ('net', '15:04', False),
+                                      ('net', '15:09', False), ('net', '15:14', True), ('canary', '15:14', True),
+                                      ('start', '15:14')])
+
+    def test_version_exit_stops_the_guard(self):
+        code, events, _ = self.run_guard(self.TUE, [], exits=[outage.EXIT_VERSION], outage_s=outage.OutageSettings())
+        self.assertEqual(code, outage.EXIT_VERSION)
+        self.assertEqual(events, [('start', '15:00'), ('kill', '15:04')])
+
+    def test_maintenance_takes_over_an_outage_wait(self):
+        thu = datetime(2026, 10, 22, 9, 30)
+        code, events, _ = self.run_guard(thu, [(True, False)], exits=[outage.EXIT_OUTAGE],
+                                         outage_s=outage.OutageSettings())
+        e = [x for x in events if x[0] != 'net']
+        self.assertEqual(e[:5], [('start', '09:30'), ('kill', '09:34'), ('kill', '09:55'), ('canary', '12:00', True),
+                                 ('start', '12:00')])
 
 
 if __name__ == '__main__':
