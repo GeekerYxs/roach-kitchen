@@ -130,28 +130,49 @@ class SupervisorCheckTest(unittest.TestCase):
         sup = object.__new__(supervisor.Supervisor)
         sup.s = SimpleNamespace(outage=S)
         sup.log, sup.stop, sup.guarded, sup.outage_warned = QUIET, threading.Event(), guarded, 0.0
-        sup.logins = LoginLog()
+        sup.login_log = LoginLog()
         return sup
 
     def test_guarded_exits_with_code(self):
         sup = self.make(True)
         self.assertIsNone(sup.check_outage())
         for acct in ('mw301', 'mw302', 'mw303'):
-            sup.logins.add(acct, False, 1)
+            sup.login_log.add(acct, False, 1)
         self.assertEqual(sup.check_outage(), outage.EXIT_OUTAGE)
         self.assertTrue(sup.stop.is_set())
 
     def test_version_exit(self):
         sup = self.make(True)
-        sup.logins.add('mw301', False, outage.VERSION_EXIT)
+        sup.login_log.add('mw301', False, outage.VERSION_EXIT)
         self.assertEqual(sup.check_outage(), outage.EXIT_VERSION)
 
     def test_alone_only_warns(self):
         sup = self.make(False)
         for acct in ('mw301', 'mw302', 'mw303'):
-            sup.logins.add(acct, False, 1)
+            sup.login_log.add(acct, False, 1)
         self.assertIsNone(sup.check_outage())
         self.assertFalse(sup.stop.is_set())
+
+
+class RealSupervisorTest(unittest.TestCase):
+    """2026-10-21: self.logins (this log) was overwritten by the login thread pool of the same name, so every
+    check_outage() raised and the supervisor died seconds after start. The tests above build a bare object and
+    missed it; this one builds a real Supervisor."""
+
+    def test_check_outage_and_hook_target(self):
+        import time as _time
+        from tests.test_factory_relogin import WELL1, close, make_sup
+        with tempfile.TemporaryDirectory() as tmp:
+            sup = make_sup(tmp, [WELL1])
+            try:
+                sup.s.outage, sup.guarded = S, True
+                self.assertIsNone(sup.check_outage())
+                for acct in ('mw301', 'mw302', 'mw303'):
+                    sup.login_log.add(acct, False, 1, now=_time.time())
+                self.assertEqual(sup.check_outage(), outage.EXIT_OUTAGE)
+                self.assertTrue(hasattr(sup.logins, 'submit'))      # the login thread pool is still there
+            finally:
+                close(sup)
 
 
 if __name__ == '__main__':

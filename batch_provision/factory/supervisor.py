@@ -366,7 +366,7 @@ class Supervisor:
         self.station_pids = frozenset()     # read by the minimizer thread: never minimize a station window
         self.watches = {}               # station_id -> relogin.Watch
         self._drain = (-DRAIN_EVERY, None)    # (monotonic read time, reason) of state/drain.json
-        self.logins = outage.LoginLog()       # every login's result (provisioner.login.RESULT_HOOK), stage B3
+        self.login_log = outage.LoginLog()    # every login's result (provisioner.login.RESULT_HOOK), stage B3
         self.guarded = False                  # started by the guard: a mass login failure ends this process
         self.outage_warned = 0.0
         self.logins = ThreadPoolExecutor(max_workers=s.parallel_logins, thread_name_prefix='login')
@@ -1167,7 +1167,7 @@ class Supervisor:
         """Many accounts failing to log in (stage B3): under the guard, exit with a code it acts on; alone, warn."""
         if not self.s.outage:
             return None
-        v = outage.verdict(self.logins.rows(), time.time(), self.s.outage)
+        v = outage.verdict(self.login_log.rows(), time.time(), self.s.outage)
         if v is None:
             return None
         if v == outage.VERSION:
@@ -1265,7 +1265,7 @@ def main():
         return 2
     sup = Supervisor(s, logger)
     sup.guarded = os.environ.get(outage.GUARD_ENV) == '1'
-    login_mod.RESULT_HOOK = sup.logins.add
+    login_mod.RESULT_HOOK = sup.login_log.add
     try:
         return sup.run()
     except KeyboardInterrupt:
