@@ -5,7 +5,7 @@ from unittest import mock
 
 from factory import supply
 from factory.supply import (HP_ITEM, MP_ITEM, NURSE, PET_ITEM, PETSHOP, SCROLL_ITEM, Gate, ShopClient, SupplySettings,
-                            due, junk, load_supply, needs, plan_buys, sell_body, shortages)
+                            blocked, blocked_text, due, junk, load_supply, needs, plan_buys, sell_body, shortages)
 from factory.items import Item
 from provisioner.world import BagSlot
 
@@ -51,7 +51,27 @@ class PlanBuys(unittest.TestCase):
     def test_keeps_free_slots(self):
         b = bag(*[(1, 1)] * 36)                                 # 4 free, keep 3 -> one new slot
         self.assertEqual(plan_buys(b, 40, {SCROLL_ITEM: 100}, NURSE, 10 ** 6, 3), [(4, SCROLL_ITEM, 50)])
-        self.assertEqual(plan_buys(bag(*[(1, 1)] * 37), 40, {SCROLL_ITEM: 100}, NURSE, 10 ** 6, 3), [])
+        held = bag(*[(1, 1)] * 36, (SCROLL_ITEM, 50))            # 3 free = reserve; it still has 回城卷: no new slot
+        self.assertEqual(plan_buys(held, 40, {SCROLL_ITEM: 50}, NURSE, 10 ** 6, 3), [])
+
+    def test_used_up_item_gets_one_stack_in_the_reserve(self):
+        full = bag(*[(1, 1)] * 37)                              # 3 free = the reserve
+        plan = plan_buys(full, 40, {SCROLL_ITEM: 100, HP_ITEM: 198, MP_ITEM: 198}, NURSE, 10 ** 6, 3)
+        self.assertEqual(plan, [(4, SCROLL_ITEM, 50), (0, HP_ITEM, 99), (2, MP_ITEM, 99)])
+        two = bag(*[(1, 1)] * 38)                               # only 2 empty: the first two used-up items
+        self.assertEqual(len(plan_buys(two, 40, {SCROLL_ITEM: 100, HP_ITEM: 198, MP_ITEM: 198}, NURSE, 10 ** 6, 3)), 2)
+        self.assertEqual(plan_buys(bag(*[(1, 1)] * 40), 40, {SCROLL_ITEM: 100}, NURSE, 10 ** 6, 3), [])
+
+    def test_reserve_only_for_used_up_items(self):
+        some = bag(*[(1, 1)] * 36, (SCROLL_ITEM, 50))           # 3 free, 5 short of nothing: stack is full
+        self.assertEqual(plan_buys(some, 40, {SCROLL_ITEM: 50}, NURSE, 10 ** 6, 3), [])
+        topped = bag(*[(1, 1)] * 36, (SCROLL_ITEM, 10))
+        self.assertEqual(plan_buys(topped, 40, {SCROLL_ITEM: 90}, NURSE, 10 ** 6, 3), [(4, SCROLL_ITEM, 40)])
+
+    def test_reserve_respects_gold(self):
+        full = bag(*[(1, 1)] * 37)
+        self.assertEqual(plan_buys(full, 40, {SCROLL_ITEM: 100}, NURSE, 950, 3), [(4, SCROLL_ITEM, 9)])
+        self.assertEqual(plan_buys(full, 40, {SCROLL_ITEM: 100}, NURSE, 50, 3), [])
 
     def test_gold_limits(self):
         self.assertEqual(plan_buys((), 40, {SCROLL_ITEM: 100}, NURSE, 950, 3), [(4, SCROLL_ITEM, 9)])
@@ -59,6 +79,20 @@ class PlanBuys(unittest.TestCase):
     def test_other_shops_items_are_skipped(self):
         self.assertEqual(plan_buys((), 40, {PET_ITEM: 99}, NURSE, 10 ** 6, 3), [])
         self.assertEqual(plan_buys((), 40, {PET_ITEM: 99}, PETSHOP, 10 ** 6, 3), [(7, PET_ITEM, 99)])
+
+
+class Blocked(unittest.TestCase):
+    TABLE = {501: Item(501, 0x103, 4, 1020, True, False, '橙武器'), 503: Item(503, 0x103, 3, 900, True, False, '蓝棒')}
+
+    def test_room_after_selling_is_fine(self):
+        self.assertIsNone(blocked(bag(*[(501, 1)] * 32), 40, 8, self.TABLE, {SCROLL_ITEM}))
+
+    def test_unsellables_reported_biggest_first(self):
+        b = bag(*[(501, 1)] * 20, *[(503, 1)] * 10, *[(9999, 1)] * 2, *[(SCROLL_ITEM, 50)] * 3)
+        free, top = blocked(b, 40, 8, self.TABLE, {SCROLL_ITEM})
+        self.assertEqual((free, top), (5, [('橙武器', 20), ('蓝棒', 10), ('物品 9999', 2)]))
+        self.assertEqual(blocked_text('cap07', free, 40, top),
+                         '！cap07 背包卖完杂物后只空 5/40 格，占地方的：橙武器×20格、蓝棒×10格、物品 9999×2格；请手动清理')
 
 
 class Junk(unittest.TestCase):

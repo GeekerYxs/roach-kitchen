@@ -34,7 +34,7 @@ from pathlib import Path
 from provisioner import log, native, procs
 from provisioner.game import Game, NotSent
 from provisioner.memory import ProcessMemory
-from provisioner.world import read_bag, read_gold, read_team, read_world
+from provisioner.world import read_bag, read_bag_capacity, read_gold, read_team, read_world
 
 from . import db
 from .coast import CoastRun
@@ -49,6 +49,7 @@ GOLD_ACTION = 'receive_gold'
 POST_NEAR = 30                  # the 飞鞋 point counts as at the post this close (record exact after ~1 s still)
 CONFIRM_WAIT = 5.0
 NAV_RETRY = 2.0
+DISH_STACK = 99                 # 料理 per bag slot (user, 2026-10-20); the bag has 40 slots (read_bag_capacity)
 
 
 @dataclass(frozen=True)
@@ -73,6 +74,51 @@ def dish_slot(bag):
 
 def dish_count(bag):
     return None if bag is None else sum(s.quantity for s in bag if s.item_id == DISH_ITEM)
+
+
+@dataclass(frozen=True)
+class BagRoom:
+    free_slots: int
+    capacity: int
+    dishes: int         # 料理 that still fit: empty slots x DISH_STACK + what the 料理 stacks still take
+
+
+def bag_room(bag, capacity):
+    """BagRoom of the receiver's bag, or None while it cannot be read. A full bag makes every 料理 trade fail and
+    each alt that tries it gets quarantined after db.MAX_RETRIES, so the receiver checks this before claiming."""
+    if bag is None or capacity is None:
+        return None
+    free = capacity - len({s.slot for s in bag if 0 <= s.slot < capacity})
+    top_up = sum(max(0, DISH_STACK - s.quantity) for s in bag if s.item_id == DISH_ITEM)
+    return BagRoom(free, capacity, free * DISH_STACK + top_up)
+
+
+def bag_alarm(room, warn_slots):
+    """'full' (not one more 料理 fits) | 'low' (warn_slots empty slots or fewer) | 'ok' | 'unknown'."""
+    if room is None:
+        return 'unknown'
+    if room.dishes <= 0:
+        return 'full'
+    return 'low' if room.free_slots <= warn_slots else 'ok'
+
+
+def hours_left(room, received, seconds):
+    """Hours until the bag is full at the rate `received` 料理 in `seconds`; None without a usable rate
+    (under 10 minutes of data or nothing received)."""
+    if room is None or received <= 0 or seconds < 600:
+        return None
+    return room.dishes / (received / seconds * 3600)
+
+
+def bag_text(room, hours=None):
+    if room is None:
+        return '收货人背包 未知'
+    text = f'收货人背包 空 {room.free_slots}/{room.capacity} 格 还能收 {room.dishes} 个料理'
+    return text + (f'（约 {hours:.1f} 小时）' if hours is not None else '')
+
+
+def read_room(mem):
+    return bag_room(read_bag(mem), read_bag_capacity(mem))
 
 
 def decide(alt, alt_team, alt_dishes, slot, recv, recv_dishes, memo, now):
@@ -323,13 +369,18 @@ def main():
             return 1
         finally:
             post.close()
-        logger.info('收货人背包料理 %s 个', dish_count(read_bag(rmem)))
+        logger.info('收货人背包料理 %s 个；%s', dish_count(read_bag(rmem)), bag_text(read_room(rmem)))
         refresh(conn, alts, logger)
         queue = [r['char_id'] for r in db.waiting(conn, QUEUE_RECEIVER, time.time()) if r['char_id'] in by_id]
         logger.info('排收货队列的小号 %d 个: %s', len(queue), ', '.join(by_id[c][0].name for c in queue))
         rgame = Game(recv.session, rmem)
         try:
             for cid in queue:                           # strictly one trade at a time
+                room = read_room(rmem)
+                if bag_alarm(room, settings.receiver_bag_warn) == 'full':
+                    logger.error('%s，停止收货（小号留在队列里，不隔离）；换收货人见 docs/DEPLOY.md 第 10 节',
+                                 bag_text(room))
+                    break
                 if not db.claim(conn, st['station_id'], [cid], settings.receive_lease, time.time()):
                     logger.warning('%s 被别的工位占着或已隔离，跳过', by_id[cid][0].name)
                     continue

@@ -42,7 +42,7 @@ from provisioner.memory import ProcessMemory
 from provisioner.minimize import Minimizer
 from provisioner.novice import NoviceJob, NoviceSettings
 from provisioner.pipeline import OwnWindows, online_elsewhere, remember_roster
-from provisioner.world import read_team, read_world
+from provisioner.world import read_bag, read_bag_capacity, read_team, read_world
 
 from . import db
 from .coast import CoastRun
@@ -64,7 +64,8 @@ from .phase import (ACCEPT_QUEST, COAST, COAST_MAP, DELETE, DISPATCHER, EAT_MEAT
                     SELL_JUNK, TRANSPORTING, UNKNOWN, VILLAGE_MAP, WAIT_DISBAND, derive_phase)
 from .phase import WELL as WELL_ROLE
 from .quest import QuestJob
-from .receiver import PostRun, ReceiveJob
+from .receiver import PostRun, ReceiveJob, bag_alarm, bag_text, dish_count, hours_left, read_room
+from .storeuse import StoreUnload, load_unload, read_local, should_unload, stores_text, validate as validate_stores
 from .runner import ROLE_NAME
 from .shoe import ShoeJob
 from .transport import TransportRun
@@ -126,6 +127,7 @@ class SupSettings:
     arrange: bool = True                # [batch] arrange: lay the station windows out (provisioner/layout)
     supply: object = None               # factory.supply.SupplySettings ([supply] in factory.toml), None = off
     treasury: object = None             # factory.treasury.TreasurySettings ([treasury] in factory.toml), None = off
+    unload: object = None               # factory.storeuse.UnloadSettings ([receiver] stores), None = no store roles
 
 
 @dataclass(frozen=True)
@@ -172,7 +174,8 @@ def load_supervisor(path):
                        bool(data.get('batch', {}).get('minimize', False)),
                        bool(data.get('batch', {}).get('arrange', True)),
                        load_supply_file(ROOT / s.get('factory', 'factory.toml')),
-                       load_treasury_file(ROOT / s.get('factory', 'factory.toml')))
+                       load_treasury_file(ROOT / s.get('factory', 'factory.toml')),
+                       load_unload(data, read_local(path)))
 
 
 # ---- the run --------------------------------------------------------------------------------------------
@@ -324,6 +327,12 @@ class Supervisor:
                               coast_buffer=s.policy.coast_buffer * coasts,
                               coast_backlog=s.policy.coast_backlog * coasts)
         self.last_quarantine_check = 0.0
+        self.recv_room = (None, 0.0)    # (receiver_body's last BagRoom, monotonic time it was read)
+        self.full_warned = -1e9         # last 'receiver bag full' error, monotonic
+        us = getattr(s, 'unload', None)
+        self.unloader = StoreUnload(us, s.factory, s.login, self.throttle, self.own, logger) if us else None
+        self.unload_after = 0.0         # monotonic: no unload before (after a failed one)
+        self.bag_blocked = {}           # station_id -> alarm text: bag still short of room after selling (supply)
         self.relogin = getattr(s, 'relogin', None)
         self.station_pids = frozenset()     # read by the minimizer thread: never minimize a station window
         self.watches = {}               # station_id -> relogin.Watch
@@ -580,11 +589,20 @@ class Supervisor:
                     if w is None or w.map_id != COAST_MAP or abs(w.x - px) + abs(w.y - py) > POST_RANGE:
                         lg.info('收货人不在收货点，先回去')
                         return
+                    if self.unload_due(rmem):
+                        self.unload(conn, recv, rmem, rgame, lg)
+                        continue
+                    if self.bag_full(rmem, lg):
+                        db.heartbeat(conn, sid, RECEIVER, recv.char_id, 'bag_full', time.time())
+                        self.stop.wait(10.0)
+                        continue
                     alts = self.snapshot()
                     for r in db.waiting(conn, QUEUE_RECEIVER, time.time()):
                         cid = r['char_id']
                         if self.stop.is_set() or cid not in alts:
                             continue
+                        if self.bag_full(rmem, lg):     # the 料理 just received may have filled the last slot
+                            break
                         if not db.claim(conn, sid, [cid], fs.receive_lease, time.time()):
                             continue
                         c = alts[cid][0]
@@ -599,6 +617,38 @@ class Supervisor:
             finally:
                 rgame.close()
 
+    def unload_due(self, rmem):
+        """Stage 2c: the receiver is at receiver_bag_warn empty slots or fewer and has 料理 for the store roles."""
+        if self.unloader is None or time.monotonic() < self.unload_after:
+            return False
+        return should_unload(read_room(rmem), dish_count(read_bag(rmem)), self.s.factory.receiver_bag_warn)
+
+    def unload(self, conn, recv, rmem, rgame, lg):
+        """Hand the receiver's 料理 to the store roles (factory/storeuse.py); the alts wait in their queue meanwhile."""
+        lg.info('%s，到报警线（%d 格）：先把料理交给仓库号，小号排队等着', bag_text(read_room(rmem)),
+                self.s.factory.receiver_bag_warn)
+        with self.receiver_lock():      # a treasury top-up uses the receiver too
+            res = self.unloader.run(conn, recv, rmem, rgame, self.stop)
+        lg.info('交给仓库号 %d 个料理（%s）；%s', res['moved'], ', '.join(r['name'] for r in res['stores']) or '无',
+                bag_text(read_room(rmem)))
+        if not res['ok'] and not self.stop.is_set():
+            self.unload_after = time.monotonic() + self.unloader.us.retry_minutes * 60
+            lg.error('交料理给仓库号没做完（%s），%.0f 分钟后再试；这期间照常收货，满了就停收', res.get('error'),
+                     self.unloader.us.retry_minutes)
+
+    def bag_full(self, rmem, lg):
+        """Read the receiver's bag for status(); True when not one more 料理 fits. Then no alt is claimed: a trade
+        into a full bag fails and would quarantine the alt (db.MAX_RETRIES), so the alts wait in their queue."""
+        room = read_room(rmem)
+        self.recv_room = (room, time.monotonic())
+        if bag_alarm(room, self.s.factory.receiver_bag_warn) != 'full':
+            return False
+        if time.monotonic() - self.full_warned >= STATUS_EVERY:
+            self.full_warned = time.monotonic()
+            lg.error('%s，停止收货（小号留在队列里等着，不隔离）；请换收货人（docs/DEPLOY.md 第 10 节）或把料理转走',
+                     bag_text(room))
+        return True
+
     def receiver_client(self, conn):
         """The treasury = the receiver station's window (procs.Client), or None when it is not online."""
         row = conn.execute('SELECT char_id FROM stations WHERE role=? ORDER BY station_id', (RECEIVER,)).fetchone()
@@ -610,8 +660,24 @@ class Supervisor:
         if self.supply is None or (not self.supply.enabled and self.treasury is None):
             return
         db.heartbeat(conn, st['station_id'], st['role'], st['char_id'], 'supplying', time.time())
-        run_supply(conn, st, client, mem, self.s.factory, self.supply, self.sellable, self.supply_gate, lg, village,
-                   self.treasury)
+        res = run_supply(conn, st, client, mem, self.s.factory, self.supply, self.sellable, self.supply_gate, lg,
+                         village, self.treasury)
+        self.note_blocked(st['station_id'], res, read_bag(mem), read_bag_capacity(mem))
+
+    def note_blocked(self, sid, res, bag, cap):
+        """Keep status()'s alarm for a leader whose bag selling could not clear: set / cleared by a supply run's
+        result; without a run (nothing due, failed, paused) cleared only once the bag has room again."""
+        with self.lock:
+            if res is not None:
+                text = res.get('blocked')
+            elif bag is not None and cap is not None and cap - len(bag) >= self.supply.sell_below_free:
+                text = None
+            else:
+                return
+            if text:
+                self.bag_blocked[sid] = text
+            else:
+                self.bag_blocked.pop(sid, None)
 
     def receiver_lock(self):
         return self.treasury.lock if self.treasury else contextlib.nullcontext()
@@ -1019,14 +1085,40 @@ class Supervisor:
         dishes = self.conn.execute("SELECT COUNT(*) FROM events WHERE kind='receive' AND at>=?", (self.started_at,)
                                    ).fetchone()[0]
         waiting = self.conn.execute('SELECT COUNT(*) FROM alts WHERE phase=? AND quarantined=0', (DELETE,)).fetchone()[0]
-        self.log.info('窗口 %d/%d（登录中 %d）| %s | 本次收料理 %d | 待删 %d 本次删 %d%s | 本次重建 %d%s | 工位: %s',
-                      len(alts), self.s.policy.max_windows, pending, sides, dishes, waiting, self.deleted,
+        room, read_at = self.recv_room
+        if time.monotonic() - read_at > 2 * STATUS_EVERY:      # receiver offline or busy: do not show old numbers
+            room = None
+        bag = bag_text(room, self.bag_hours(room))
+        if self.unloader:
+            bag += ' | ' + stores_text(db.stores(self.conn), self.unloader.names)
+        self.log.info('窗口 %d/%d（登录中 %d）| %s | 本次收料理 %d | %s | 待删 %d 本次删 %d%s | 本次重建 %d%s | 工位: %s',
+                      len(alts), self.s.policy.max_windows, pending, sides, dishes, bag, waiting, self.deleted,
                       '' if self.s.delete else '（删除未启用）', self.rebuilt,
                       '' if self.s.rebuild_after else '（重建未启用）', st)
+        with self.lock:
+            stuck = list(self.bag_blocked.values())
+        for text in stuck:
+            self.log.warning('%s', text)
+        alarm = bag_alarm(room, self.s.factory.receiver_bag_warn)
+        if alarm == 'full':
+            self.log.error('！！%s：收货已停，请换收货人（docs/DEPLOY.md 第 10 节）', bag)
+        elif alarm == 'low':
+            self.log.warning('！%s，快满了（报警线 %d 格）：%s', bag, self.s.factory.receiver_bag_warn,
+                             '会交给仓库号' if self.unloader else '请准备换收货人，或在 local.toml [receiver] stores 写仓库账号')
+
+    def bag_hours(self, room):
+        """Hours until the receiver's bag is full at this run's 料理 rate over the last hour."""
+        seconds = min(3600.0, time.time() - self.started_at)
+        received = self.conn.execute("SELECT COUNT(*) FROM events WHERE kind='receive' AND at>=?",
+                                     (time.time() - seconds,)).fetchone()[0]
+        return hours_left(room, received, seconds)
 
     # ---- main
     def run(self):
         self.started_at = time.time()
+        if self.unloader and not validate_stores(self.conn, self.unloader.us, self.log):
+            self.log.error('[receiver] stores 名单有问题（见上面），总大脑不启动')
+            return 2
         self.adopt()
         threads = []
         for st in self.station_rows(COAST):

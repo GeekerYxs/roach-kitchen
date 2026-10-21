@@ -6,6 +6,8 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+from .protocol import encode_role_name
+
 
 @dataclass(frozen=True)
 class Account:
@@ -141,7 +143,8 @@ def merge_local(data, local):
     - every section of local except [accounts]/[passwords] updates the same-named section key by key
       ([game] is always applied: the exe path is per machine);
     - [accounts] (this machine's alt range + password) fills every key the tool's own [accounts] does not set,
-      so an empty or missing tool [accounts] means "this machine's range";
+      so an empty or missing tool [accounts] means "this machine's range"; a tool [accounts] with
+      from = "store_accounts" takes that local section instead (the 料理 store accounts box07.., store.toml);
     - [passwords] (account = password) fills [[station]] entries and [accounts] list items without a password;
     - [[station]] in local (only applied to files that have stations) replaces the shared list: this machine's own
       stations, so changing e.g. the receiver never edits a file that git pull updates."""
@@ -153,8 +156,11 @@ def merge_local(data, local):
             continue
         if section == 'game' or isinstance(out.get(section), dict):
             out[section] = {**out.get(section, {}), **values}
-    la, pw = local.get('accounts', {}), local.get('passwords', {})
     acc = out.get('accounts', {})
+    source = acc.pop('from', 'accounts')
+    if source != 'accounts' and not isinstance(local.get(source), dict):
+        raise ValueError(f'{LOCAL_NAME} 里没有 [{source}]（模板见 local.example.toml）')
+    la, pw = local.get(source, {}), local.get('passwords', {})
     if 'list' in acc:
         acc['list'] = [x if x.get('password') else {**x, 'password': pw.get(x['account'], la.get('password', ''))}
                        for x in acc['list']]
@@ -203,13 +209,16 @@ def load(path):
         raise ValueError('roles_per_account 必须是 1..4')
     for a in s.accounts:
         for role in s.role_names(a.name):
-            if len(role) > 15 or not role.isalnum():
-                raise ValueError(f'角色名必须 1..15 位字母数字: {role}')
+            encode_role_name(role)
     return s
 
 
 def load_pipeline(path):
-    data = _read(path)
+    return pipeline_from(_read(path))
+
+
+def pipeline_from(data):
+    """load_pipeline on an already read config (factory/storeuse.py swaps [accounts] for [store_accounts])."""
     b, n = data['batch'], data.get('novice', {})
     common = _launch_common(data)
     common.pop('kill_on_failure')  # the pipeline always closes its own windows (window budget)

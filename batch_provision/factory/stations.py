@@ -66,6 +66,24 @@ def _run(cfg, log_path, logger, enter_settings, stations, factory_cfg, arrange_w
         logger.info('%s 里没有启用的工位', cfg)
         conn.close()
         return 0
+    results = login_stations(conn, logger, enter_settings, stations)
+    if arrange_windows:
+        arrange(conn, logger)
+    conn.close()
+    out = ROOT / 'logs' / (log_path.stem.replace('stations_', 'stations_summary_') + '.json')
+    out.write_text(json.dumps(results, ensure_ascii=False, indent=2), 'utf-8')
+    logger.info('=' * 60)
+    for r in results:
+        logger.info('%-12s %s %s %s', r['station'], '在线' if r['ok'] else '失败', r.get('name') or '',
+                    r.get('error') or ('（原本就在线）' if r.get('already_online') else ''))
+    ok = sum(r['ok'] for r in results)
+    logger.info('完成 %d/%d。汇总: %s', ok, len(results), out)
+    return 0 if ok == len(results) else 1
+
+
+def login_stations(conn, logger, enter_settings, stations):
+    """Register the stations already online in our windows, log the others in (never over a foreign window or a
+    running supervisor relogin). Also used by factory/storeship.py for the dispatcher alone. -> result dicts."""
     online = {c.char_id: c for c in procs.discover(logger)}
     results, to_login = [], []
     for s in stations:
@@ -112,18 +130,7 @@ def _run(cfg, log_path, logger, enter_settings, stations, factory_cfg, arrange_w
                 db.heartbeat(conn, s.station_id, k['role'], k['char_id'], 'offline', time.time())
             results.append({'station': s.station_id, 'ok': r['ok'], 'name': r.get('role'), 'char_id': r.get('char_id'),
                             'pid': r.get('pid'), 'map_id': r.get('map_id'), 'error': r.get('error')})
-    if arrange_windows:
-        arrange(conn, logger)
-    conn.close()
-    out = ROOT / 'logs' / (log_path.stem.replace('stations_', 'stations_summary_') + '.json')
-    out.write_text(json.dumps(results, ensure_ascii=False, indent=2), 'utf-8')
-    logger.info('=' * 60)
-    for r in results:
-        logger.info('%-12s %s %s %s', r['station'], '在线' if r['ok'] else '失败', r.get('name') or '',
-                    r.get('error') or ('（原本就在线）' if r.get('already_online') else ''))
-    ok = sum(r['ok'] for r in results)
-    logger.info('完成 %d/%d。汇总: %s', ok, len(results), out)
-    return 0 if ok == len(results) else 1
+    return results
 
 
 if __name__ == '__main__':

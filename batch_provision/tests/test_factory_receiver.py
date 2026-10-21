@@ -3,7 +3,8 @@ import struct
 import unittest
 from dataclasses import replace
 
-from factory.receiver import CONFIRM_WAIT, NAV_RETRY, Memo, decide, decide_gold, dish_count, dish_slot
+from factory.receiver import (CONFIRM_WAIT, NAV_RETRY, BagRoom, Memo, bag_alarm, bag_room, bag_text, decide, decide_gold,
+                              dish_count, dish_slot, hours_left)
 from provisioner.game import trade_item_offer_body
 from provisioner.world import BagSlot, Team, WorldState
 
@@ -110,3 +111,44 @@ class OfferBody(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class BagRoomTests(unittest.TestCase):
+    def test_empty_slots_and_partial_dish_stacks(self):
+        bag = (BagSlot(0, 9801, 5), BagSlot(1, 27002, 99), BagSlot(2, 27002, 40))
+        self.assertEqual(bag_room(bag, 40), BagRoom(free_slots=37, capacity=40, dishes=37 * 99 + 59))
+
+    def test_unreadable_is_none(self):
+        self.assertIsNone(bag_room(None, 40))
+        self.assertIsNone(bag_room((), None))
+        self.assertEqual(bag_alarm(None, 3), 'unknown')
+        self.assertEqual(bag_text(None), '收货人背包 未知')
+
+    def test_full_bag_with_full_stacks_is_full(self):
+        bag = tuple(BagSlot(i, 27002, 99) for i in range(39)) + (BagSlot(39, 9801, 1),)
+        room = bag_room(bag, 40)
+        self.assertEqual((room.free_slots, room.dishes), (0, 0))
+        self.assertEqual(bag_alarm(room, 3), 'full')
+
+    def test_no_free_slot_but_stack_not_full_is_low_not_full(self):
+        bag = tuple(BagSlot(i, 27002, 99) for i in range(39)) + (BagSlot(39, 27002, 98),)
+        room = bag_room(bag, 40)
+        self.assertEqual((room.free_slots, room.dishes), (0, 1))
+        self.assertEqual(bag_alarm(room, 3), 'low')
+
+    def test_alarm_threshold(self):
+        self.assertEqual(bag_alarm(BagRoom(3, 40, 297), 3), 'low')
+        self.assertEqual(bag_alarm(BagRoom(4, 40, 396), 3), 'ok')
+        self.assertEqual(bag_alarm(BagRoom(4, 40, 396), 0), 'ok')
+
+    def test_hours_left(self):
+        room = BagRoom(10, 40, 990)
+        self.assertAlmostEqual(hours_left(room, 100, 3600), 9.9)
+        self.assertAlmostEqual(hours_left(room, 50, 1800), 9.9)
+        self.assertIsNone(hours_left(room, 0, 3600))       # nothing received yet
+        self.assertIsNone(hours_left(room, 5, 300))        # under 10 minutes: no usable rate
+        self.assertIsNone(hours_left(None, 100, 3600))
+
+    def test_text(self):
+        self.assertEqual(bag_text(BagRoom(5, 40, 520), 5.25), '收货人背包 空 5/40 格 还能收 520 个料理（约 5.2 小时）')
+        self.assertEqual(bag_text(BagRoom(5, 40, 520)), '收货人背包 空 5/40 格 还能收 520 个料理')

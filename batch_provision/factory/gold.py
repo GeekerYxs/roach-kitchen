@@ -91,7 +91,7 @@ class GoldJob:
         started = time.monotonic()
         cid = self.alt.char_id
         result = {'name': self.alt.name, 'pid': self.alt.session.pid, 'char_id': cid, 'ok': False}
-        db.register_alt(self.conn, cid, self.account, self.slot, self.alt.name, time.time())
+        self.register()
         memo, last_reason = Memo(), None
         try:
             with ProcessMemory(self.alt.session.pid, self.alt.session.base) as mem:
@@ -107,7 +107,7 @@ class GoldJob:
                         alt_w, disp_w = read_world(mem), read_world(self.disp_mem)
                         if alt_w and alt_w.char_id != cid:
                             raise RuntimeError(f'角色变了 {cid} -> {alt_w.char_id}')
-                        if db.alt(self.conn, cid)['quarantined']:
+                        if self.quarantined():
                             raise RuntimeError('已隔离')
                         alt_gold, disp_gold = read_gold(mem), read_gold(self.disp_mem)
                         d = decide(alt_w, alt_gold, disp_w, disp_gold, memo, now, self.s.gold_amount,
@@ -129,7 +129,8 @@ class GoldJob:
                             raise RuntimeError(d.reason)
                         if d.kind == 'unconfirmed':
                             memo = Memo()
-                            if db.record_failure(self.conn, cid, d.reason, time.time()):
+                            self.unconfirmed(alt_w, disp_w, game)
+                            if self.failed(d.reason):
                                 raise RuntimeError(f'连续失败 {db.MAX_RETRIES} 次，已隔离')
                             time.sleep(1.0)     # let a half-open trade time out before inviting again
                         elif d.kind == 'trade':
@@ -148,6 +149,20 @@ class GoldJob:
             self.log.error('失败: %s', e, exc_info=not isinstance(e, RuntimeError))
         result['seconds'] = round(time.monotonic() - started, 1)
         return result
+
+    # The alt bookkeeping in factory.db; factory/storeship.py overrides these for store roles (not alts).
+    def register(self):
+        db.register_alt(self.conn, self.alt.char_id, self.account, self.slot, self.alt.name, time.time())
+
+    def quarantined(self):
+        return db.alt(self.conn, self.alt.char_id)['quarantined']
+
+    def unconfirmed(self, alt_w, disp_w, game):
+        """After a trade whose gold did not arrive, before the next try (factory/storeship.py logs and tidies)."""
+
+    def failed(self, reason):
+        """One unconfirmed trade. -> True when that was the last allowed try."""
+        return db.record_failure(self.conn, self.alt.char_id, reason, time.time())
 
 
 def main():

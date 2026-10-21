@@ -49,3 +49,36 @@ class Slots(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+# box08 as seen live 2026-10-21: the server listed 仓1 last once it was a level behind the others
+BOX08 = [(216310, 11, 'box08仓2'), (216312, 11, 'box08仓3'), (216315, 11, 'box08仓4'), (216309, 10, 'box08仓1')]
+
+
+class RoleSlot(unittest.TestCase):
+    def test_slot_of_finds_by_name(self):
+        self.assertEqual(pipeline.slot_of(BOX08, 'box08仓4'), 3)
+        self.assertEqual(pipeline.slot_of(BOX08, 'box08仓1'), 4)
+        self.assertIsNone(pipeline.slot_of(BOX08, 'box08仓5'))
+
+    def store_run(self, cls, slot, expected):
+        run = object.__new__(cls)
+        run.slot, run.expected, run.log = slot, expected, LOG
+        return run
+
+    def test_store_runs_enter_by_name(self):
+        from factory.store import StoreRun
+        from factory.storeship import ShipRun
+        for cls in (StoreRun, ShipRun):
+            self.assertEqual(self.store_run(cls, 4, 'box08仓4').role_slot(BOX08), 3)
+            self.assertEqual(self.store_run(cls, 1, 'box08仓1').role_slot(BOX08), 4)
+            with self.assertRaisesRegex(RuntimeError, '没有 box08仓4'):
+                self.store_run(cls, 4, 'box08仓4').role_slot(BOX08[:2])
+
+    def test_plain_run_keeps_the_slot_number(self):
+        run = object.__new__(pipeline.AccountRun)
+        run.slot = 2
+        self.assertEqual(run.role_slot(BOX08), 2)
+        run.slot = 5
+        with self.assertRaisesRegex(RuntimeError, '槽5 没有角色'):
+            run.role_slot(BOX08)
