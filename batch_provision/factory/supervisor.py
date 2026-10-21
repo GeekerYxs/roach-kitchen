@@ -41,7 +41,7 @@ from provisioner.login import LaunchThrottle, login, read_session
 from provisioner.memory import ProcessMemory
 from provisioner.minimize import Minimizer
 from provisioner.novice import NoviceJob, NoviceSettings
-from provisioner.pipeline import OwnWindows, online_elsewhere, remember_roster
+from provisioner.pipeline import OwnWindows, last_rosters, online_elsewhere, remember_roster
 from provisioner.world import read_bag, read_bag_capacity, read_team, read_world
 
 from . import db
@@ -100,6 +100,10 @@ ORPHAN_TEAM = frozenset({LEAVE_TEAM, WAIT_DISBAND, TRANSPORTING})
 
 class Stopped(Exception):
     pass
+
+
+class NotOnRoster(RuntimeError):
+    """The login worked but the account has no role of that name: not a system fault, never try it again."""
 
 
 # ---- settings -------------------------------------------------------------------------------------------
@@ -906,6 +910,7 @@ class Supervisor:
         if time.monotonic() < self.pull_paused_until:
             return
         known = self.known()
+        rosters = last_rosters()
         while True:
             with self.lock:
                 alts = list(self.alts.values())
@@ -922,11 +927,11 @@ class Supervisor:
                     | {n for n, k in known.items() if k.phase in self.s.not_served})
             have_coast = has_candidate(PULL_COAST, known, self.names_in_order, open_accounts, skip)
             have_fresh = self.s.fresh and has_candidate(PULL_FRESH, known, self.names_in_order,
-                                                              open_accounts, skip)
+                                                              open_accounts, skip, rosters)
             d = decide_pull(counts, len(alts) + len(pending), self.policy, have_coast, have_fresh)
             if d.kind is None or len(pending) >= self.s.parallel_logins:
                 return
-            name = pick_roles(d.kind, known, self.names_in_order, open_accounts, skip, 1)[0]
+            name = pick_roles(d.kind, known, self.names_in_order, open_accounts, skip, 1, rosters)[0]
             with self.lock:
                 if self.deleting == ROLE_NAME.match(name)[1]:
                     return                  # the delete worker took this account meanwhile
@@ -948,7 +953,7 @@ class Supervisor:
             remember_roster(account.name, roster)
             index = next((i for i, (_, _, n) in enumerate(roster) if n == name), None)
             if index is None:
-                raise RuntimeError(f'选角列表里没有 {name}（有 {[n for _, _, n in roster]}）')
+                raise NotOnRoster(f'选角列表里没有 {name}（有 {[n for _, _, n in roster]}）')
             char_id = roster[index][0]
             enter_role(session, index + 1, self.s.login.enter_timeout, lg)
             world = verify_in_world(session, char_id, name, lg)
@@ -961,6 +966,12 @@ class Supervisor:
             self.login_fails.pop(name, None)
             self.fail_streak = 0
             lg.info('已上线 地图 %d (%.0f,%.0f)', world.map_id, world.x, world.y)
+        except NotOnRoster as e:
+            self.login_fails[name] = LOGIN_FAIL_LIMIT       # never again this run; rosters.json skips it next run
+            self.fail_streak = 0                            # the login itself worked
+            lg.warning('%s，本次运行不再拉它（不算系统故障）', e)
+            if session:
+                self.own.close(session, lg)
         except Exception as e:
             self.login_fails[name] += 1
             self.fail_streak += 1

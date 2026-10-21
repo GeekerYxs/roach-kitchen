@@ -197,6 +197,12 @@ def remember_roster(account, roster):
         tmp.replace(_ROSTER_FILE)
 
 
+def last_rosters():
+    """{account: role names} as the selection screen last listed them (only accounts logged in at least once)."""
+    with _roster_lock:
+        return json.loads(_ROSTER_FILE.read_text('utf-8')) if _ROSTER_FILE.is_file() else {}
+
+
 def known_role_names(account):
     names = set()
     with _roster_lock:

@@ -130,15 +130,19 @@ def _rank(k, kind):
     return None
 
 
-def pick_roles(kind, known, names_in_order, open_accounts, skip, n):
+def pick_roles(kind, known, names_in_order, open_accounts, skip, n, rosters=None):
     """Up to n role names to log in, at most one per account, none of an account that already has a window.
     known: {name: Known}; names_in_order: (name, account) of every configured role, slot-major (mw09r1,
     mw10r1 ... mw100r1, mw01r2 ...); skip: names to leave alone this run (e.g. failed logins).
+    rosters: {account: names} as the selection screen last listed them; a never-seen name missing from its
+    account's list does not exist (2026-10-21: mw316r4 after rebuilds r8/r12 ... -> 4 failed logins, 5 min pause).
     PULL_COAST takes only known roles; PULL_FRESH takes known roles below 11 first, then never-seen ones."""
     ranked = sorted((r, name) for name, k in known.items() if (r := _rank(k, kind)) is not None)
     order = [name for _, name in ranked]
     if kind == PULL_FRESH:
-        order += [name for name, _ in names_in_order if name not in known]
+        rosters = rosters or {}
+        order += [name for name, acct in names_in_order
+                  if name not in known and (acct not in rosters or name in rosters[acct])]
     account_of = {name: acct for name, acct in names_in_order}
     account_of.update({name: k.account for name, k in known.items()})
     out, taken = [], set(open_accounts)
@@ -153,8 +157,8 @@ def pick_roles(kind, known, names_in_order, open_accounts, skip, n):
     return out
 
 
-def has_candidate(kind, known, names_in_order, open_accounts, skip):
-    return bool(pick_roles(kind, known, names_in_order, open_accounts, skip, 1))
+def has_candidate(kind, known, names_in_order, open_accounts, skip, rosters=None):
+    return bool(pick_roles(kind, known, names_in_order, open_accounts, skip, 1, rosters))
 
 
 # ---- 3: may a station start? --------------------------------------------------------------------------

@@ -97,6 +97,16 @@ class PickTest(unittest.TestCase):
         self.assertEqual(pick_roles(PULL_COAST, known, self.ORDER, set(), set(), 9), ['ar1'])
         self.assertEqual(pick_roles(PULL_FRESH, known, self.ORDER, set(), set(), 1), ['br1'])
 
+    def test_fresh_skips_names_missing_from_last_roster(self):
+        # account a's list (last login) has only ar1 and ar5 (ar2 deleted, rebuilt as ar5): ar2 is not offered;
+        # an account never listed (b) still offers its names; known roles are unaffected
+        rosters = {'a': ['ar1', 'ar5'], 'c': []}
+        known = {'ar5': Known('ar5', 'a', EAT_MEAT, 2)}
+        self.assertEqual(pick_roles(PULL_FRESH, known, self.ORDER, set(), set(), 9, rosters),
+                         ['ar5', 'br1', 'dr1'])
+        self.assertEqual(pick_roles(PULL_FRESH, {}, self.ORDER, {'b', 'd'}, set(), 9, rosters), ['ar1'])
+        self.assertFalse(has_candidate(PULL_FRESH, {}, self.ORDER, {'a', 'b', 'd'}, set(), rosters))
+
     def test_has_candidate(self):
         self.assertFalse(has_candidate(PULL_COAST, {}, self.ORDER, set(), set()))
         self.assertTrue(has_candidate(PULL_FRESH, {}, self.ORDER, set(), set()))
