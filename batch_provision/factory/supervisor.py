@@ -44,7 +44,7 @@ from provisioner.novice import NoviceJob, NoviceSettings
 from provisioner.pipeline import OwnWindows, last_rosters, online_elsewhere, remember_roster
 from provisioner.world import read_bag, read_bag_capacity, read_team, read_world
 
-from . import db
+from . import db, heartbeat
 from .coast import CoastRun
 from .config import load_settings
 from .delete import AccountDeleteJob, DeleteSettings
@@ -1149,6 +1149,7 @@ class Supervisor:
     # ---- main
     def run(self):
         self.started_at = time.time()
+        heartbeat.write(heartbeat.PATH, os.getpid(), self.started_at)
         if self.unloader and not validate_stores(self.conn, self.unloader.us, self.log):
             self.log.error('[receiver] stores 名单有问题（见上面），总大脑不启动')
             return 2
@@ -1186,8 +1187,11 @@ class Supervisor:
             Minimizer(self.log, self.stop, skip=lambda: self.station_pids).start()
         for t in threads:
             t.start()
-        last_status = 0.0
+        last_status = last_beat = 0.0
         while True:
+            if time.monotonic() - last_beat >= heartbeat.EVERY:
+                heartbeat.write(heartbeat.PATH, os.getpid(), self.started_at)
+                last_beat = time.monotonic()
             try:
                 self.manage()
             except Exception as e:
@@ -1203,6 +1207,10 @@ def main():
     log_path = log.setup(ROOT / 'logs', prefix='supervisor')
     logger = log.for_account('main')
     logger.info('日志文件: %s', log_path)
+    other = heartbeat.other_running(heartbeat.read(heartbeat.PATH), os.getpid(), time.time(), native.alive)
+    if other:
+        logger.error('另一个总大脑 (pid=%d) 正在运行，不能同时开两个；要重开请先关掉它（或它的一键守护）', other)
+        return 3
     try:
         s = load_supervisor(cfg)
     except Exception as e:

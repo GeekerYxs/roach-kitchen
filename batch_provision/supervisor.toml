@@ -72,3 +72,15 @@ unload_timeout = 900         # 每个仓库号：登录 + 走近 + 全部交易�
 unload_settle = 2            # 下线前站稳这么多秒
 unload_relogin_gap = 10      # 一个仓库号下线后，隔这么多秒再登录下一个（下一个常是同一账号）
 unload_retry_minutes = 10    # 总大脑：卸货没做完（出错、仓库号用完）后，隔这么多分钟再试
+
+[guard]
+# 一键守护.cmd：由它启动总大脑并看着。总大脑退出了、或这么久没有心跳（卡住），就结束总大脑、它开的所有进程、
+#   以及所有带本工具 DLL 的游戏窗口，再重新启动总大脑（工位由总大脑自动重登）。你自己开的窗口（没有 DLL）不碰。
+# 用了守护就不要再单独双击 一键总大脑.cmd（会被拒绝：不能同时开两个总大脑）。停：在守护的黑窗口按 Ctrl+C。
+stall_seconds = 300          # 总大脑这么多秒没有心跳（每 10 秒写一次）就算卡住
+check_every = 10             # 守护多久看一次
+max_restarts = 3             # restart_window_minutes 分钟内最多自动重启几次
+restart_window_minutes = 60
+cooldown_minutes = 30        # 重启太频繁（多半是网络或服务器维护）：等这么久再试
+kill_stations = true         # 重启时也关工位窗口（工位掉线自动重登 station_relogin 没开时自动当作 false）
+kill_settle = 10             # 关完窗口等这么多秒再启动（让服务器把旧的登录踢干净）

@@ -26,19 +26,23 @@ _k.Process32NextW.argtypes = [W.HANDLE, ctypes.POINTER(_Entry)]
 _k.CloseHandle.argtypes = [W.HANDLE]
 
 
-def game_pids():
+def process_rows():
+    """[(pid, parent pid, exe name lowercased)] of every running process."""
     snap = _k.CreateToolhelp32Snapshot(0x2, 0)
     entry = _Entry(dwSize=ctypes.sizeof(_Entry))
-    pids = []
+    rows = []
     try:
         ok = _k.Process32FirstW(snap, ctypes.byref(entry))
         while ok:
-            if entry.szExeFile.lower() == GAME_EXE:
-                pids.append(entry.th32ProcessID)
+            rows.append((entry.th32ProcessID, entry.th32ParentProcessID, entry.szExeFile.lower()))
             ok = _k.Process32NextW(snap, ctypes.byref(entry))
     finally:
         _k.CloseHandle(snap)
-    return sorted(pids)
+    return rows
+
+
+def game_pids():
+    return sorted(pid for pid, _, exe in process_rows() if exe == GAME_EXE)
 
 
 _u = ctypes.WinDLL('user32', use_last_error=True)
