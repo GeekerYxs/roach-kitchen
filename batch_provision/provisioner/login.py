@@ -1,20 +1,61 @@
 """Shared by every tool: launch gating (interval + free memory), login with retries,
 and reading the role-selection screen (session context + roster)."""
+import contextlib
 import threading
 import time
 
-from . import native
+from . import native, procs
 from .memory import ProcessMemory
 from .protocol import MAX_SLOTS, SessionMismatch, read_roster, session_account
 
 
 class LaunchThrottle:
-    """Gate for every game launch across all workers: at least `interval` seconds apart,
-    and only while free physical memory is above `min_free_mb`."""
+    """Gate for every game launch across all workers: at least `interval` seconds apart, only while free physical
+    memory is above `min_free_mb`, and (max_clients > 0) only while this machine has fewer than max_clients - 1
+    game processes, launches on their way included: the server takes at most max_clients windows per IP and
+    leaves "enter world" hanging beyond that (error=110). Station logins pass the window gate (uncapped()):
+    the supervisor keeps their windows free in its alt budget, and a station must never wait for an alt."""
 
-    def __init__(self, interval, min_free_mb=0):
-        self.interval, self.min_free_mb = interval, min_free_mb
+    def __init__(self, interval, min_free_mb=0, max_clients=0, count=None):
+        self.interval, self.min_free_mb, self.max_clients = interval, min_free_mb, max_clients
+        self._count = count or (lambda: len(procs.game_pids()))
         self._next, self._lock = 0.0, threading.Lock()
+        self._launching, self._n_lock = 0, threading.Lock()   # launches past the gate whose process may not show yet
+
+    @classmethod
+    def of(cls, s):
+        return cls(s.launch_interval, s.min_free_memory_mb, getattr(s, 'max_clients', 0))
+
+    def uncapped(self):
+        """The same gate (interval, memory) without the window limit, for station logins."""
+        return _Uncapped(self)
+
+    @contextlib.contextmanager
+    def launch(self, log, capped=True):
+        """with throttle.launch(log): start one game process."""
+        self._reserve(log, capped)
+        try:
+            self.wait(log)
+            yield
+        finally:
+            with self._n_lock:
+                self._launching -= 1
+
+    def _reserve(self, log, capped):
+        warned = False
+        while True:
+            with self._n_lock:
+                total = self._count() + self._launching
+                if not capped or not self.max_clients or total < self.max_clients - 1:
+                    self._launching += 1
+                    break
+            if not warned:
+                log.warning('本机游戏窗口 %d 个（含正在启动的），单 IP 上限 %d：暂停开新窗口，等旧窗口关掉…',
+                            total, self.max_clients)
+                warned = True
+            time.sleep(3)
+        if warned:
+            log.info('游戏窗口降到 %d 个，继续', total)
 
     def wait(self, log):
         with self._lock:  # one launcher at a time passes the gate
@@ -32,6 +73,14 @@ class LaunchThrottle:
             self._next = time.monotonic() + self.interval
 
 
+class _Uncapped:
+    def __init__(self, throttle):
+        self._t = throttle
+
+    def launch(self, log):
+        return self._t.launch(log, capped=False)
+
+
 class LoginFailed(RuntimeError):
     pass
 
@@ -40,11 +89,11 @@ def login(settings, account, runtime, throttle, log, kill_on_failure=False):
     """Start a client and stop on the role-selection screen; retry failures (no role is touched yet)."""
     attempts = settings.login_retries + 1
     for attempt in range(1, attempts + 1):
-        throttle.wait(log)
-        log.info('启动游戏并登录 (第 %d/%d 次)', attempt, attempts)
         result_file = runtime / f'launch_{account.name}_{attempt}.json'
         try:
-            session = native.launch(settings, account, result_file, log)
+            with throttle.launch(log):
+                log.info('启动游戏并登录 (第 %d/%d 次)', attempt, attempts)
+                session = native.launch(settings, account, result_file, log)
             log.info('已到选角界面 pid=%d hwnd=%#x base=%#x', session.pid, session.hwnd, session.base)
             return session
         except native.LaunchError as e:

@@ -112,6 +112,7 @@ class DeleteSettings:
     close_settle: float
     close_timeout: float
     factory: object             # factory.config.Settings
+    max_clients: int = 0        # [game] ip_max_clients (provisioner.config)
 
 
 def load_delete(path):
@@ -297,7 +298,7 @@ def main():
         by_account.setdefault(r['account'], []).append(r)
     open_clients = {c.char_id: c for c in procs.discover(logger)}
     own = OwnWindows(s.max_windows, logger)
-    throttle = LaunchThrottle(s.launch_interval, s.min_free_memory_mb)
+    throttle = LaunchThrottle.of(s)
     jobs = [AccountDeleteJob(s, accounts[a], rs, open_clients, own, throttle, s.factory.db_path)
             for a, rs in by_account.items()]
     started = time.monotonic()

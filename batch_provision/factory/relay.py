@@ -157,7 +157,7 @@ class Relay:
         self.s, self.log = s, logger
         self.conn = db.connect(s.factory.db_path)
         self.own = OwnWindows(s.team_size, logger)
-        self.throttle = LaunchThrottle(s.login.launch_interval, s.login.min_free_memory_mb)
+        self.throttle = LaunchThrottle.of(s.login)
         self.jobs = jobs_in_order(s.login.accounts, s.login.slots)
         self.wanted = {f'{j.account.name}r{j.slot}': j for j in self.jobs}     # role name -> job
         self.finished = set()       # job keys done / failed / skipped in this run

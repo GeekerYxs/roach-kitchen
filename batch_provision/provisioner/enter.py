@@ -131,7 +131,7 @@ def main():
     logger.info('账号 %d 个: %s；默认进入槽%d；空闲内存下限 %dMB', len(settings.accounts),
                 ', '.join(f'{a.name}(槽{settings.slot_of(a)})' for a in settings.accounts), settings.slot,
                 settings.min_free_memory_mb)
-    throttle = LaunchThrottle(settings.launch_interval, settings.min_free_memory_mb)
+    throttle = LaunchThrottle.of(settings)
     jobs = [EnterJob(settings, a, throttle) for a in settings.accounts]
     started = time.monotonic()
     with ThreadPoolExecutor(max_workers=len(jobs), thread_name_prefix='enter') as pool:

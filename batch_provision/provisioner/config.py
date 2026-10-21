@@ -36,6 +36,7 @@ class Settings:
     keep_windows_open: bool
     min_free_memory_mb: int
     accounts: tuple
+    max_clients: int = 0        # [game] ip_max_clients: the server's game-window limit per IP, 0 = no limit
 
     def role_names(self, account):
         return [f'{account}{self.role_suffix}{i}' for i in range(1, self.roles_per_account + 1)]
@@ -54,6 +55,7 @@ class EnterSettings:
     enter_timeout: float
     kill_on_failure: bool
     accounts: tuple
+    max_clients: int = 0
 
     def slot_of(self, account):
         return account.slot or self.slot
@@ -75,6 +77,7 @@ class PipelineSettings:
     novice_timeout: float
     tick: float
     accounts: tuple
+    max_clients: int = 0
 
 
 def _slot(value, where):
@@ -129,10 +132,26 @@ def _launch_common(data):
         min_free_memory_mb=int(b.get('min_free_memory_mb', 3000)),
         kill_on_failure=bool(b.get('kill_on_failure', False)),
         accounts=_accounts(data['accounts']),
+        max_clients=ip_max_clients(g),
     )
     if not common['game_exe'].is_file():
         raise FileNotFoundError(f'游戏程序不存在: {common["game_exe"]}')
     return common
+
+
+# The server takes at most 50 game windows per IP (production 2026-10-21: at 53-54 windows every
+# "enter world" hung 40 s -> error=110; at ~40 they entered in 5 s). Counts every WAATClient.exe on the machine.
+IP_MAX_CLIENTS = 50
+
+
+def ip_max_clients(game):
+    """[game] ip_max_clients (default 50; 0 = no limit)."""
+    return max(0, int(game.get('ip_max_clients', IP_MAX_CLIENTS)))
+
+
+def ip_reserve(game):
+    """[game] ip_reserve: windows of that budget the supervisor leaves free (your own windows, a spare)."""
+    return max(0, int(game.get('ip_reserve', 2)))
 
 
 LOCAL_NAME = 'local.toml'

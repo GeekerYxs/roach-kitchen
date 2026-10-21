@@ -481,7 +481,7 @@ def main():
         return 2
     logger.info('收货人: %s pid=%d 地图 %d (%.0f,%.0f)', recv.name, recv.session.pid, recv.map_id, recv.x, recv.y)
     own = OwnWindows(2, logger)
-    unload = StoreUnload(us, fs, login_s, LaunchThrottle(login_s.launch_interval, login_s.min_free_memory_mb), own,
+    unload = StoreUnload(us, fs, login_s, LaunchThrottle.of(login_s), own,
                          logger)
     with ProcessMemory(recv.session.pid, recv.session.base) as rmem:
         post = PostRun(conn, st, recv, rmem, fs, log.for_account(recv.name))

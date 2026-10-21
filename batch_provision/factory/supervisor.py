@@ -73,7 +73,7 @@ from .wellteam import LeaderUnheard, WellTeamRun
 from .welltrain import WellTrainRun
 from .sell import SellJob
 from .schedule import (COAST_WAIT, DOWNSTREAM, FARMING_SIDE, OTHER, PULL_COAST, PULL_FRESH, UPSTREAM, WELL, Known,
-                       PullPolicy, close_reason, count_sides, decide_pull, has_candidate, pick_delete, pick_rebuild, pick_roles, retry_quarantined,
+                       PullPolicy, alt_window_cap, close_reason, count_sides, decide_pull, has_candidate, pick_delete, pick_rebuild, pick_roles, retry_quarantined,
                        team_ready)
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -132,6 +132,7 @@ class SupSettings:
     supply: object = None               # factory.supply.SupplySettings ([supply] in factory.toml), None = off
     treasury: object = None             # factory.treasury.TreasurySettings ([treasury] in factory.toml), None = off
     unload: object = None               # factory.storeuse.UnloadSettings ([receiver] stores), None = no store roles
+    window_budget: str = ''             # how policy.max_windows was cut to the per-IP window limit (logged at start)
 
 
 @dataclass(frozen=True)
@@ -154,6 +155,23 @@ def load_relogin(s):
                    float(s.get('station_lost_seconds', 30))), None
 
 
+def configured_stations(s, relogin, db_path):
+    """How many stations this machine runs: the enabled [[station]] entries (offline ones included: their window
+    must stay free); if the stations config cannot be read, the stations in factory.db."""
+    if relogin:
+        return len(relogin.stations)
+    try:
+        return len(config.load_stations(ROOT / s.get('stations', 'stations.toml'))[1])
+    except Exception:           # noqa: BLE001 - fall back to what the stations tool registered
+        if not Path(db_path).is_file():
+            return 0
+        conn = db.connect(db_path)
+        try:
+            return conn.execute('SELECT COUNT(*) FROM stations').fetchone()[0]
+        finally:
+            conn.close()
+
+
 def load_supervisor(path):
     data = config._read(path)
     s = data.get('supervisor', {})
@@ -169,6 +187,10 @@ def load_supervisor(path):
                             close_timeout=float(s.get('delete_close_timeout', 3)), factory=factory)
     rebuild_after = float(s.get('rebuild_after_hours', 3.2)) * 3600 if bool(s.get('rebuild', True)) else None
     relogin, relogin_error = load_relogin(s)
+    game = data.get('game', {})
+    cap, budget = alt_window_cap(policy.max_windows, config.ip_max_clients(game),
+                                 configured_stations(s, relogin, factory.db_path), config.ip_reserve(game))
+    policy = replace(policy, max_windows=cap)
     return SupSettings(login_settings, factory, policy, float(s.get('coast_max_wait', 90)),
                        max(1, int(s.get('parallel_logins', 4))), float(s.get('idle_close', 60)), NOT_SERVED,
                        float(s.get('well_max_wait', 90)), float(s.get('transport_max_wait', 30)),
@@ -179,7 +201,7 @@ def load_supervisor(path):
                        bool(data.get('batch', {}).get('arrange', True)),
                        load_supply_file(ROOT / s.get('factory', 'factory.toml')),
                        load_treasury_file(ROOT / s.get('factory', 'factory.toml')),
-                       load_unload(data, read_local(path)))
+                       load_unload(data, read_local(path)), budget)
 
 
 # ---- the run --------------------------------------------------------------------------------------------
@@ -301,7 +323,7 @@ class Supervisor:
         self.s, self.log = s, logger
         self.conn = db.connect(s.factory.db_path)
         self.own = OwnWindows(s.policy.max_windows + s.parallel_logins + 1, logger)
-        self.throttle = LaunchThrottle(s.login.launch_interval, s.login.min_free_memory_mb)
+        self.throttle = LaunchThrottle.of(s.login)
         self.accounts = {a.name: a for a in s.login.accounts}
         self.names_in_order = [(f'{a.name}r{slot}', a.name) for slot in s.login.slots for a in s.login.accounts]
         self.alts = {}              # char_id -> AltWin
@@ -539,7 +561,7 @@ class Supervisor:
             return False
         db.heartbeat(conn, sid, st['role'], st['char_id'], relogin_mark(os.getpid()), time.time())
         lg.warning('工位不在线，自动重登 %s 槽%d（第 %d 次）', cfg.account.name, cfg.account.slot, w.fails + 1)
-        r = EnterJob(self.relogin.enter, cfg.account, self.throttle).run()
+        r = EnterJob(self.relogin.enter, cfg.account, self.throttle.uncapped()).run()   # its window is budgeted
         err, permanent = check_entered(r, st['char_id'], name)
         if err is None:
             db.register_station(conn, sid, st['role'], r['char_id'], cfg.account.name, r['role'], r['pid'],
@@ -1149,6 +1171,8 @@ class Supervisor:
         threads.append(threading.Thread(target=self.chores_loop, name='chores', daemon=True))
         self.log.info('工人: %s；小号窗口上限 %d，同时登录 %d 个', ', '.join(t.name for t in threads),
                       self.s.policy.max_windows, self.s.parallel_logins)
+        if self.s.window_budget:
+            self.log.info('%s', self.s.window_budget)
         if self.relogin:
             self.log.info('工位掉线自动重登: 开（读不到角色 %.0f 秒就关窗重登；配置里的工位 %s）', self.relogin.lost_after,
                           ', '.join(self.relogin.stations))

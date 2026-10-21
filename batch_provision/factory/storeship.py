@@ -754,7 +754,7 @@ def main():
                   lambda c, st, cl, mem, riders: make_ferry_run(c, st, cl, mem, riders, gold_fs, ship),
                   fs.transport_team_size, ship, ship.timeout, fs.db_path, log.for_account('调度员'))
     accounts = {a.name: a for a in create.accounts}
-    throttle = LaunchThrottle(pipe.launch_interval, pipe.min_free_memory_mb)
+    throttle = LaunchThrottle.of(pipe)
     run_id = time.strftime('%Y%m%d_%H%M%S')
     started = time.monotonic()
     well.start()

@@ -453,7 +453,7 @@ def main():
     s = replace(s, accounts=tuple(accounts))
     ws = replace(ws, delete=s)
     own = OwnWindows(s.max_windows, logger)
-    throttle = LaunchThrottle(s.launch_interval, s.min_free_memory_mb)
+    throttle = LaunchThrottle.of(s)
     jobs = [AccountWipeJob(ws, a, check_only, own, throttle, station_ids) for a in accounts]
     started = time.monotonic()
     with ThreadPoolExecutor(max_workers=min(s.max_windows, len(jobs)), thread_name_prefix='wipe') as pool:

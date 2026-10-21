@@ -310,7 +310,7 @@ def main():
         logger.info('全部仓库号都已在村里腾好背包')
         return 0
     logger.info('启动前已有游戏进程（不会被关闭）: %s', game_pids())
-    throttle = LaunchThrottle(pipe.launch_interval, pipe.min_free_memory_mb)
+    throttle = LaunchThrottle.of(pipe)
     run_id = time.strftime('%Y%m%d_%H%M%S')
     started = time.monotonic()
 

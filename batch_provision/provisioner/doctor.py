@@ -44,6 +44,21 @@ def role_status(state_dir, accounts, per_account=4, suffix='r'):
     return ready, todo, foreign
 
 
+def window_budget(ip_max_clients, stations, alt_cap, reserve):
+    """-> (level, text): do stations + alts + the delete/rebuild window + the spare fit the per-IP window limit?"""
+    from factory.schedule import ACCOUNT_WORKER_WINDOWS
+    if ip_max_clients <= 0:
+        return WARN, f'没设单 IP 窗口上限（[game] ip_max_clients = 0）：窗口多了进不了世界（error=110），建议填 50'
+    total = stations + alt_cap + ACCOUNT_WORKER_WINDOWS
+    text = (f'窗口预算：工位 {stations} + 小号 {alt_cap} + 删号/重建 {ACCOUNT_WORKER_WINDOWS} = {total}，'
+            f'预留 {reserve}，单 IP 上限 {ip_max_clients}')
+    if stations + ACCOUNT_WORKER_WINDOWS + 1 > ip_max_clients - 1:
+        return BAD, text + '：工位太多，一个小号都开不了，请减少 [[station]]'
+    if total + reserve > ip_max_clients:
+        return BAD, text + '：超了，会有窗口进不了世界'
+    return OK, text
+
+
 def expected_client_hashes(launcher_source=ROOT / 'native' / 'launcher.cpp'):
     """Game exe SHA256 -> version label, the builds launcher.exe accepts (CLIENT_HASHES in its source,
     one `"<sha256>", // <version>` line each); empty if the source is missing."""
@@ -100,6 +115,11 @@ def main():
             loaded = loader(ROOT / name)
             if name == 'stations.toml':
                 r.line(OK, '工位 ' + '、'.join(f'{s.label}={s.account.name}' for s in loaded[1]))
+                game = config._read(ROOT / name).get('game', {})
+                r.line(*window_budget(config.ip_max_clients(game), len(loaded[1]), sup.policy.max_windows,
+                                      config.ip_reserve(game)))
+                if sup.window_budget:
+                    r.line(OK, sup.window_budget)
         except Exception as e:
             r.line(BAD, f'{name}: {e}')
 

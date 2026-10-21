@@ -109,7 +109,7 @@ def login_stations(conn, logger, enter_settings, stations):
     if to_login:
         logger.info('需要登录的工位: %s', ', '.join(f'{s.label}={s.account.name}(槽{s.account.slot})' for s in to_login))
         logger.info('提示: 如果这些号已经在别的（非本工具启动的）窗口里在线，请先关掉，否则会互相挤号')
-        throttle = LaunchThrottle(enter_settings.launch_interval, enter_settings.min_free_memory_mb)
+        throttle = LaunchThrottle.of(enter_settings).uncapped()   # stations are budgeted, never wait for alts
         known = {s.station_id: db.station(conn, s.station_id) for s in to_login}
         for s in to_login:              # a running supervisor sees this and does not log the same station in
             if known[s.station_id]:

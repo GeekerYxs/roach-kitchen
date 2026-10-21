@@ -65,7 +65,7 @@ def main():
                 len(names), ', '.join(names), settings.parallel, settings.roles_per_account,
                 settings.relogin_after_create, settings.keep_windows_open, settings.min_free_memory_mb)
 
-    throttle = LaunchThrottle(settings.launch_interval, settings.min_free_memory_mb)
+    throttle = LaunchThrottle.of(settings)
     jobs = [AccountJob(settings, a, ROOT, throttle) for a in settings.accounts]
     started = time.monotonic()
     with ThreadPoolExecutor(max_workers=settings.parallel, thread_name_prefix='acct') as pool:

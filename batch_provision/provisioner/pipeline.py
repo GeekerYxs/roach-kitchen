@@ -270,7 +270,7 @@ def main():
     logger.info('待处理 %d 个角色（槽 %s），本工具同时最多 %d 个窗口', len(jobs), list(s.slots), s.max_windows)
 
     own = OwnWindows(s.max_windows, logger)
-    throttle = LaunchThrottle(s.launch_interval, s.min_free_memory_mb)
+    throttle = LaunchThrottle.of(s)
     locks = {a.name: threading.Lock() for a in s.accounts}
     started = time.monotonic()
     with ThreadPoolExecutor(max_workers=s.max_windows, thread_name_prefix='pipe') as pool:

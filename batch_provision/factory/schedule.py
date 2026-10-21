@@ -78,6 +78,24 @@ class Pull:
     reason: str
 
 
+ACCOUNT_WORKER_WINDOWS = 1  # the delete / rebuild worker's own selection-screen window (on top of the alt cap)
+
+
+def alt_window_cap(max_windows, ip_max_clients, stations, reserve):
+    """-> (alt cap, explanation). The server's per-IP window limit is shared by the stations, the account worker,
+    `reserve` spare windows and the alts. Stations are counted as CONFIGURED, not as online: an offline station
+    must find its window free when it logs in again. ip_max_clients 0 = no limit (max_windows alone)."""
+    if ip_max_clients <= 0:
+        return max_windows, f'小号窗口上限 {max_windows}（不限单 IP 窗口数）'
+    budget = ip_max_clients - stations - ACCOUNT_WORKER_WINDOWS - reserve
+    cap = max(1, min(max_windows, budget))
+    how = (f'单 IP 上限 {ip_max_clients} − 工位 {stations} − 删号/重建 {ACCOUNT_WORKER_WINDOWS} − 预留 {reserve} '
+           f'= {budget}')
+    if budget < max_windows:
+        return cap, f'小号窗口上限 {cap}（{how}，比 max_windows={max_windows} 小，按 {cap} 开）'
+    return cap, f'小号窗口上限 {cap}（max_windows；{how}）'
+
+
 def decide_pull(counts, open_windows, policy, have_coast, have_fresh):
     """counts: count_sides() of the open alts; have_*: whether a candidate of that kind exists.
     Downstream first: the coast teams are the bottleneck, so their queue is refilled before the well's.
