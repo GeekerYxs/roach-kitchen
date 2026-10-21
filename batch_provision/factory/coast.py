@@ -15,6 +15,9 @@ Every station registered with role 'coast' (一键登录工位.cmd) runs one bat
   5. walk back to the rendezvous, wait for the members, the leader leaves the team; a member still in a team
      after 5 s leaves itself. Members are then phase handin (stage 8)
 A member that leaves the team (died -> village, dropped) is released and queued again by its phase.
+A member that cannot gain is put out of the team: no bag slot for a material it lacks (phase.bag_blocked -> it goes
+to sell its junk), or no gain in NO_GAIN_LIMIT battles in a row that gave its teammates the item (quarantined).
+Past coast_farm_timeout the leader leaves its team (Overdue), so the restart does not adopt the same batch again.
 Decisions are pure (tests/test_factory_coast.py).
 """
 import json
@@ -28,17 +31,17 @@ from pathlib import Path
 from provisioner import log, native, procs
 from provisioner.game import FIGHT_ATTACK, FIGHT_ESCAPE, Game, NotSent
 from provisioner.memory import ProcessMemory
-from provisioner.world import (item_count, read_bag, read_battle, read_fighting_pet, read_invite_byte, read_level,
+from provisioner.world import (item_count, read_bag, read_bag_capacity, read_battle, read_fighting_pet, read_invite_byte, read_level,
                                read_shoe_record, read_skill_level, read_talent_points, read_team, read_world)
 
 from . import db
 from .config import ROOT, load_settings
 from .observe import observe
 from .phase import (COAST, COAST_MAP, LEGS_ITEM, LEGS_NEEDED, QUEUE_COAST, RUMPS_ITEM, RUMPS_NEEDED, VILLAGE_MAP,
-                    derive_phase)
+                    bag_blocked, derive_phase)
 from .runner import ROLE_NAME
 from .transport import Trip, behind, decide_trip
-from .welltrain import Fight, Talent, decide_battle, decide_talent, scroll_slot
+from .welltrain import Fight, Overdue, Talent, decide_battle, decide_talent, scroll_slot
 from .wellteam import ACTION_INVITE, INVITE_GAP, INVITE_RANGE, Heard, Join, LeaderUnheard, decide_member
 
 LANDING = (1152, 932)           # PP鸡 lands the team here (stage 5, live) = the leaders' 飞鞋 point
@@ -59,6 +62,7 @@ FOLLOW_WAIT = 15.0              # back at the rendezvous: wait this long for mem
 LEAVE_WAIT = 5.0
 DROP_AFTER = 3.0
 OBSERVE_EVERY = 10.0
+NO_GAIN_LIMIT = 3               # battles in a row that gave teammates the item but not this member -> out
 ACTION_RECORD = 'coast_shoe_record'
 
 
@@ -200,6 +204,20 @@ def decide_goto(w, target, memo, now, why):
     return Decision('arrived', f'已到（{why}）')
 
 
+def gain_misses(before, after, spot, misses):
+    """One battle ended. before/after: {char_id: (legs, rumps)}; spot: 'legs' | 'rumps' being farmed; misses:
+    {char_id: battles in a row it got nothing}. Every member in a battle with the target gets exactly 1 (user-verified),
+    so a member that still needs the item and stays put while a teammate gains is not receiving it. A battle where
+    nobody gained (no target in it) changes nothing. -> new misses."""
+    i, need = (0, LEGS_NEEDED) if spot == 'legs' else (1, RUMPS_NEEDED)
+    needy = [cid for cid in after if cid in before and before[cid][i] < need]
+    out = dict(misses)
+    if any(after[cid][i] > before[cid][i] for cid in needy):
+        for cid in needy:
+            out[cid] = 0 if after[cid][i] > before[cid][i] else out.get(cid, 0) + 1
+    return out
+
+
 def choose_spot(counts):
     """counts: [(legs, rumps)] of the members still in the batch -> 'legs' | 'rumps' | 'done'."""
     if any(legs < LEGS_NEEDED for legs, _ in counts):
@@ -333,6 +351,7 @@ class CoastRun:
         self.last_reason = None
         self.last_observe = -1e9
         self.started = time.monotonic()
+        self.farming, self.last_counts, self.misses = False, {}, {}
 
     def close(self):
         for m in self.members.values():
@@ -357,9 +376,29 @@ class CoastRun:
         m.log.error('移出本批: %s', error)
         db.release(self.conn, self.sid(), [m.c.char_id], time.time())
 
+    def kick(self, m, error, quarantine=False):
+        """Out of the batch AND out of the team: a member left in the team would be adopted again."""
+        if quarantine:
+            db.record_failure(self.conn, m.c.char_id, error, time.time(), max_retries=1)
+        self.drop(m, error)
+        try:
+            m.game.team_leave()
+        except NotSent as e:
+            m.log.warning('退队请求没发出: %s', e)
+
+    def abandon(self):
+        """Overdue: the leader leaves its team (members still in a team are orphans then: LeaveJob)."""
+        team = read_team(self.lmem)
+        if team and team.members and team.leader == self.leader.char_id:
+            self.log.warning('超时，队长退队解散队伍（%d 个队员），重启后不再接手这一批', len(team.members) - 1)
+            try:
+                self.lgame.team_leave()
+            except NotSent as e:
+                self.log.warning('队长退队请求没发出: %s', e)
+
     def check(self):
         if time.monotonic() - self.started > self.s.coast_farm_timeout:
-            raise RuntimeError(f'{self.s.coast_farm_timeout:.0f}s 内没有完成')
+            raise Overdue(f'{self.s.coast_farm_timeout:.0f}s 内没有完成')
         if not native.alive(self.leader.session.pid):
             raise RuntimeError(f'队长游戏进程 {self.leader.session.pid} 已退出')
         for m in self.active():
@@ -499,8 +538,25 @@ class CoastRun:
             self.in_battle = False
             self.walk.last_nav = -1e9           # a battle interrupts navigation; allow re-issue at once
             self.walk.progress_at = now
-            counts = ', '.join(f'{m.c.name} 腿{c[0]} 屁股{c[1]}' for m, c in self.counts())
-            self.log.info('战斗结束（第 %d 场）。%s', self.battles, counts)
+            counts = self.counts()
+            self.log.info('战斗结束（第 %d 场）。%s', self.battles,
+                          ', '.join(f'{m.c.name} 腿{c[0]} 屁股{c[1]}' for m, c in counts))
+            if self.farming:
+                self.screen(counts)
+
+    def screen(self, counts):
+        """Put out the members that cannot gain (see the module doc)."""
+        now_counts = {m.c.char_id: c for m, c in counts}
+        if self.walk.spot:
+            self.misses = gain_misses(self.last_counts, now_counts, self.walk.spot, self.misses)
+        self.last_counts = now_counts
+        for m, (legs, rumps) in counts:
+            cap, bag = read_bag_capacity(m.mem), read_bag(m.mem)
+            if cap is not None and bag is not None and bag_blocked(legs, rumps, cap - len(bag)):
+                self.kick(m, f'背包满（{len(bag)}/{cap}），腿{legs} 屁股{rumps} 放不下，退队去卖杂物')
+            elif self.misses.get(m.c.char_id, 0) >= NO_GAIN_LIMIT:
+                self.kick(m, f'连续 {NO_GAIN_LIMIT} 场队友拿到材料、它没拿到（腿{legs} 屁股{rumps}），退队并隔离',
+                          quarantine=True)
 
     def act(self, d, w, now):
         """Run a walking decision. Returns d.kind for the caller."""
@@ -707,6 +763,8 @@ class CoastRun:
 
     def farm(self):
         patrols = {'legs': self.s.coast_legs_patrol, 'rumps': self.s.coast_rumps_patrol}
+        self.farming = True
+        self.screen(self.counts())
         while True:
             w = self.check()
             now = time.monotonic()
@@ -720,6 +778,7 @@ class CoastRun:
                 self.leave_battle(now)
                 self.log.info('本批材料齐了（%s），回集合点', ', '.join(f'{m.c.name} 腿{c[0]} 屁股{c[1]}'
                                                                 for m, c in counts) or '队里没有小号了')
+                self.farming = False
                 return
             if spot != 'done' and spot != self.walk.spot:
                 self.log.info('开始%s: %s', '刷腿' if spot == 'legs' else '刷鸡屁股', patrols[spot])
@@ -787,6 +846,13 @@ class CoastRun:
             m.state = 'done'
 
     def run(self):
+        try:
+            return self._run()
+        except Overdue:
+            self.abandon()
+            raise
+
+    def _run(self):
         w = self.to_coast()
         self.record_shoe()
         self.skill_level = read_skill_level(self.lmem, self.s.leader_skill) or 0

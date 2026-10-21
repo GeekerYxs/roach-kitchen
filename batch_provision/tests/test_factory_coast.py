@@ -4,8 +4,8 @@ from dataclasses import replace
 
 from factory.coast import (ARRIVE, ESCAPE_FALLBACK, LANDING, LEAVE_WAIT, NAV_RETRY, NEAR_LEADER, RECORD_SETTLE,
                            RECORD_TRIES, RECORD_WAIT, RENDEZVOUS, RETURN_WAIT, SETTLE, STALL, Approach, Away, Record,
-                           Walk, choose_spot, decide_approach, decide_away, decide_disband, decide_farm, decide_goto,
-                           decide_record)
+                           NO_GAIN_LIMIT, Walk, choose_spot, decide_approach, decide_away, decide_disband, decide_farm,
+                           decide_goto, decide_record, gain_misses)
 from factory.config import ROOT, load_settings
 from provisioner.world import WorldState
 
@@ -92,6 +92,32 @@ class Spot(unittest.TestCase):
         self.assertEqual(choose_spot([(10, 0), (12, 20)]), 'rumps')
         self.assertEqual(choose_spot([(10, 20), (11, 25)]), 'done')
         self.assertEqual(choose_spot([]), 'done')
+
+
+class GainMisses(unittest.TestCase):
+    def test_member_left_out_while_teammates_gain_counts_up(self):
+        misses = {}
+        before = {1: (0, 0), 2: (3, 0), 3: (3, 0)}
+        for n in range(1, NO_GAIN_LIMIT + 1):
+            after = {1: (0, 0), 2: (3 + n, 0), 3: (3 + n, 0)}
+            misses = gain_misses(before, after, 'legs', misses)
+            before = after
+        self.assertEqual(misses, {1: NO_GAIN_LIMIT, 2: 0, 3: 0})
+
+    def test_battle_without_target_changes_nothing(self):
+        same = {1: (0, 0), 2: (3, 0)}
+        self.assertEqual(gain_misses(same, same, 'legs', {1: 2}), {1: 2})
+
+    def test_gain_resets(self):
+        self.assertEqual(gain_misses({1: (2, 0), 2: (2, 0)}, {1: (3, 0), 2: (3, 0)}, 'legs', {1: 2}), {1: 0, 2: 0})
+
+    def test_member_that_has_enough_is_not_counted(self):
+        # farming rumps: member 1 is done with rumps, member 2 gains
+        m = gain_misses({1: (10, 20), 2: (10, 5)}, {1: (10, 20), 2: (10, 6)}, 'rumps', {})
+        self.assertEqual(m, {2: 0})
+
+    def test_new_member_without_earlier_count_is_skipped(self):
+        self.assertEqual(gain_misses({}, {1: (0, 0), 2: (1, 0)}, 'legs', {}), {})
 
 
 class Farm(unittest.TestCase):

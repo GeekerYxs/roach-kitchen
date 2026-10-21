@@ -11,6 +11,8 @@ User, 2026-10-20: alts sell everything sellable before the delete, the worn 专�
      close the dialog
   4. ledger sold_at = now (also after a partial sale: an item the shop refuses must not loop the alt), walk back to
      the receiver post; phase.derive_phase then puts the alt into queue_receiver
+Mid-chain (no 料理 yet, phase.bag_blocked: the bag is too full for the quest-78 materials): steps 1 and 3 only,
+no unequip, no sold_at (the final run still comes), and the alt stays at 花袭人; still blocked afterwards -> quarantine.
 Live 2026-10-20 (client 2.99, mvp01r1 at 小美): 扳手 + 5 新手装 sold 6/6, gold 0 -> 515 = exactly half the ItemLib
 prices, 8.9 s.
 Pure parts: factory/items.py (junk_count, unequip_plan), phase.derive_phase (tests).
@@ -23,13 +25,13 @@ from pathlib import Path
 from provisioner import native
 from provisioner.game import FIGHT_ESCAPE, Game
 from provisioner.memory import ProcessMemory
-from provisioner.world import (read_bag, read_bag_capacity, read_dialog, read_equipment, read_gold,
+from provisioner.world import (item_count, read_bag, read_bag_capacity, read_dialog, read_equipment, read_gold,
                                read_world)
 
 from . import db, items
 from .config import ROOT, load_settings
 from .observe import observe
-from .phase import COAST_MAP, SELL_JUNK, derive_phase
+from .phase import COAST_MAP, DISH_ITEM, SELL_JUNK, derive_phase
 from .runner import run_stage
 from .supply import NURSE, SHOP_RANGE, ShopClient
 
@@ -61,8 +63,12 @@ class SellJob:
                     if plan.phase != SELL_JUNK:
                         self.log.info('不用卖（阶段 %s：%s）', plan.phase, plan.reason)
                         return {**result, 'ok': True, 'skipped': True}
-                    self._run(conn, mem, game, shop, result)
-                    self._phase(conn, mem)
+                    final = item_count(read_bag(mem) or (), DISH_ITEM) > 0
+                    self._run(conn, mem, game, shop, result, final)
+                    after = self._phase(conn, mem)
+                    if not final and after.phase == SELL_JUNK:
+                        db.record_failure(conn, cid, f'卖完背包还是满的（{after.reason}）', time.time(), max_retries=1)
+                        raise RuntimeError(f'卖完背包还是满的，已隔离: {after.reason}')
                     result['ok'] = True
                 finally:
                     if read_dialog(mem) is not None:
@@ -84,13 +90,14 @@ class SellJob:
         db.save_observation(conn, obs, plan, time.time())
         return plan
 
-    def _run(self, conn, mem, game, shop, result):
+    def _run(self, conn, mem, game, shop, result, final=True):
+        """final: the alt holds its 料理 (the last sale before the delete); else only make room in the bag."""
         table = items.table()
         gold_before = read_gold(mem)
         if read_dialog(mem) is not None:
             shop.close()
         self.walk(mem, game, NURSE.spot, '去花袭人')
-        result['unequipped'] = self.unequip(mem, game, table)
+        result['unequipped'] = self.unequip(mem, game, table) if final else 0
         bag = read_bag(mem)
         slots = items.sell_slots(bag, table)
         self.log.info('在花袭人卖 %d 格（约 %d 金币）', len(slots), items.shop_value(slots, table))
@@ -105,11 +112,14 @@ class SellJob:
         result['to_sell'] = len(slots)
         gold = read_gold(mem)
         result['gold_change'] = None if gold is None or gold_before is None else gold - gold_before
-        db.complete_action(conn, self.c.char_id, time.time(), sold_at=time.time())
-        db.log_event(conn, time.time(), 'sell', f'卖 {result["sold"]}/{len(slots)} 格 脱 {result["unequipped"]} 件 '
-                     f'金币变化 {result["gold_change"]}', char_id=self.c.char_id)
+        if final:
+            db.complete_action(conn, self.c.char_id, time.time(), sold_at=time.time())
+        db.log_event(conn, time.time(), 'sell', f'{"" if final else "腾背包 "}卖 {result["sold"]}/{len(slots)} 格 '
+                     f'脱 {result["unequipped"]} 件 金币变化 {result["gold_change"]}', char_id=self.c.char_id)
         self.log.info('卖了 %d/%d 格，脱下 %d 件，金币 %s -> %s', result['sold'], len(slots), result['unequipped'],
                       gold_before, gold)
+        if not final:
+            return          # back to queue_coast: the coast leader calls it over from here
         try:
             self.walk(mem, game, self.s.receiver_post, '回收货点')
         except RuntimeError as e:     # sold and booked already; the receiver walks the alt over itself

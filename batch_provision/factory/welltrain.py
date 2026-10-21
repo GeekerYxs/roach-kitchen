@@ -54,6 +54,12 @@ OBSERVE_EVERY = 10.0             # save observations / renew the lease / heartbe
 ACTION_SHOE, ACTION_SCROLL = 'shoe_return', 'scroll_return'
 
 
+class Overdue(RuntimeError):
+    """The batch ran past its time limit. The leader breaks its team up before giving up: a restarted station adopts
+    whatever team it still leads (live 2026-10-21: well2 timed out 8 times on the same batch, 04:30-08:52; cap07 4
+    times, 2 h 15 min)."""
+
+
 @dataclass(frozen=True)
 class Decision:
     kind: str
@@ -344,6 +350,16 @@ class WellTrainRun:
             self.log.info('%s', d.reason)
         self.last_reason = d.reason
 
+    def abandon(self):
+        """Overdue: the leader leaves its team; the members (no team, not in the village) go home by their phase."""
+        team = read_team(self.lmem)
+        if team and team.members and team.leader == self.leader.char_id:
+            self.log.warning('超时，队长退队解散队伍（%d 个队员），重启后不再接手这一批', len(team.members) - 1)
+            try:
+                self.lgame.team_leave()
+            except NotSent as e:
+                self.log.warning('队长退队请求没发出: %s', e)
+
     def _alive(self):
         if not native.alive(self.leader.session.pid):
             raise RuntimeError(f'队长游戏进程 {self.leader.session.pid} 已退出')
@@ -609,7 +625,8 @@ class WellTrainRun:
         while True:
             now = time.monotonic()
             if now - started > self.s.well_train_timeout:
-                raise RuntimeError(f'{self.s.well_train_timeout:.0f}s 内没有完成')
+                self.abandon()
+                raise Overdue(f'{self.s.well_train_timeout:.0f}s 内没有完成')
             self._alive()
             lw, leader_team = read_world(self.lmem), read_team(self.lmem)
             if lw and lw.char_id != self.leader.char_id:

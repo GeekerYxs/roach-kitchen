@@ -64,10 +64,22 @@ class AltObs:
     scrolls: int = 0
     potatoes: int = 0
     junk: int = 0               # bag slots + worn items the shop would buy (factory/items.py alt rule)
+    bag_free: int | None = None     # empty bag slots, None = unread
 
     @property
     def materials_done(self):
         return self.legs >= LEGS_NEEDED and self.rumps >= RUMPS_NEEDED
+
+    @property
+    def no_room(self):
+        return bag_blocked(self.legs, self.rumps, self.bag_free)
+
+
+def bag_blocked(legs, rumps, free):
+    """No empty slot for a material the alt does not hold yet: the drop is lost and the count never moves (live
+    2026-10-21: mw302r6 came out of the well with a full bag, cap07 farmed with it at 腿0 屁股0 for 2 h 15 min).
+    A material already held only grows its stack."""
+    return free == 0 and (legs == 0 or rumps == 0)
 
 
 @dataclass(frozen=True)
@@ -147,6 +159,10 @@ def derive_phase(obs, ledger, stations):
             return Plan(LEAVE_TEAM, f'任务中却在{leader_role}队里')
         if obs.materials_done:
             return Plan(HANDIN, f'材料齐（腿{obs.legs} 鸡屁股{obs.rumps}），交任务')
+        if obs.no_room:
+            if obs.junk:
+                return Plan(SELL_JUNK, f'背包满，腿/鸡屁股放不下，先去花袭人卖掉 {obs.junk} 格杂物')
+            return Plan(QUARANTINED, '背包满，腿/鸡屁股放不下，又没有能卖的东西，等人工处理')
         return Plan(QUEUE_COAST, f'排刷怪队列 腿{obs.legs} 鸡屁股{obs.rumps}')
     if leader_role == WELL:
         return Plan(LEVELING, '已到 11 级，等古井队全员到级', gold)

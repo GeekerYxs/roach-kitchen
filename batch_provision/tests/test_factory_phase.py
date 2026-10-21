@@ -118,6 +118,25 @@ class Coast(unittest.TestCase):
     def test_legs_alone_are_not_enough(self):
         self.assertEqual(phase(replace(FARMING, legs=10, rumps=19)).phase, P.QUEUE_COAST)
 
+    def test_full_bag_without_a_material_sells_first(self):
+        # live 2026-10-21: mw302r6 came out of the well with a full bag and farmed at 腿0 屁股0 for 2 h
+        p = phase(replace(FARMING, bag_free=0, junk=12))
+        self.assertEqual(p.phase, P.SELL_JUNK)
+        self.assertEqual(phase(replace(FARMING, legs=4, bag_free=0, junk=12)).phase, P.SELL_JUNK)
+
+    def test_full_bag_with_nothing_to_sell_waits_for_a_human(self):
+        self.assertEqual(phase(replace(FARMING, bag_free=0, junk=0)).phase, P.QUARANTINED)
+
+    def test_full_bag_holding_both_materials_still_farms(self):
+        # both stacks exist: drops only grow them
+        self.assertEqual(phase(replace(FARMING, legs=3, rumps=1, bag_free=0)).phase, P.QUEUE_COAST)
+        self.assertEqual(phase(replace(FARMING, bag_free=1)).phase, P.QUEUE_COAST)
+        self.assertEqual(phase(replace(FARMING, bag_free=None)).phase, P.QUEUE_COAST)
+
+    def test_full_bag_in_coast_team_is_still_farming(self):
+        # the coast leader puts it out of the team (coast.CoastRun.screen); only then it sells
+        self.assertEqual(phase(replace(FARMING, team_leader=COAST_LEADER, bag_free=0, junk=5)).phase, P.FARMING)
+
     def test_died_at_coast_goes_back_by_transport(self):
         died = replace(FARMING, map_id=P.VILLAGE_MAP, legs=4)
         self.assertEqual(phase(died).phase, P.QUEUE_TRANSPORT)
