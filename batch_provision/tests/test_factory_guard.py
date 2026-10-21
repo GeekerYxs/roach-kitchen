@@ -9,7 +9,7 @@ from unittest import mock
 
 from factory import guard, heartbeat, maintenance, outage
 from factory.guard import (EXITED, FINAL, RUN, STALLED, GuardSettings, descendants, judge, kill_targets, load_guard,
-                           may_restart)
+                           may_restart, output_low)
 
 SUP = 5000      # supervisor pid
 QUIET = logging.getLogger('test.guard')
@@ -77,6 +77,10 @@ class KillTargetsTest(unittest.TestCase):
 class LoadGuardTest(unittest.TestCase):
     def test_defaults(self):
         self.assertEqual(load_guard({}), S)
+        self.assertEqual((S.output_floor, S.output_after, S.output_waiting), (10, 5400.0, 4))
+        self.assertEqual(load_guard({'guard': {'output_floor_per_hour': 0, 'output_after_minutes': 10}}).output_floor, 0)
+        with self.assertRaises(ValueError):
+            load_guard({'guard': {'output_after_minutes': 30}})
         self.assertEqual(load_guard({'guard': {'restart_window_minutes': 30}}).restart_window, 1800.0)
 
     def test_rejects_stall_shorter_than_heartbeats(self):
@@ -97,7 +101,9 @@ class HeartbeatTest(unittest.TestCase):
             path = Path(d) / 'state' / 'hb.json'
             self.assertIsNone(heartbeat.read(path))
             heartbeat.write(path, SUP, 900.0, now=1000.0)
-            self.assertEqual(heartbeat.read(path), {'pid': SUP, 'at': 1000.0, 'started': 900.0})
+            self.assertEqual(heartbeat.read(path), {'pid': SUP, 'at': 1000.0, 'started': 900.0, 'info': None})
+            heartbeat.write(path, SUP, 900.0, now=1000.0, info={'dishes_hour': 3, 'waiting': 6, 'bag_full': False})
+            self.assertEqual(heartbeat.read(path)['info']['dishes_hour'], 3)
             path.write_text('garbage', encoding='utf-8')
             self.assertIsNone(heartbeat.read(path))
 
@@ -109,6 +115,34 @@ class HeartbeatTest(unittest.TestCase):
         self.assertIsNone(heartbeat.other_running(beat, 1, 1100.0, lambda pid: False))  # killed / crashed
         self.assertIsNone(heartbeat.other_running(beat, 1, 1000.0 + heartbeat.OTHER_FRESH, alive))
         self.assertIsNone(heartbeat.other_running(None, 1, 1100.0, alive))
+
+
+def beat(dishes, waiting, bag_full=False, pid=SUP):
+    return {'pid': pid, 'at': 1e18, 'info': {'dishes_hour': dishes, 'waiting': waiting, 'bag_full': bag_full}}
+
+
+class OutputLowTest(unittest.TestCase):
+    T = 10000.0     # the child started at 0: past output_after
+
+    def test_stuck_line(self):
+        why = output_low(beat(3, 6), SUP, 0.0, self.T, S)
+        self.assertIn('只收到 3 个', why)
+        self.assertIn('6 个小号', why)
+
+    def test_ramp_up_is_not_judged(self):
+        self.assertIsNone(output_low(beat(0, 20), SUP, 0.0, S.output_after - 1, S))
+
+    def test_enough_output_or_nobody_waiting(self):
+        self.assertIsNone(output_low(beat(10, 20), SUP, 0.0, self.T, S))
+        self.assertIsNone(output_low(beat(0, 3), SUP, 0.0, self.T, S))       # e.g. right after a wipe
+
+    def test_full_bag_old_beat_no_info_or_off(self):
+        self.assertIsNone(output_low(beat(0, 20, bag_full=True), SUP, 0.0, self.T, S))
+        self.assertIsNone(output_low(beat(0, 20, pid=4000), SUP, 0.0, self.T, S))
+        self.assertIsNone(output_low({'pid': SUP, 'at': 0.0, 'info': None}, SUP, 0.0, self.T, S))
+        self.assertIsNone(output_low(None, SUP, 0.0, self.T, S))
+        off = GuardSettings(output_floor=0)
+        self.assertIsNone(output_low(beat(0, 20), SUP, 0.0, self.T, off))
 
 
 class FakeClock:
@@ -125,7 +159,7 @@ class FakeClock:
 class GuardLoop:
     """Runs the guard's loop with the supervisor, kills, logins and network faked on a fake clock."""
 
-    def run_guard(self, start, canary_results, exits=(), net=(), outage_s=None, final_code=2):
+    def run_guard(self, start, canary_results, exits=(), net=(), outage_s=None, final_code=2, beat_fn=None):
         """exits: exit code the supervisor returns on its Nth start (None = runs until the end); after all of them
         it exits final_code. canary_results: (ok, version) per canary. net: internet_ok() answers, then True."""
         clock = FakeClock(start)
@@ -160,7 +194,7 @@ class GuardLoop:
         drains = []
         with tempfile.TemporaryDirectory() as d, \
                 mock.patch.object(maintenance, 'DRAIN_PATH', Path(d) / 'drain.json'), \
-                mock.patch.object(heartbeat, 'read', lambda path: {'pid': SUP, 'at': 1e18}), \
+                mock.patch.object(heartbeat, 'read', beat_fn or (lambda path: {'pid': SUP, 'at': 1e18})), \
                 mock.patch.object(guard.time, 'sleep', clock.sleep), \
                 mock.patch.object(g, 'start', start), mock.patch.object(g, 'kill_all', kill_all):
             real_drain = g.drain
@@ -214,6 +248,24 @@ class OutageRunTest(GuardLoop, unittest.TestCase):
         code, events, _ = self.run_guard(self.TUE, [], exits=[outage.EXIT_VERSION], outage_s=outage.OutageSettings())
         self.assertEqual(code, outage.EXIT_VERSION)
         self.assertEqual(events, [('start', '15:00'), ('kill', '15:04')])
+
+    def test_low_output_restarts_once(self):
+        reads = iter([beat(2, 8)])
+
+        def beat_fn(path):
+            return next(reads, {'pid': SUP, 'at': 1e18, 'info': None})
+        code, events, _ = self.run_guard(self.TUE, [], exits=[None], beat_fn=beat_fn)
+        self.assertEqual(code, 2)
+        self.assertEqual(events[:3], [('start', '15:00'), ('kill', '15:01'), ('start', '15:01')])
+
+    def test_low_output_ignored_while_draining(self):
+        reads = iter([beat(2, 8)] * 5)
+
+        def beat_fn(path):
+            return next(reads, {'pid': SUP, 'at': 1e18, 'info': None})
+        code, events, _ = self.run_guard(datetime(2026, 10, 22, 9, 50), [(True, False)], exits=[None],
+                                         beat_fn=beat_fn)
+        self.assertEqual(events[:2], [('start', '09:50'), ('kill', '09:55')])     # maintenance, not output
 
     def test_maintenance_takes_over_an_outage_wait(self):
         thu = datetime(2026, 10, 22, 9, 30)

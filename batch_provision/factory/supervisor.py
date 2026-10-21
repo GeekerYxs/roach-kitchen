@@ -1207,6 +1207,21 @@ class Supervisor:
             self.log.warning('！%s，快满了（报警线 %d 格）：%s', bag, self.s.factory.receiver_bag_warn,
                              '会交给仓库号' if self.unloader else '请准备换收货人，或在 local.toml [receiver] stores 写仓库账号')
 
+    def production(self):
+        """Output figures for the guard's output floor (stage B4b): 料理 received in the last hour, alts waiting
+        downstream (coast + receiver queues), receiver bag full. None when they cannot be read (no restart then)."""
+        try:
+            now = time.time()
+            dishes = self.conn.execute("SELECT COUNT(*) FROM events WHERE kind='receive' AND at>=?",
+                                       (now - 3600,)).fetchone()[0]
+            waiting = len(db.waiting(self.conn, QUEUE_COAST, now)) + len(db.waiting(self.conn, QUEUE_RECEIVER, now))
+            room, read_at = self.recv_room
+            full = room is not None and time.monotonic() - read_at <= 2 * STATUS_EVERY and                 bag_alarm(room, self.s.factory.receiver_bag_warn) == 'full'
+            return {'dishes_hour': dishes, 'waiting': waiting, 'bag_full': full}
+        except Exception as e:      # noqa: BLE001 - the heartbeat itself must go out
+            self.log.debug('产量数字读不到: %s', e)
+            return None
+
     def check_outage(self):
         """Many accounts failing to log in (stage B3): under the guard, exit with a code it acts on; alone, warn."""
         if not self.s.outage:
@@ -1279,7 +1294,7 @@ class Supervisor:
         last_status = last_beat = 0.0
         while True:
             if time.monotonic() - last_beat >= heartbeat.EVERY:
-                heartbeat.write(heartbeat.PATH, os.getpid(), self.started_at)
+                heartbeat.write(heartbeat.PATH, os.getpid(), self.started_at, info=self.production())
                 last_beat = time.monotonic()
             if (code := self.check_outage()) is not None:
                 return code

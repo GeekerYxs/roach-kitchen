@@ -134,6 +134,29 @@ class SupervisorProgressTest(unittest.TestCase):
                 close(sup)
 
 
+class ProductionFiguresTest(unittest.TestCase):
+    """Stage B4b: what a real Supervisor puts into its heartbeat for the guard's output floor."""
+
+    def test_figures(self):
+        from factory.phase import QUEUE_RECEIVER
+        with tempfile.TemporaryDirectory() as tmp:
+            sup = make_sup(tmp, [WELL1])
+            sup.s.factory.receiver_bag_warn = 5
+            try:
+                now = time.time()
+                add_waiting(sup.conn, 3, now)
+                db.register_alt(sup.conn, 310000, 'mw350', 1, 'mw350r1', now)
+                sup.conn.execute('UPDATE alts SET phase=? WHERE char_id=310000', (QUEUE_RECEIVER,))
+                for at in (now - 4000, now - 100, now - 50):
+                    db.log_event(sup.conn, at, 'receive', '料理', station_id='receiver1')
+                self.assertEqual(sup.production(), {'dishes_hour': 2, 'waiting': 4, 'bag_full': False})
+                sup.recv_room = (SimpleNamespace(dishes=0, free_slots=0), time.monotonic())
+                self.assertTrue(sup.production()['bag_full'])
+                sup.recv_room = (SimpleNamespace(dishes=0, free_slots=0), time.monotonic() - 1000)
+                self.assertFalse(sup.production()['bag_full'])      # stale reading: not trusted
+            finally:
+                close(sup)
+
 if __name__ == '__main__':
     logging.getLogger('test').addHandler(logging.NullHandler())
     unittest.main()

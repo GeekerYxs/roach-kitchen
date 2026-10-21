@@ -1,6 +1,7 @@
 """The supervisor's heartbeat file: the guard (factory/guard.py) restarts a supervisor whose heartbeat stops.
 
-state/supervisor_heartbeat.json = {"pid": <supervisor pid>, "at": <time.time()>, "started": <time.time()>}
+state/supervisor_heartbeat.json = {"pid": <supervisor pid>, "at": <time.time()>, "started": <time.time()>,
+                                   "info": {"dishes_hour", "waiting", "bag_full"} or null (stage B4b, guard)}
 Written by the supervisor's main thread (the window manager loop): a stalled main thread (2026-10-14: 35 min with no
 log line) stops the heartbeat too. Also stops a second supervisor on the same machine (two brains would pull the same
 roles).
@@ -16,13 +17,14 @@ EVERY = 10.0            # seconds between writes
 OTHER_FRESH = 600.0     # another live supervisor whose heartbeat is younger than this blocks a start
 
 
-def write(path, pid, started, now=None):
+def write(path, pid, started, now=None, info=None):
     """Atomic replace; a reader holding the file a moment just skips this beat."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix('.tmp')
     try:
-        tmp.write_text(json.dumps({'pid': pid, 'at': time.time() if now is None else now, 'started': started}),
+        tmp.write_text(json.dumps({'pid': pid, 'at': time.time() if now is None else now, 'started': started,
+                                   'info': info}),
                        encoding='utf-8')
         os.replace(tmp, path)
     except OSError:

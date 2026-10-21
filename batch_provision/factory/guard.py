@@ -18,6 +18,9 @@ and started the supervisor again, and the line ran. The guard does that by itsel
     offline -> recheck every net_check_minutes, canary as soon as it is back; online -> wait wait_minutes, then a
     canary every canary_every_minutes. The game exe changed (launcher exit 3; supervisor exits 5, or a canary sees it)
     -> close everything and stop: a human updates the program
+  - output floor (stage B4b, last resort behind B4a): the supervisor running >= output_after_minutes, fewer than
+    output_floor_per_hour 料理 received in the last hour while >= output_min_waiting alts wait at the coast /
+    receiver, receiver bag not full, no maintenance drain -> restart like a stall (counts toward max_restarts)
 Decisions are pure (tests/test_factory_guard.py).
 """
 import os
@@ -49,6 +52,9 @@ class GuardSettings:
     cooldown: float = 1800.0
     kill_stations: bool = True
     kill_settle: float = 10.0
+    output_floor: int = 10          # 料理 per hour; 0 = no output floor
+    output_after: float = 5400.0    # seconds the supervisor must have run first (ramp-up makes nothing for ~40 min)
+    output_waiting: int = 4         # alts waiting downstream: low output with nobody waiting is not "stuck"
 
 
 def load_guard(data):
@@ -57,7 +63,10 @@ def load_guard(data):
     s = GuardSettings(float(g.get('stall_seconds', 300)), float(g.get('check_every', 10)),
                       int(g.get('max_restarts', 3)), float(g.get('restart_window_minutes', 60)) * 60,
                       float(g.get('cooldown_minutes', 30)) * 60, bool(g.get('kill_stations', True)),
-                      float(g.get('kill_settle', 10)))
+                      float(g.get('kill_settle', 10)), int(g.get('output_floor_per_hour', 10)),
+                      float(g.get('output_after_minutes', 90)) * 60, int(g.get('output_min_waiting', 4)))
+    if s.output_floor > 0 and s.output_after < 3600:
+        raise ValueError('[guard] output_after_minutes 至少 60（要有满一小时的产量才能比）')
     if s.stall_seconds < 3 * heartbeat.EVERY:
         raise ValueError(f'[guard] stall_seconds ({s.stall_seconds:.0f}) 太小，至少 {3 * heartbeat.EVERY:.0f}')
     if s.max_restarts < 1:
@@ -76,6 +85,21 @@ def judge(exit_code, beat, child_pid, started, now, stall_seconds):
         return FINAL if exit_code in FINAL_CODES else EXITED
     at = beat['at'] if beat is not None and beat['pid'] == child_pid else started
     return STALLED if now - at >= stall_seconds else RUN
+
+
+def output_low(beat, child_pid, started, now, s):
+    """Why the line looks stuck by its output (stage B4b), or None. beat: heartbeat.read() of this child."""
+    if s.output_floor <= 0 or beat is None or beat['pid'] != child_pid or now - started < s.output_after:
+        return None
+    info = beat.get('info')
+    if not isinstance(info, dict) or info.get('bag_full'):
+        return None                 # nothing to judge by / the receiver stopped on purpose (a restart cannot help)
+    dishes, waiting = info.get('dishes_hour'), info.get('waiting')
+    if not isinstance(dishes, int) or not isinstance(waiting, int):
+        return None
+    if dishes >= s.output_floor or waiting < s.output_waiting:
+        return None
+    return f'最近 1 小时只收到 {dishes} 个料理（下限 {s.output_floor}），同时有 {waiting} 个小号在海岸 / 收货排队'
 
 
 def may_restart(history, now, s):
@@ -279,7 +303,8 @@ class Guard:
             beat = heartbeat.read(heartbeat.PATH)
             now = time.time()
             verdict = judge(code, beat, self.child.pid, self.started, now, self.s.stall_seconds)
-            if verdict == RUN:
+            low = output_low(beat, self.child.pid, self.started, now, self.s) if verdict == RUN and ph != DRAIN else None
+            if verdict == RUN and low is None:
                 continue
             if verdict == outage.VERSION:
                 self.kill_all(kill_stations=True)
@@ -300,7 +325,9 @@ class Guard:
                 self.log.error('总大脑退出（代码 %d：%s），重启解决不了，守护也停下。处理好后再双击 一键守护.cmd',
                                code, FINAL_CODES[code])
                 return code
-            if verdict == EXITED:
+            if low is not None:
+                self.log.error('产量太低：%s。总大脑还活着但产线像是卡住了，全部重启', low)
+            elif verdict == EXITED:
                 self.log.error('总大脑意外退出（代码 %d），全部重启', code)
             else:
                 at = beat['at'] if beat and beat['pid'] == self.child.pid else self.started
@@ -344,6 +371,11 @@ def main():
                        sup.relogin_error or 'supervisor.toml station_relogin = false')
     logger.info('守护开始：%.0f 秒没心跳算卡住；每 %.0f 分钟最多重启 %d 次；重启时%s关工位窗口', s.stall_seconds,
                 s.restart_window / 60, s.max_restarts, '' if s.kill_stations else '不')
+    if s.output_floor > 0:
+        logger.info('产量兜底：总大脑跑满 %.0f 分钟后，最近 1 小时料理少于 %d 个、同时 %d 个以上小号在排队，就全部重启',
+                    s.output_after / 60, s.output_floor, s.output_waiting)
+    else:
+        logger.info('产量兜底：关（[guard] output_floor_per_hour = 0）')
     if maint:
         nxt = maintenance.next_window(datetime.now(), maint)
         weekly = ', '.join(f'{maintenance.DAYS[d]} {a[0]:02d}:{a[1]:02d}-{b[0]:02d}:{b[1]:02d}'
