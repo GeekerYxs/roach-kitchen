@@ -45,7 +45,7 @@ from provisioner.novice import NoviceJob, NoviceSettings
 from provisioner.pipeline import OwnWindows, last_rosters, online_elsewhere, remember_roster
 from provisioner.world import read_bag, read_bag_capacity, read_team, read_world
 
-from . import db, heartbeat, maintenance, outage
+from . import db, heartbeat, maintenance, outage, progress
 from .coast import CoastRun
 from .config import load_settings
 from .delete import AccountDeleteJob, DeleteSettings
@@ -136,6 +136,7 @@ class SupSettings:
     unload: object = None               # factory.storeuse.UnloadSettings ([receiver] stores), None = no store roles
     window_budget: str = ''             # how policy.max_windows was cut to the per-IP window limit (logged at start)
     outage: object = None               # factory.outage.OutageSettings ([outage]), None = off
+    stall: dict = None                  # station role -> seconds without progress before close + relogin (B4a)
 
 
 @dataclass(frozen=True)
@@ -204,7 +205,8 @@ def load_supervisor(path):
                        bool(data.get('batch', {}).get('arrange', True)),
                        load_supply_file(ROOT / s.get('factory', 'factory.toml')),
                        load_treasury_file(ROOT / s.get('factory', 'factory.toml')),
-                       load_unload(data, read_local(path)), budget, outage.load_outage(data))
+                       load_unload(data, read_local(path)), budget, outage.load_outage(data),
+                       progress.load_limits(s, factory))
 
 
 # ---- the run --------------------------------------------------------------------------------------------
@@ -369,6 +371,8 @@ class Supervisor:
         self.login_log = outage.LoginLog()    # every login's result (provisioner.login.RESULT_HOOK), stage B3
         self.guarded = False                  # started by the guard: a mass login failure ends this process
         self.outage_warned = 0.0
+        self.tracks = {}                      # station_id -> progress.Track (stage B4a)
+        self.progress_checked = 0.0
         self.logins = ThreadPoolExecutor(max_workers=s.parallel_logins, thread_name_prefix='login')
         self.chores = ThreadPoolExecutor(max_workers=12, thread_name_prefix='chore')
         self.quiet = logging.LoggerAdapter(logging.getLogger('prov.scan'), {'account': 'scan'})
@@ -556,6 +560,43 @@ class Supervisor:
                 db.log_event(self.conn, time.time(), 'station', f'掉线关窗 pid={st["pid"]}', station_id=sid)
             elif d in ('gone', 'foreign'):
                 w.lost_since = None
+
+    def watch_progress(self):
+        """Stage B4a: a leader finishing no batch for too long while alts wait for it -> close its window; the
+        worker's relogin (stage A) brings it back."""
+        now = time.time()
+        draining = self.draining() is not None
+        for st in self.station_rows():
+            role, sid = st['role'], st['station_id']
+            limit = self.s.stall.get(role)
+            if role not in progress.QUEUES:
+                continue
+            track = self.tracks.setdefault(sid, progress.Track(since=now))
+            alive = bool(st['pid']) and native.alive(st['pid'])
+            waiting = len(db.waiting(self.conn, progress.QUEUES[role], now)) if alive and not draining else 0
+            progress.observe(track, now, alive, draining, waiting)
+            kinds = progress.KINDS[role]
+            last_done = self.conn.execute(
+                f'SELECT MAX(at) FROM events WHERE station_id=? AND kind IN ({",".join("?" * len(kinds))})',
+                (sid, *kinds)).fetchone()[0]
+            idle = progress.stalled(track, last_done, now, limit)
+            if idle is None:
+                continue
+            lg = log.for_account(st['name'] or sid)
+            track.since, track.waiting_since = now, None       # one action per limit, whatever happens next
+            text = f'{idle / 60:.0f} 分钟没完成一批，期间一直有小号在排队'
+            if not self.relogin or sid not in self.relogin.stations:
+                lg.error('工位 %s（pid=%d）%s；自动重登没开 / 不在工位配置里，不关窗，请人工看一下', sid, st['pid'], text)
+                continue
+            _, hwnd = probe(st['pid'], st['char_id'])
+            if not may_kill(self.watch(sid).hwnd, hwnd, self.own.owns(st['pid'])):
+                lg.error('工位 %s（pid=%d）%s，但窗口身份对不上（pid 可能被系统复用），不关；请人工看一下', sid, st['pid'], text)
+                continue
+            native.kill(st['pid'])
+            w = self.watch(sid)
+            w.next_try = max(w.next_try, time.monotonic() + KILL_SETTLE)
+            lg.warning('工位 %s（pid=%d）%s：卡住了，已关窗，准备自动重登', sid, st['pid'], text)
+            db.log_event(self.conn, now, 'station', f'无进展关窗 pid={st["pid"]}：{text}', station_id=sid)
 
     def try_relogin(self, conn, st, lg):
         """Log the station in again when its process is gone. True = a login was attempted."""
@@ -902,6 +943,9 @@ class Supervisor:
         self.station_pids = frozenset(r['pid'] for r in self.station_rows())
         if self.relogin:
             self.watch_stations()
+        if self.s.stall and time.monotonic() - self.progress_checked >= progress.CHECK_EVERY:
+            self.progress_checked = time.monotonic()
+            self.watch_progress()
         now = time.monotonic()
         if now - self.last_quarantine_check >= QUARANTINE_CHECK_EVERY:
             self.last_quarantine_check = now
