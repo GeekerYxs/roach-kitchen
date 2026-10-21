@@ -68,7 +68,7 @@ from .receiver import PostRun, ReceiveJob
 from .runner import ROLE_NAME
 from .shoe import ShoeJob
 from .transport import TransportRun
-from .wellteam import WellTeamRun
+from .wellteam import LeaderUnheard, WellTeamRun
 from .welltrain import WellTrainRun
 from .sell import SellJob
 from .schedule import (COAST_WAIT, DOWNSTREAM, FARMING_SIDE, OTHER, PULL_COAST, PULL_FRESH, UPSTREAM, WELL, Known,
@@ -83,6 +83,7 @@ LOGIN_FAIL_LIMIT = 3            # a role that failed to log in / enter this ofte
 FAIL_STREAK_LIMIT = 4           # this many logins in a row failed (any roles) -> stop pulling for a while:
 FAIL_STREAK_PAUSE = 300.0       # a systematic fault must not run through every role (2026-10-13: 20 roles x 3)
 LEAVE_WAIT = 5.0
+UNHEARD_RESTART = 2             # batches in a row whose invitations reached nobody -> close + relogin the station
 LOST_AFTER = 20.0               # no character readable this long (map loads take a few s) -> disconnected
 POST_RANGE = 200                # the receiver farther than this from its post goes back first
 
@@ -399,7 +400,7 @@ class Supervisor:
         sid = st['station_id']
         lg = log.for_account(st['name'] or sid)
         conn = db.connect(self.s.factory.db_path)
-        fails, warned = 0, 0.0
+        fails, unheard, warned = 0, 0, 0.0
         # a fresh start holds nobody: what an earlier run held is free again (the batch still carried is re-claimed)
         if freed := db.release_station(conn, sid, time.time(), '工位开工'):
             lg.info('开工：放开上次运行占着的 %d 个小号 %s', len(freed), freed)
@@ -418,7 +419,7 @@ class Supervisor:
                     continue
                 try:
                     body(conn, st, me, lg)
-                    fails = 0
+                    fails = unheard = 0
                 except Stopped:
                     break
                 except Exception as e:
@@ -427,6 +428,9 @@ class Supervisor:
                     # the failed batch's members go back to their queues now (they used to stay held forever)
                     if freed := db.release_station(conn, sid, time.time(), f'工位出错: {e}'):
                         lg.warning('放开这一批的 %d 个小号 %s，它们按各自进度回队列', len(freed), freed)
+                    unheard = unheard + 1 if isinstance(e, LeaderUnheard) else 0
+                    if unheard >= UNHEARD_RESTART and self.restart_station(conn, st, lg, unheard):
+                        unheard = 0
                     # window closed (by the watcher, or crashed): straight to the relogin, no back-off
                     self.stop.wait(2 if not native.alive(me.session.pid) else min(60, 10 * fails))
         finally:
@@ -446,6 +450,24 @@ class Supervisor:
             return f'不自动重登：{w.blocked}'
         left = w.next_try - time.monotonic()
         return f'{left:.0f} 秒后再试自动重登' if left > 0 else '准备自动重登'
+
+    def restart_station(self, conn, st, lg, batches):
+        """The station's invitations reached nobody `batches` batches in a row: close its window so the worker logs
+        it in again (the same checks as watch_stations). True = closed."""
+        sid = st['station_id']
+        if not self.relogin or sid not in self.relogin.stations:
+            lg.error('工位连续 %d 批邀请都没人收到，但它不能自动重登，所以不关；请人工重开这个工位', batches)
+            return False
+        w = self.watch(sid)
+        h, hwnd = probe(st['pid'], st['char_id'])
+        if h != 'ok' or not may_kill(w.hwnd, hwnd, self.own.owns(st['pid'])):
+            lg.error('工位连续 %d 批邀请都没人收到，但窗口身份对不上，不关；请人工看一下', batches)
+            return False
+        native.kill(st['pid'])
+        w.next_try = max(w.next_try, time.monotonic() + KILL_SETTLE)
+        lg.warning('工位 pid=%d 连续 %d 批邀请都没人收到，已关窗，准备自动重登', st['pid'], batches)
+        db.log_event(conn, time.time(), 'station', f'邀请没人收到，关窗重登 pid={st["pid"]}', station_id=sid)
+        return True
 
     def watch_stations(self):
         """A station process alive but showing no character of its own for lost_after s -> close it, so the batch

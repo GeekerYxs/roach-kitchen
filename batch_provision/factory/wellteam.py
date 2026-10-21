@@ -10,7 +10,7 @@ The well leader is the station registered with role 'well' (一键登录工位.c
 Stage 4b (walk to the well, train to 11, return) picks the team up from here.
 
 An alt that fails 3 times (invite/accept/eat not confirmed) is quarantined and dropped from the batch;
-the others go on. The decisions are pure (tests/test_factory_wellteam.py).
+the others go on. Invitations that reach nobody at all are the leader's fault, not the alts' (Heard). The decisions are pure (tests/test_factory_wellteam.py).
 """
 import json
 import math
@@ -38,6 +38,7 @@ ACCEPT_DELAY = 0.5          # [team+0xA8] may still hold an older invite from th
 INVITE_WAIT = 6.0           # the invitation must show on the alt within this long
 JOIN_WAIT = 6.0             # after accepting, both rosters must agree within this long
 INVITE_GAP = 0.3            # between two invitations sent by the leader
+UNHEARD_ROUNDS = 2          # rounds of invitations that reached nobody before the leader, not the alts, is blamed
 CONFIRM_WAIT = 5.0          # 地瓜 count must drop within this long
 ACTION_INVITE, ACTION_POTATO = 'well_invite', 'potato'
 
@@ -95,6 +96,30 @@ class Join:
     accepted_at: float | None = None
 
 
+class LeaderUnheard(RuntimeError):
+    """The leader's invitations reach none of the batch: its client is broken, the alts are not."""
+
+
+@dataclass
+class Heard:
+    """One per batch: did any invitation from this leader show on an alt? Until one does, an invitation that never
+    arrives is not the alt's failure. Live 2026-10-21: well3's client stayed alive but stopped delivering invitations
+    at 05:55; 3 misses per alt quarantined every alt it claimed, 178 by the morning."""
+    heard: bool = False
+    misses: int = 0
+
+    def missed(self, joining):
+        """An invitation timed out; joining = members still joining. 'alt' (count it against the alt) |
+        'retry' (invite again, nobody is blamed yet) | 'leader' (stop the batch: LeaderUnheard)."""
+        if self.heard:
+            return 'alt'
+        self.misses += 1
+        return 'leader' if self.misses >= UNHEARD_ROUNDS * max(1, joining) else 'retry'
+
+    def reason(self):
+        return f'队长的邀请连续 {self.misses} 次谁都没收到：队长客户端异常，小号不算失败'
+
+
 def decide_member(alt_id, world, team, leader_id, leader_world, leader_team, memo, now, map_id=VILLAGE_MAP,
                   map_name='逍遥村西区'):
     """'joined' | 'invite' | 'accept' | 'wait' | 'unconfirmed' | 'fail'. map_id: where the team forms."""
@@ -113,7 +138,7 @@ def decide_member(alt_id, world, team, leader_id, leader_world, leader_team, mem
             return Decision('accept', '收到队长邀请，接受')
         if now - memo.invited_at < INVITE_WAIT:
             return Decision('wait', '等邀请到达')
-        return Decision('unconfirmed', f'邀请 {INVITE_WAIT:.0f}s 内没有到达（邀请人 {team.inviter}）')
+        return Decision('unconfirmed', f'邀请 {INVITE_WAIT:.0f}s 内没有到达（邀请人 {team.inviter}）', 'invite')
     if world.map_id != map_id:
         return Decision('fail', f'不在{map_name}（地图 {world.map_id}）')
     distance = math.dist((world.x, world.y), (leader_world.x, leader_world.y))
@@ -271,7 +296,7 @@ class WellTeamRun:
             self.members[cid] = Member(c, account, slot, mem)
         self.log.info('本批 %d 人: %s', len(chosen), ', '.join(self.members[c].c.name for c in chosen))
         leader_level, invite_byte = read_level(self.lmem), read_invite_byte(self.lmem)
-        last_invite = 0.0
+        last_invite, heard = 0.0, Heard()
         while True:
             now = time.monotonic()
             if now > deadline:
@@ -297,6 +322,11 @@ class WellTeamRun:
                             db.complete_action(self.conn, m.c.char_id, time.time())
                     elif d.kind == 'fail':
                         self.drop(m, d.reason)
+                    elif d.kind == 'unconfirmed' and d.arg == 'invite' and (
+                            blame := heard.missed(sum(x.state == 'joining' for x in self.members.values()))) != 'alt':
+                        m.join = Join()
+                        if blame == 'leader':
+                            raise LeaderUnheard(heard.reason())
                     elif d.kind == 'unconfirmed':
                         self.failure(m, d.reason, lambda m=m: setattr(m, 'join', Join()))
                     elif d.kind == 'invite' and now - last_invite >= INVITE_GAP:
@@ -308,6 +338,7 @@ class WellTeamRun:
                             raise RuntimeError(f'队长的邀请没发出: {e}') from e
                         m.join.invited_at = last_invite = time.monotonic()
                     elif d.kind == 'accept':
+                        heard.heard = True
                         try:
                             m.game.team_accept()
                         except NotSent as e:

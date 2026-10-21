@@ -39,7 +39,7 @@ from .phase import (COAST, COAST_MAP, LEGS_ITEM, LEGS_NEEDED, QUEUE_COAST, RUMPS
 from .runner import ROLE_NAME
 from .transport import Trip, behind, decide_trip
 from .welltrain import Fight, Talent, decide_battle, decide_talent, scroll_slot
-from .wellteam import ACTION_INVITE, INVITE_GAP, INVITE_RANGE, Join, decide_member
+from .wellteam import ACTION_INVITE, INVITE_GAP, INVITE_RANGE, Heard, Join, LeaderUnheard, decide_member
 
 LANDING = (1152, 932)           # PP鸡 lands the team here (stage 5, live) = the leaders' 飞鞋 point
 LANDING_RANGE = 80
@@ -587,7 +587,7 @@ class CoastRun:
 
     def form(self):
         level, invite_byte = read_level(self.lmem), read_invite_byte(self.lmem)
-        deadline, last_invite = time.monotonic() + self.s.coast_form_timeout, 0.0
+        deadline, last_invite, heard = time.monotonic() + self.s.coast_form_timeout, 0.0, Heard()
         while any(m.state == 'joining' for m in self.active()):
             lw = self.check()
             now = time.monotonic()
@@ -639,6 +639,11 @@ class CoastRun:
                         db.complete_action(self.conn, m.c.char_id, time.time())
                 elif d.kind == 'fail':
                     self.drop(m, d.reason)
+                elif d.kind == 'unconfirmed' and d.arg == 'invite' and (
+                        blame := heard.missed(sum(x.state == 'joining' for x in self.active()))) != 'alt':
+                    m.join = Join()
+                    if blame == 'leader':
+                        raise LeaderUnheard(heard.reason())
                 elif d.kind == 'unconfirmed':
                     m.join = Join()
                     if db.record_failure(self.conn, m.c.char_id, d.reason, time.time()):
@@ -652,6 +657,7 @@ class CoastRun:
                         raise RuntimeError(f'队长的邀请没发出: {e}') from e
                     m.join.invited_at = last_invite = time.monotonic()
                 elif d.kind == 'accept':
+                    heard.heard = True
                     try:
                         m.game.team_accept()
                     except NotSent as e:

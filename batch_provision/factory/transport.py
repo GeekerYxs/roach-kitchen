@@ -38,7 +38,7 @@ from .observe import observe
 from .phase import COAST_MAP, DISPATCHER, QUEUE_TRANSPORT, TELEPORT_FEE, VILLAGE_MAP, derive_phase
 from .runner import ROLE_NAME
 from .welltrain import Home, decide_leader_return, scroll_slot
-from .wellteam import ACTION_INVITE, SPAWN, Join, decide_leader, decide_member, pick
+from .wellteam import ACTION_INVITE, SPAWN, Heard, Join, LeaderUnheard, decide_leader, decide_member, pick
 
 PP_NPC = 11                     # 传送操作员3号
 PP_POINT = (342, 315)           # where the old runs stood to click it (map 1)
@@ -308,7 +308,7 @@ class TransportRun:
     # ---- 4: team
     def form(self):
         level, invite_byte = read_level(self.dmem), read_invite_byte(self.dmem)
-        last_invite = 0.0
+        last_invite, heard = 0.0, Heard()
         while any(m.state == 'joining' for m in self.active()):
             self.check()
             now = time.monotonic()
@@ -327,6 +327,11 @@ class TransportRun:
                         db.complete_action(self.conn, m.c.char_id, time.time())
                 elif d.kind == 'fail':
                     self.drop(m, d.reason)
+                elif d.kind == 'unconfirmed' and d.arg == 'invite' and (
+                        blame := heard.missed(sum(x.state == 'joining' for x in self.active()))) != 'alt':
+                    m.join = Join()
+                    if blame == 'leader':
+                        raise LeaderUnheard(heard.reason())
                 elif d.kind == 'unconfirmed':
                     m.join = Join()
                     if db.record_failure(self.conn, m.c.char_id, d.reason, time.time()):
@@ -340,6 +345,7 @@ class TransportRun:
                         raise RuntimeError(f'调度员的邀请没发出: {e}') from e
                     m.join.invited_at = last_invite = time.monotonic()
                 elif d.kind == 'accept':
+                    heard.heard = True
                     try:
                         m.game.team_accept()
                     except NotSent as e:

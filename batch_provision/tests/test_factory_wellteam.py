@@ -5,8 +5,8 @@ from dataclasses import replace
 
 from factory.phase import POTATO_ITEM, POTATO_RENEW, AltObs, Ledger
 from factory.wellteam import (ACCEPT_DELAY, ACTION_POTATO, CONFIRM_WAIT, INVITE_RANGE, INVITE_WAIT, JOIN_WAIT,
-                              RENDEZVOUS_RADIUS, SETTLE, SPAWN, Eat, Join, decide_leader, decide_member,
-                              decide_potato, pick)
+                              RENDEZVOUS_RADIUS, SETTLE, SPAWN, UNHEARD_ROUNDS, Eat, Heard, Join, decide_leader,
+                              decide_member, decide_potato, pick)
 from provisioner.game import team_invite_body
 from provisioner.world import BagSlot, Team, WorldState
 
@@ -77,7 +77,8 @@ class Member(unittest.TestCase):
     def test_invite_never_arrives(self):
         memo = Join(invited_at=10.0)
         self.assertEqual(self.d(memo=memo, now=10.0 + INVITE_WAIT - 0.1).kind, 'wait')
-        self.assertEqual(self.d(memo=memo, now=10.0 + INVITE_WAIT).kind, 'unconfirmed')
+        d = self.d(memo=memo, now=10.0 + INVITE_WAIT)
+        self.assertEqual((d.kind, d.arg), ('unconfirmed', 'invite'))
 
     def test_joined_needs_both_rosters(self):
         mine = team_of(LEADER, ALT)
@@ -87,10 +88,31 @@ class Member(unittest.TestCase):
 
     def test_accept_without_joining_times_out(self):
         memo = Join(invited_at=1.0, accepted_at=10.0)
-        self.assertEqual(self.d(memo=memo, now=10.0 + JOIN_WAIT).kind, 'unconfirmed')
+        d = self.d(memo=memo, now=10.0 + JOIN_WAIT)
+        self.assertEqual((d.kind, d.arg), ('unconfirmed', None))     # the alt's fault: counted as before
 
     def test_other_team_fails(self):
         self.assertEqual(self.d(team=team_of(55, ALT)).kind, 'fail')
+
+
+class Unheard(unittest.TestCase):
+    """Live 2026-10-21: well3's invitations reached nobody and every alt it claimed got quarantined."""
+
+    def test_nobody_blamed_until_rounds_run_out_then_the_leader(self):
+        h = Heard()
+        got = [h.missed(4) for _ in range(UNHEARD_ROUNDS * 4)]
+        self.assertEqual(got, ['retry'] * (UNHEARD_ROUNDS * 4 - 1) + ['leader'])
+
+    def test_once_an_invite_arrived_misses_are_the_alts(self):
+        h = Heard()
+        self.assertEqual(h.missed(4), 'retry')
+        h.heard = True
+        self.assertEqual(h.missed(4), 'alt')
+
+    def test_shrinking_batch_and_lone_member(self):
+        h = Heard()
+        self.assertEqual([h.missed(1) for _ in range(UNHEARD_ROUNDS)], ['retry'] * (UNHEARD_ROUNDS - 1) + ['leader'])
+        self.assertEqual(Heard().missed(0), 'retry' if UNHEARD_ROUNDS > 1 else 'leader')
 
 
 OBS = AltObs(char_id=ALT, map_id=1, level=2, gold=500, team_leader=LEADER, quest='none', potatoes=2)
