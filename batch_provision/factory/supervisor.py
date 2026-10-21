@@ -44,7 +44,7 @@ from provisioner.novice import NoviceJob, NoviceSettings
 from provisioner.pipeline import OwnWindows, last_rosters, online_elsewhere, remember_roster
 from provisioner.world import read_bag, read_bag_capacity, read_team, read_world
 
-from . import db, heartbeat
+from . import db, heartbeat, maintenance
 from .coast import CoastRun
 from .config import load_settings
 from .delete import AccountDeleteJob, DeleteSettings
@@ -85,6 +85,7 @@ FAIL_STREAK_LIMIT = 4           # this many logins in a row failed (any roles) -
 FAIL_STREAK_PAUSE = 300.0       # a systematic fault must not run through every role (2026-10-13: 20 roles x 3)
 LEAVE_WAIT = 5.0
 UNHEARD_RESTART = 2             # batches in a row whose invitations reached nobody -> close + relogin the station
+DRAIN_EVERY = 5.0               # state/drain.json (planned maintenance, factory/maintenance.py) re-read this often
 LOST_AFTER = 20.0               # no character readable this long (map loads take a few s) -> disconnected
 POST_RANGE = 200                # the receiver farther than this from its post goes back first
 
@@ -362,6 +363,7 @@ class Supervisor:
         self.relogin = getattr(s, 'relogin', None)
         self.station_pids = frozenset()     # read by the minimizer thread: never minimize a station window
         self.watches = {}               # station_id -> relogin.Watch
+        self._drain = (-DRAIN_EVERY, None)    # (monotonic read time, reason) of state/drain.json
         self.logins = ThreadPoolExecutor(max_workers=s.parallel_logins, thread_name_prefix='login')
         self.chores = ThreadPoolExecutor(max_workers=12, thread_name_prefix='chore')
         self.quiet = logging.LoggerAdapter(logging.getLogger('prov.scan'), {'account': 'scan'})
@@ -429,6 +431,17 @@ class Supervisor:
         self.log.info('%s 关窗: %s', c.name, why)
 
     # ---- station workers
+    def draining(self):
+        """Reason the guard asked for no new work (maintenance coming), or None. Logins, pulls, deletes, rebuilds
+        and new leader batches wait; running batches, chores and the receiver go on."""
+        at, reason = self._drain
+        if time.monotonic() - at >= DRAIN_EVERY:
+            reason = maintenance.drain_reason(maintenance.read_drain(maintenance.DRAIN_PATH))
+            if reason != self._drain[1]:
+                self.log.warning('%s', f'{reason}：不再开新批次、不拉人、不删号' if reason else '收尾结束，恢复正常')
+            self._drain = (time.monotonic(), reason)
+        return reason
+
     def worker(self, st, body):
         """Keep one station working; its window missing or an error only pauses this station. Missing with its
         process gone -> log it in again (stage A); missing with the process alive -> the watcher closes it first."""
@@ -451,6 +464,9 @@ class Supervisor:
                                    self.offline_hint(sid))
                         warned = time.monotonic()
                     self.stop.wait(5 if self.relogin else 10)
+                    continue
+                if body != self.receiver_body and self.draining():
+                    self.stop.wait(10)
                     continue
                 try:
                     body(conn, st, me, lg)
@@ -929,7 +945,7 @@ class Supervisor:
                           self.s.quarantine_retry / 3600, row['last_error'])
 
     def pull(self):
-        if time.monotonic() < self.pull_paused_until:
+        if time.monotonic() < self.pull_paused_until or self.draining():
             return
         known = self.known()
         rosters = last_rosters()
@@ -1013,6 +1029,9 @@ class Supervisor:
         conn = db.connect(self.s.factory.db_path)
         try:
             while not self.stop.is_set():
+                if self.draining():
+                    self.stop.wait(DELETE_EVERY)
+                    continue
                 name = self.next_delete(conn) if self.s.delete else None
                 account = None if name or not self.s.rebuild_after else self.next_rebuild(conn)
                 if name is None and account is None:

@@ -84,3 +84,16 @@ restart_window_minutes = 60
 cooldown_minutes = 30        # 重启太频繁（多半是网络或服务器维护）：等这么久再试
 kill_stations = true         # 重启时也关工位窗口（工位掉线自动重登 station_relogin 没开时自动当作 false）
 kill_settle = 10             # 关完窗口等这么多秒再启动（让服务器把旧的登录踢干净）
+
+[maintenance]
+# 计划维护（一键守护负责）。官方公告 https://docs.qq.com/doc/DRFF6RElKd0ZETWFO ：每周四 10:00-12:00 例行维护，维护前 5 分钟就登不上。
+# 时间按这台电脑的本地时间。到点前 drain_minutes 分钟：总大脑不再开新批次、不拉人、不删号（正在跑的批次接着跑）；
+# 前 close_minutes 分钟：关掉总大脑和全部游戏窗口（含工位）；结束时间到了以后，每 canary_every_minutes 分钟用一个小号登录到选角界面试一下，
+# 登上了就重新启动总大脑（工位自动重登）。维护延长也没关系，会一直试。
+# 节假日改期（例如 9 月 30 日改在周三）或公告了临时维护：在 once 里加一行，例如 "2026-10-16 18:00-19:00"，过期的可以不删。
+enabled = true
+weekly = ["thu 10:00-12:00"]      # 星期写 mon tue wed thu fri sat sun
+once = []
+drain_minutes = 10
+close_minutes = 5
+canary_every_minutes = 20

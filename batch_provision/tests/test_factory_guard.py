@@ -1,13 +1,20 @@
 """Stage B1 guard: restart decisions (factory/guard.py) and the supervisor heartbeat (factory/heartbeat.py)."""
+import logging
 import tempfile
 import unittest
+from datetime import datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
-from factory import heartbeat
+from factory import guard, heartbeat, maintenance
 from factory.guard import (EXITED, FINAL, RUN, STALLED, GuardSettings, descendants, judge, kill_targets, load_guard,
                            may_restart)
 
 SUP = 5000      # supervisor pid
+QUIET = logging.getLogger('test.guard')
+QUIET.addHandler(logging.NullHandler())
+QUIET.propagate = False
 S = GuardSettings()
 
 
@@ -102,6 +109,69 @@ class HeartbeatTest(unittest.TestCase):
         self.assertIsNone(heartbeat.other_running(beat, 1, 1100.0, lambda pid: False))  # killed / crashed
         self.assertIsNone(heartbeat.other_running(beat, 1, 1000.0 + heartbeat.OTHER_FRESH, alive))
         self.assertIsNone(heartbeat.other_running(None, 1, 1100.0, alive))
+
+
+class FakeClock:
+    def __init__(self, start):
+        self.t = start
+
+    def now(self):
+        return self.t
+
+    def sleep(self, seconds):
+        self.t += timedelta(seconds=seconds)
+
+
+class MaintenanceRunTest(unittest.TestCase):
+    """The guard's loop around a Thursday window, with the supervisor, kills and logins faked."""
+
+    def run_guard(self, start, canary_results):
+        clock = FakeClock(start)
+        events = []
+        maint = maintenance.MaintSettings(weekly=(maintenance.parse_weekly('thu 10:00-12:00'),))
+        tries = iter(canary_results)
+
+        def canary(i):
+            ok = next(tries)
+            events.append(('canary', clock.t.strftime('%H:%M'), ok))
+            return ok, 'mw301'
+
+        g = guard.Guard(Path('x'), GuardSettings(check_every=60), ':memory:', QUIET,
+                        maint, canary, clock.now)
+        polls = iter([None] * 200)
+
+        def start():
+            events.append(('start', clock.t.strftime('%H:%M')))
+            g.child = SimpleNamespace(pid=SUP, poll=lambda: next(polls, 2))      # finally exits 2 -> guard stops
+            g.started = 0.0
+
+        def kill_all(kill_stations=None):
+            events.append(('kill', clock.t.strftime('%H:%M')))
+            g.child = None
+
+        with tempfile.TemporaryDirectory() as d,                 mock.patch.object(maintenance, 'DRAIN_PATH', Path(d) / 'drain.json'),                 mock.patch.object(heartbeat, 'read', lambda path: {'pid': SUP, 'at': 1e18}),                 mock.patch.object(guard.time, 'sleep', clock.sleep),                 mock.patch.object(g, 'start', start), mock.patch.object(g, 'kill_all', kill_all):
+            drains = []
+            real_drain = g.drain
+            g.drain = lambda win, reason: (drains.append(clock.t.strftime('%H:%M')), real_drain(win, reason))
+            code = g.run()
+            self.assertEqual(code, 2)
+            self.assertFalse((Path(d) / 'drain.json').exists())
+        return events, drains
+
+    def test_started_inside_the_window_waits_then_canary(self):
+        events, _ = self.run_guard(datetime(2026, 10, 22, 11, 0), [False, True])
+        self.assertEqual(events[0], ('kill', '11:00'))
+        self.assertEqual(events[1], ('canary', '12:00', False))
+        self.assertEqual(events[2], ('canary', '12:20', True))
+        self.assertEqual(events[3], ('start', '12:20'))
+
+    def test_running_line_drains_then_closes(self):
+        events, drains = self.run_guard(datetime(2026, 10, 22, 9, 45), [True])
+        self.assertEqual(events[0], ('start', '09:45'))
+        self.assertEqual(drains[0], '09:50')
+        self.assertEqual(events[1], ('kill', '09:55'))
+        self.assertEqual(events[2], ('canary', '12:00', True))
+        self.assertEqual(events[3], ('start', '12:00'))
 
 
 if __name__ == '__main__':
