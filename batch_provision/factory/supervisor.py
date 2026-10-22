@@ -35,6 +35,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from provisioner import config, layout, log, native, procs
+from provisioner import enter as enter_mod
 from provisioner import login as login_mod
 from provisioner.enter import EnterJob, enter_role, verify_in_world
 from provisioner.game import Game, NotSent
@@ -369,6 +370,7 @@ class Supervisor:
         self.watches = {}               # station_id -> relogin.Watch
         self._drain = (-DRAIN_EVERY, None)    # (monotonic read time, reason) of state/drain.json
         self.login_log = outage.LoginLog()    # every login's result (provisioner.login.RESULT_HOOK), stage B3
+        self.enter_log = outage.LoginLog()    # every enter-world result (provisioner.enter.RESULT_HOOK)
         self.guarded = False                  # started by the guard: a mass login failure ends this process
         self.outage_warned = 0.0
         self.tracks = {}                      # station_id -> progress.Track (stage B4a)
@@ -1042,7 +1044,7 @@ class Supervisor:
             if index is None:
                 raise NotOnRoster(f'选角列表里没有 {name}（有 {[n for _, _, n in roster]}）')
             char_id = roster[index][0]
-            enter_role(session, index + 1, self.s.login.enter_timeout, lg)
+            enter_role(session, index + 1, self.s.login.enter_timeout, lg, account.name)
             world = verify_in_world(session, char_id, name, lg)
             client = procs.Client(session, char_id, name, world.map_id, world.x, world.y)
             conn = db.connect(self.s.factory.db_path)
@@ -1226,18 +1228,23 @@ class Supervisor:
         """Many accounts failing to log in (stage B3): under the guard, exit with a code it acts on; alone, warn."""
         if not self.s.outage:
             return None
-        v = outage.verdict(self.login_log.rows(), time.time(), self.s.outage)
+        now = time.time()
+        v = (outage.verdict(self.login_log.rows(), now, self.s.outage)
+             or outage.enter_verdict(self.enter_log.rows(), now, self.s.outage))
         if v is None:
             return None
         if v == outage.VERSION:
             text = '登录器报游戏版本不对（游戏客户端更新了？），重试没用，要人工更新程序'
+        elif v == outage.ENTER:
+            text = (f'{self.s.outage.window / 60:.0f} 分钟内 {self.s.outage.min_accounts} 个以上账号能登录、但进不了游戏，'
+                    '一个都没进去（服务器拒绝？维护后多半是客户端要更新）')
         else:
             text = (f'{self.s.outage.window / 60:.0f} 分钟内 {self.s.outage.min_accounts} 个以上账号登录失败、'
                     '一个都没登上（服务器维护 / 断网？）')
         if self.guarded:
             self.stop.set()
             self.log.error('%s：总大脑退出，交给守护处理', text)
-            return outage.EXIT_VERSION if v == outage.VERSION else outage.EXIT_OUTAGE
+            return {outage.VERSION: outage.EXIT_VERSION, outage.ENTER: outage.EXIT_ENTER}.get(v, outage.EXIT_OUTAGE)
         if time.monotonic() - self.outage_warned >= 600:
             self.log.error('%s（没用一键守护，不会自动停工）', text)
             self.outage_warned = time.monotonic()
@@ -1325,6 +1332,7 @@ def main():
     sup = Supervisor(s, logger)
     sup.guarded = os.environ.get(outage.GUARD_ENV) == '1'
     login_mod.RESULT_HOOK = sup.login_log.add
+    enter_mod.RESULT_HOOK = sup.enter_log.add
     try:
         return sup.run()
     except KeyboardInterrupt:

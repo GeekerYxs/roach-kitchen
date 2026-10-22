@@ -6,6 +6,10 @@ into a LoginLog; verdict() over the last `window_minutes`:
   - any launcher exit 3 (game exe SHA256 changed = client updated) -> VERSION: retrying cannot help, the supervisor
     exits 5 and the guard stops with a loud message (a human rebuilds the addresses / DLL)
   - failures of >= `min_accounts` different accounts and no success at all -> OUTAGE: the supervisor exits 4
+  - the same for ENTERING the world (provisioner.enter.RESULT_HOOK) -> ENTER: the supervisor exits 6. 2026-10-22: after
+    maintenance the server took every login but refused every enter-world with the old client (error 110 x546).
+    Within `after_maintenance_minutes` of the guard's post-maintenance restart that means "client version changed,
+    probably": the guard closes everything and stops like VERSION; at any other time it waits like OUTAGE.
 Guard side (factory/guard.py): close everything; this PC offline (no TCP connect to any of `net_hosts`) -> check
 again every `net_check_minutes` and try a canary as soon as it is back; online -> the game servers are down: wait
 `wait_minutes`, then a canary login every `canary_every_minutes`; success -> start the supervisor again.
@@ -17,8 +21,8 @@ import time
 from collections import deque
 from dataclasses import dataclass
 
-OUTAGE, VERSION = 'outage', 'version'
-EXIT_OUTAGE, EXIT_VERSION = 4, 5        # supervisor exit codes the guard acts on
+OUTAGE, VERSION, ENTER = 'outage', 'version', 'enter'
+EXIT_OUTAGE, EXIT_VERSION, EXIT_ENTER = 4, 5, 6     # supervisor exit codes the guard acts on
 VERSION_EXIT = 3                        # launcher.exe: game exe SHA256 mismatch (provisioner/native.py LAUNCHER_EXIT)
 GUARD_ENV = 'SMSM2_GUARD'               # set by the guard for its supervisor child
 
@@ -31,6 +35,7 @@ class OutageSettings:
     canary_every: float = 1200.0
     net_check: float = 300.0
     net_hosts: tuple = (('www.baidu.com', 443), ('www.qq.com', 443))
+    after_maintenance: float = 7200.0   # enter failures this soon after a post-maintenance restart = version change?
 
 
 def _host(text):
@@ -48,7 +53,8 @@ def load_outage(data):
     s = OutageSettings(float(o.get('window_minutes', 10)) * 60, int(o.get('min_accounts', 3)),
                        float(o.get('wait_minutes', 60)) * 60, float(o.get('canary_every_minutes', 20)) * 60,
                        float(o.get('net_check_minutes', 5)) * 60,
-                       tuple(_host(h) for h in o.get('net_hosts', ['www.baidu.com:443', 'www.qq.com:443'])))
+                       tuple(_host(h) for h in o.get('net_hosts', ['www.baidu.com:443', 'www.qq.com:443'])),
+                       float(o.get('after_maintenance_minutes', 120)) * 60)
     if s.min_accounts < 2:
         raise ValueError('[outage] min_accounts 至少 2（一个号登不上多半是那个号自己的问题）')
     if s.canary_every < 60 or s.net_check < 60:
@@ -66,6 +72,14 @@ def verdict(results, now, s):
     if any(ok for _, _, ok, _ in recent):
         return None
     return OUTAGE if len({account for _, account, ok, _ in recent if not ok}) >= s.min_accounts else None
+
+
+def enter_verdict(results, now, s):
+    """results: [(time, account, ok, DLL error)] of enter-world attempts -> None | ENTER."""
+    recent = [r for r in results if now - r[0] < s.window]
+    if any(ok for _, _, ok, _ in recent):
+        return None
+    return ENTER if len({account for _, account, ok, _ in recent if not ok}) >= s.min_accounts else None
 
 
 class LoginLog:

@@ -17,9 +17,41 @@ from .world import read_world
 
 ROOT = Path(__file__).resolve().parent.parent
 
+# Called with (account name, ok, DLL error code or None) once per enter_role() that names its account. The supervisor
+# sets it: 2026-10-22 after maintenance the server took logins but refused every enter-world (error 110 x546), which the
+# login-only check never saw (factory/outage.py). A hook error never breaks an enter.
+RESULT_HOOK = None
 
-def enter_role(session, slot, timeout, log_):
-    """From the selection screen: DLL selects `slot` and presses Enter until the world pointer appears."""
+
+def _report(account, ok, code):
+    if RESULT_HOOK is not None and account:
+        try:
+            RESULT_HOOK(account, ok, code)
+        except Exception:       # noqa: BLE001
+            pass
+
+
+def enter_role(session, slot, timeout, log_, account=None):
+    """From the selection screen: DLL selects `slot` and presses Enter until the world pointer appears.
+    account: name reported to RESULT_HOOK (None = not reported)."""
+    try:
+        _enter_role(session, slot, timeout, log_)
+    except _EnterFailed as e:
+        _report(account, False, e.code)
+        raise RuntimeError(str(e)) from None
+    except Exception:
+        _report(account, False, None)
+        raise
+    _report(account, True, 0)
+
+
+class _EnterFailed(Exception):
+    def __init__(self, message, code):
+        super().__init__(message)
+        self.code = code
+
+
+def _enter_role(session, slot, timeout, log_):
     native.enter_world(session, slot)
     deadline = time.monotonic() + timeout
     last = None
@@ -35,7 +67,7 @@ def enter_role(session, slot, timeout, log_):
             log_.info('世界指针已出现（DLL 用时 %dms，按回车 %d 次）', st['finished'] - st['started'], st['enter_messages'])
             return
         if st['stage'] < 0:
-            raise RuntimeError(f"进入失败 error={st['error']}({native.DLL_ERROR.get(st['error'], '未知')})")
+            raise _EnterFailed(f"进入失败 error={st['error']}({native.DLL_ERROR.get(st['error'], '未知')})", st['error'])
         time.sleep(0.2)
     raise RuntimeError(f'{timeout:.0f} 秒内没进入世界')
 
@@ -102,7 +134,7 @@ class EnterJob:
         self.log.info('== %s ==', name)
 
     def _enter(self):
-        enter_role(self.session, self.slot, self.s.enter_timeout, self.log)
+        enter_role(self.session, self.slot, self.s.enter_timeout, self.log, self.account.name)
 
     def _verify(self, char_id, name):
         return verify_in_world(self.session, char_id, name, self.log)

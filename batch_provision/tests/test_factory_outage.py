@@ -130,7 +130,7 @@ class SupervisorCheckTest(unittest.TestCase):
         sup = object.__new__(supervisor.Supervisor)
         sup.s = SimpleNamespace(outage=S)
         sup.log, sup.stop, sup.guarded, sup.outage_warned = QUIET, threading.Event(), guarded, 0.0
-        sup.login_log = LoginLog()
+        sup.login_log, sup.enter_log = LoginLog(), LoginLog()
         return sup
 
     def test_guarded_exits_with_code(self):
@@ -174,6 +174,75 @@ class RealSupervisorTest(unittest.TestCase):
             finally:
                 close(sup)
 
+
+
+class EnterVerdictTest(unittest.TestCase):
+    """2026-10-22: logins fine, every enter-world refused (error 110)."""
+
+    def test_three_accounts_cannot_enter(self):
+        rows = [(100, 'xq02', False, 110), (130, 'cap09', False, 110), (160, 'mw157', False, 110)]
+        self.assertEqual(outage.enter_verdict(rows, 200, S), outage.ENTER)
+
+    def test_one_account_or_one_success(self):
+        self.assertIsNone(outage.enter_verdict([(t, 'xq02', False, 110) for t in (100, 200, 300)], 400, S))
+        rows = [(100, 'xq02', False, 110), (130, 'cap09', False, 110), (150, 'mw1', True, 0), (160, 'mw157', False, 110)]
+        self.assertIsNone(outage.enter_verdict(rows, 200, S))
+
+    def test_window(self):
+        rows = [(0, 'a', False, 110), (10, 'b', False, 110), (20, 'c', False, 110)]
+        self.assertIsNone(outage.enter_verdict(rows, 10 + S.window, S))      # 'a' fell out
+
+    def test_setting(self):
+        self.assertEqual(S.after_maintenance, 7200.0)
+        self.assertEqual(load_outage({'outage': {'after_maintenance_minutes': 30}}).after_maintenance, 1800.0)
+
+
+class EnterHookTest(unittest.TestCase):
+    """provisioner.enter.enter_role() reports its result when it knows the account."""
+
+    def run_enter(self, statuses, account='mw301', alive=True):
+        from provisioner import enter
+        got = []
+        seq = iter(statuses)
+        with mock.patch.object(enter, 'RESULT_HOOK', lambda *a: got.append(a)),                 mock.patch.object(native, 'enter_world', lambda session, slot: None),                 mock.patch.object(native, 'alive', lambda pid: alive),                 mock.patch.object(native, 'read_status', lambda pid: next(seq)),                 mock.patch.object(enter.time, 'sleep'):
+            try:
+                enter.enter_role(native.Session(1, 2, 3), 1, 60, QUIET, account)
+            except RuntimeError as e:
+                got.append(('raised', str(e)[:4]))
+        return got
+
+    @staticmethod
+    def st(stage, error=0):
+        return {'stage': stage, 'error': error, 'enter_messages': 1, 'finished': 0, 'started': 0}
+
+    def test_entered(self):
+        self.assertEqual(self.run_enter([self.st(7), self.st(native.WORLD_STAGE)]), [('mw301', True, 0)])
+
+    def test_refused_with_dll_error(self):
+        got = self.run_enter([self.st(7), self.st(-1, 110)])
+        self.assertEqual(got, [('mw301', False, 110), ('raised', '进入失败')])
+
+    def test_process_died(self):
+        self.assertEqual(self.run_enter([], alive=False), [('mw301', False, None), ('raised', '游戏进程')])
+
+    def test_no_account_no_report(self):
+        self.assertEqual(self.run_enter([self.st(native.WORLD_STAGE)], account=None), [])
+
+
+class RealSupervisorEnterTest(unittest.TestCase):
+    def test_enter_failures_exit_6(self):
+        import time as _time
+        from tests.test_factory_relogin import WELL1, close, make_sup
+        with tempfile.TemporaryDirectory() as tmp:
+            sup = make_sup(tmp, [WELL1])
+            try:
+                sup.s.outage, sup.guarded = S, True
+                for acct in ('xq02', 'cap09', 'mw157'):
+                    sup.login_log.add(acct, True, 0, now=_time.time())       # logins fine
+                    sup.enter_log.add(acct, False, 110, now=_time.time())
+                self.assertEqual(sup.check_outage(), outage.EXIT_ENTER)
+            finally:
+                close(sup)
 
 if __name__ == '__main__':
     unittest.main()

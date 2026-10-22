@@ -267,6 +267,20 @@ class OutageRunTest(GuardLoop, unittest.TestCase):
                                          beat_fn=beat_fn)
         self.assertEqual(events[:2], [('start', '09:50'), ('kill', '09:55')])     # maintenance, not output
 
+    def test_enter_failures_right_after_maintenance_stop_as_version_change(self):
+        """2026-10-22 replay: canary login fine at 12:00, then nobody can enter -> stop, do not loop."""
+        code, events, _ = self.run_guard(datetime(2026, 10, 22, 11, 0), [(True, False)], exits=[outage.EXIT_ENTER],
+                                         outage_s=outage.OutageSettings())
+        self.assertEqual(code, outage.EXIT_ENTER)
+        self.assertEqual(events, [('kill', '11:00'), ('canary', '12:00', True), ('start', '12:00'), ('kill', '12:04')])
+
+    def test_enter_failures_on_an_ordinary_day_wait_like_an_outage(self):
+        code, events, _ = self.run_guard(self.TUE, [(True, False)], exits=[outage.EXIT_ENTER],
+                                         outage_s=outage.OutageSettings())
+        self.assertEqual(code, 2)
+        e = [x for x in events if x[0] != 'net']
+        self.assertEqual(e[:4], [('start', '15:00'), ('kill', '15:04'), ('canary', '16:04', True), ('start', '16:04')])
+
     def test_maintenance_takes_over_an_outage_wait(self):
         thu = datetime(2026, 10, 22, 9, 30)
         code, events, _ = self.run_guard(thu, [(True, False)], exits=[outage.EXIT_OUTAGE],

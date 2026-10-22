@@ -123,3 +123,7 @@ wait_minutes = 60
 canary_every_minutes = 20
 net_check_minutes = 5
 net_hosts = ["www.baidu.com:443", "www.qq.com:443"]
+# 进游戏也算：window_minutes 分钟内 min_accounts 个以上账号能登录、却进不了游戏、一个都没进去，同样停工。
+# 如果发生在计划维护后重新开工的 after_maintenance_minutes 分钟内（2026-10-22 维护后就是这样：旧客户端能登录不能进游戏），
+#   多半是游戏客户端要更新：关掉全部窗口，守护停下等人处理；其他时候按上面的方式等待、试登。
+after_maintenance_minutes = 120

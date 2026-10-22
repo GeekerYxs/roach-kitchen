@@ -333,7 +333,7 @@ class StoreUnload:
             if index is None:
                 raise RuntimeError(f'选角列表里没有 {name}（有 {[n for _, _, n in roster]}）')
             char_id = roster[index][0]
-            enter_role(session, index + 1, self.login_s.enter_timeout, lg)
+            enter_role(session, index + 1, self.login_s.enter_timeout, lg, account.name)
             world = verify_in_world(session, char_id, name, lg)
         except Exception:
             self.own.close(session, lg)

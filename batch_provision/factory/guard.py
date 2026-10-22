@@ -18,6 +18,9 @@ and started the supervisor again, and the line ran. The guard does that by itsel
     offline -> recheck every net_check_minutes, canary as soon as it is back; online -> wait wait_minutes, then a
     canary every canary_every_minutes. The game exe changed (launcher exit 3; supervisor exits 5, or a canary sees it)
     -> close everything and stop: a human updates the program
+  - mass ENTER-world failure (supervisor exits 6): within after_maintenance_minutes of the restart after planned
+    maintenance -> the client version most likely changed (2026-10-22): close everything and stop like above;
+    any other time -> handled like a mass login failure
   - output floor (stage B4b, last resort behind B4a): the supervisor running >= output_after_minutes, fewer than
     output_floor_per_hour 料理 received in the last hour while >= output_min_waiting alts wait at the coast /
     receiver, receiver bag not full, no maintenance drain -> restart like a stall (counts toward max_restarts)
@@ -82,6 +85,8 @@ def judge(exit_code, beat, child_pid, started, now, stall_seconds):
             return outage.OUTAGE
         if exit_code == outage.EXIT_VERSION:
             return outage.VERSION
+        if exit_code == outage.EXIT_ENTER:
+            return outage.ENTER
         return FINAL if exit_code in FINAL_CODES else EXITED
     at = beat['at'] if beat is not None and beat['pid'] == child_pid else started
     return STALLED if now - at >= stall_seconds else RUN
@@ -164,6 +169,7 @@ class Guard:
         self.child = None
         self.started = 0.0
         self.drained = None         # window (start, end) drain.json was written for
+        self.maintenance_done = None    # wall time the line restarted after planned maintenance
 
     def start(self):
         self.child = subprocess.Popen([sys.executable, '-X', 'utf8', '-m', 'factory.supervisor', str(self.cfg)],
@@ -272,6 +278,18 @@ class Guard:
             self.log.warning('试登失败（第 %d 次）：%s；%.0f 分钟后再试', tries, detail, o.canary_every / 60)
             due = self.now() + timedelta(seconds=o.canary_every)
 
+    def suspect_version(self, now):
+        """Mass enter failures this soon after the post-maintenance restart: the client probably has to be updated."""
+        return (self.outage is not None and self.maintenance_done is not None
+                and now - self.maintenance_done <= self.outage.after_maintenance)
+
+    def version_suspect_stop(self, now):
+        self.undrain()
+        self.log.error('！！维护后 %.0f 分钟：账号都能登录，但大面积进不了游戏，多半是游戏客户端要更新（2026-10-22 就是这样）。'
+                       '已关掉全部窗口，守护停下：请更新游戏客户端，必要时重新定位地址，再双击 一键守护.cmd',
+                       (now - self.maintenance_done) / 60)
+        return outage.EXIT_ENTER
+
     def version_stop(self):
         self.undrain()
         self.log.error('！！游戏版本变了（登录器校验游戏 EXE 的 SHA256 不通过，多半是维护后客户端更新）。已关掉全部窗口，'
@@ -287,6 +305,7 @@ class Guard:
                 self.kill_all(kill_stations=True)
                 if self.wait_maintenance(win) == outage.VERSION:
                     return self.version_stop()
+                self.maintenance_done = time.time()
                 history.clear()
                 continue
             if ph == DRAIN:
@@ -309,8 +328,12 @@ class Guard:
             if verdict == outage.VERSION:
                 self.kill_all(kill_stations=True)
                 return self.version_stop()
-            if verdict == outage.OUTAGE:
-                self.log.error('总大脑报告大面积登录失败，停工：关掉全部窗口，不再反复登录')
+            if verdict == outage.ENTER and self.suspect_version(now):
+                self.kill_all(kill_stations=True)
+                return self.version_suspect_stop(now)
+            if verdict in (outage.OUTAGE, outage.ENTER):
+                self.log.error('总大脑报告大面积%s失败，停工：关掉全部窗口，不再反复登录',
+                               '进游戏' if verdict == outage.ENTER else '登录')
                 self.kill_all(kill_stations=True)
                 if not self.outage:
                     self.log.error('[outage] 没开，按普通退出处理：%.0f 秒后重启', self.s.kill_settle)
