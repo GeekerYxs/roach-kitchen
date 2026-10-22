@@ -40,10 +40,12 @@ BAG_TABLE, BAG_COUNT, BAG_FIRST, BAG_STRIDE, BAG_MAX = 0x16B0, 0x8818, 0x88, 0x8
 # (stride 0x88, valid 1 / -1, item_id, kind, pad, quantity), row = EEquipSlot (luas/game_define.lua: 0 帽子 1 口罩
 # 2 武器 3 鞋 ... 12 圣物). Checked on mvp01r1 (row 2 = 118 专打屁屁扳手), 伏地魔1 and cap07 (rows match their gear).
 EQUIP_TABLE, EQUIP_ROWS, EQUIP_WEAPON = 0x8828, 13, 2
-# 飞鞋 panel = [ui+0xD84]; its button handler (RVA 0x1c7d50) shows the recorded point from +0x418 map,
-# +0x41C x, +0x420 y. Verified live 2026-10-12: the fields change to the server's position after a 0x82
+# 飞鞋 panel = [ui+0xD84]; its button handler (2.98 RVA 0x1c7d50) shows the recorded point from +0x438 map,
+# +0x43C x, +0x440 y. Verified live 2026-10-12: the fields change to the server's position after a 0x82
 # record (also when sent without the UI), on mw01..08.
-UI_SHOE_PANEL, SHOE_MAP, SHOE_XY = 0xD84, 0x418, 0x41C
+# 2.100 moved the panel's fields +0x20 (2.98/2.99: +0x418 / +0x41C). Missed in the first 2.100 update (fb0825d): every
+# new alt failed the shoe stage and got quarantined on 2026-10-22. Re-checked live: +0x438 reads (81, 1780, 1370).
+UI_SHOE_PANEL, SHOE_MAP, SHOE_XY = 0xD84, 0x438, 0x43C
 # Gold: signed i64 at session+0x16B0+0x8800 (2.98/2.99: 0x87F0; CUIDataItem:GetMoney, getters at 2.98 RVA 0x13430 / 0x481a0).
 # Signatures re-checked 2026-10-12 on all clients; values 100 / 0 on alts, 1814300 on 小强杀手一号.
 BAG_GOLD = 0x8800

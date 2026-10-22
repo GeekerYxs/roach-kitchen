@@ -252,11 +252,13 @@ def received(conn, char_id):
                         (char_id,)).fetchone() is not None
 
 
-def release_quarantine(conn, char_id, now):
-    """Manual: after a human fixed the alt. Its phase is re-derived on the next observation."""
+def release_quarantine(conn, char_id, now, event='release'):
+    """Manual: after a human fixed the alt. Its phase is re-derived on the next observation.
+    event 'release' counts as the alt's one automatic second chance (schedule.retry_quarantined); a release after a
+    program fault uses another kind (factory/unquarantine.py) so the alt keeps that chance."""
     conn.execute("UPDATE alts SET quarantined=0, failures=0, last_error=NULL, phase='unknown', phase_since=? "
                  'WHERE char_id=?', (now, char_id))
-    log_event(conn, now, 'release', '解除隔离', char_id=char_id)
+    log_event(conn, now, event, '解除隔离', char_id=char_id)
 
 
 # ---- queues and leases --------------------------------------------------------------------------------
