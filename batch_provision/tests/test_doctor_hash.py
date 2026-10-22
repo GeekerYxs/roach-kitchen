@@ -21,10 +21,10 @@ class ClientHashTest(unittest.TestCase):
     def test_missing_source_gives_nothing(self):
         self.assertEqual({}, doctor.expected_client_hashes(Path(tempfile.gettempdir()) / 'no_such_launcher.cpp'))
 
-    def test_repo_launcher_accepts_298_and_299(self):
+    def test_repo_launcher_accepts_2100_only(self):
+        """2.100 moved every address: the old builds must be refused, not run with wrong addresses."""
         known = doctor.expected_client_hashes()
-        self.assertEqual('2.98', known.get('500cf8f165cfbbf6f8f28ddb01648dbee3de10a1a8068f51b359598560958c27'))
-        self.assertEqual('2.99', known.get('c33ff869a1e54ef354d5e7d65a235879c2301a1f1890f6c88105d8ebd7eded86'))
+        self.assertEqual({'bc7d6c22aea54f14d2e4715ac99994bee5158dbb4e8d1a608d632183d377b5ec': '2.100'}, known)
 
 
 if __name__ == '__main__':

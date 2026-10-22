@@ -2,7 +2,7 @@
 
 Offsets: earlier Gemini/Codex research (core/player_memory.py, pp_runtime/probe.py, runtime/game_state.py)
 plus static analysis of WaatClient.exe on 2026-10-12:
-  GetFighter(pos)  RVA 0x12C00: fighter = [base+0x64B1B0] + 0x1DC0 + pos*0x510 (pos 0..19)
+  GetFighter(pos)  RVA 0x12C00: fighter = [base+BATTLE_RVA] + 0x1DC0 + pos*0x510 (pos 0..19)
   GetMyPos()       RVA 0x130F0: real pos [battle+0x917C] (0xFF = none), side flag [battle+0x9178]
   TFightNpcData.SP Lua getter 0x43E010 reads int32 at fighter+0xF4
 """
@@ -11,39 +11,42 @@ import struct
 import time
 from dataclasses import dataclass, field
 
-PLAYER_PTR_RVA = 0x64A638    # [base+RVA] -> own player object
+PLAYER_PTR_RVA = 0x694DC0    # [base+RVA] -> own player object (2.100; 2.98/2.99 0x64A638)
 PLAYER_CHAR_ID = 0x34C       # +0x34C char_id, +0x350 x, +0x354 y (int32; can lag behind motion)
-SESSION_MGR_RVA = 0x64B1B4   # [base+RVA] -> session manager
+SESSION_MGR_RVA = 0x6959F0   # [base+RVA] -> session manager (2.100; 2.98/2.99 0x64B1B4)
 SESSION_MAP_ID = 0x688
-SCENE_INDEX, SCENE_FIRST, SCENE_LAST, SCENE_ROW = 0x24670, 0xE34, 0xE38, 0x2A8
+SCENE_INDEX, SCENE_FIRST, SCENE_LAST, SCENE_ROW = 0x24928, 0xE34, 0xE38, 0x2A8   # 2.100 (+0x2B8; was 0x24670)
 ROW_ENTITY, ROW_FLAGS = 0x8, 0x148
 ENTITY_MOTION = 0x18C        # float x, y, ?, ?, target_x, target_y
 FLAG_IN_BATTLE = 0x8
-BUSY_MASK_RVAS = (0x529734, 0x52974C, 0x529754, 0x52977C, 0x52976C, 0x52975C, 0x529764)  # 2.98; 2.97 was 0x5176E4..
-UI_RVA = 0x64B1AC
+BUSY_MASK_RVAS = (0x57385C, 0x573874, 0x57387C, 0x5738A4, 0x573894, 0x573884, 0x57388C)  # 2.100; 2.98 0x529734..
+# 2.100 (2026-10-22): every address moved; found by masked byte fingerprints and instruction-by-instruction
+# comparison with 2.98 (globals +0x4A83C, busy masks +0x4A128), struct offsets re-read on a live 2.100 client.
+UI_RVA = 0x6959E8              # 2.100; 2.98/2.99 0x64B1AC
 UI_NAV_MGR, NAV_OBJECT, NAV_ACTIVE, NAV_READY = 0xDA4, 0x8, 0x1D4, 0x1A8
 UI_QUESTION, QUESTION_ACTIVE = 0x10C4, 0x1C
 UI_DIALOG, DIALOG_VISIBLE, DIALOG_CTRL_FIRST, DIALOG_CTRL_LAST = 0xE90, 0x1C, 0xEC, 0xF0
-BATTLE_RVA = 0x64B1B0
+BATTLE_RVA = 0x6959EC          # 2.100; 2.98/2.99 0x64B1B0
 BATTLE_FIGHTERS, FIGHTER_SIZE, FIGHTER_SP = 0x1DC0, 0x510, 0xF4
 BATTLE_REAL_POS, BATTLE_SIDE = 0x917C, 0x9178
 # Own level: TGamePlayer object at session+0xE90, Lua property 'Grade' at +0x70 (RVA 0xf41e registration;
 # 0x4210 handler writes it). Found offline 2026-10-06; first live check in the meat stage.
 SESSION_LEVEL = 0xF00
 # Bag (Gemini/Codex item_consumption.py, used live 2026-10-09): session+0x16B0 table, entry count u32 at
-# +0x87F8, entries at +0x78 stride 0x88: int32 valid(1), item_id, kind, pad, quantity.
-BAG_TABLE, BAG_COUNT, BAG_FIRST, BAG_STRIDE, BAG_MAX = 0x16B0, 0x87F8, 0x78, 0x88, 100
-# Equipment (found 2026-10-20, client 2.99): right after the bag, session+0x16B0+0x8808, 13 rows of the bag's layout
+# +0x8818, entries at +0x88 stride 0x88: int32 valid(1), item_id, kind, pad, quantity.
+# 2.100 inserted 0x10 bytes before the entries and 0x10 more before the count (2.98/2.99: +0x87F8, +0x78).
+BAG_TABLE, BAG_COUNT, BAG_FIRST, BAG_STRIDE, BAG_MAX = 0x16B0, 0x8818, 0x88, 0x88, 100
+# Equipment (found 2026-10-20, client 2.99): right after the bag, session+0x16B0+0x8828 (2.99: 0x8808), 13 rows of the bag's layout
 # (stride 0x88, valid 1 / -1, item_id, kind, pad, quantity), row = EEquipSlot (luas/game_define.lua: 0 帽子 1 口罩
 # 2 武器 3 鞋 ... 12 圣物). Checked on mvp01r1 (row 2 = 118 专打屁屁扳手), 伏地魔1 and cap07 (rows match their gear).
-EQUIP_TABLE, EQUIP_ROWS, EQUIP_WEAPON = 0x8808, 13, 2
+EQUIP_TABLE, EQUIP_ROWS, EQUIP_WEAPON = 0x8828, 13, 2
 # 飞鞋 panel = [ui+0xD84]; its button handler (RVA 0x1c7d50) shows the recorded point from +0x418 map,
 # +0x41C x, +0x420 y. Verified live 2026-10-12: the fields change to the server's position after a 0x82
 # record (also when sent without the UI), on mw01..08.
 UI_SHOE_PANEL, SHOE_MAP, SHOE_XY = 0xD84, 0x418, 0x41C
-# Gold: signed i64 at session+0x16B0+0x87F0 (CUIDataItem:GetMoney, getters at RVA 0x13430 / 0x481a0).
+# Gold: signed i64 at session+0x16B0+0x8800 (2.98/2.99: 0x87F0; CUIDataItem:GetMoney, getters at 2.98 RVA 0x13430 / 0x481a0).
 # Signatures re-checked 2026-10-12 on all clients; values 100 / 0 on alts, 1814300 on 小强杀手一号.
-BAG_GOLD = 0x87F0
+BAG_GOLD = 0x8800
 # Team object = [ui+0xDA0] (Codex rogue184.team_roster, pp_runtime/bridge.py opcodes 9/10; re-read live
 # 2026-10-12: 0 rows and inviter 0 on every client without a team). +0xC -> roster vector {first,last,cap},
 # rows of 72 bytes, +0 char_id, +4 level (first row = the leader, per the old 5-member verification).
@@ -66,14 +69,15 @@ ENEMY_POSITIONS = range(10)
 # +0 id, level = +4 plus +8. Pets: pointer vector at P+0x1B6E4, fighting index i32 at P+0x1B6F8; pet+0x68 MP i64,
 # pet+0x114 = vector of ability pointers (null entries happen), each +0 id, level = +4 plus +8.
 SESSION_PLAYER_DATA = 0x1658
-SKILL_TABLE, SKILL_VECTORS, SKILL_ROW = 0x1B600, (0xC, 0x1C, 0x2C, 0x3C), 0x68
-PET_VECTOR, PET_FIGHTING, PET_MP, PET_ABILITIES = 0x1B6E4, 0x1B6F8, 0x68, 0x114
+# 2.100: the skill / pet / quest block moved +0x2A8 (2.98/2.99: 0x1B600, 0x1B6E4, 0x1B6F8, 0x1B6A4, 0x1B6B4).
+SKILL_TABLE, SKILL_VECTORS, SKILL_ROW = 0x1B8A8, (0xC, 0x1C, 0x2C, 0x3C), 0x68
+PET_VECTOR, PET_FIGHTING, PET_MP, PET_ABILITIES = 0x1B98C, 0x1B9A0, 0x68, 0x114
 # Quests (Codex/Gemini runtime/game_state.task_snapshot, quest 78 accepted live 2026-10-09; the data object [ui+0xD38]
 # re-read 2026-10-12 = P on all 10 clients). Two MSVC std::map trees, head pointer at P+off, root = [head+4],
 # node +0 left, +8 right, +0xC key. Active: P+0x1B6A4, key = quest << 16 | phase, isnil byte +0x61,
 # +0x26 last step index, +0x27.. step status bytes. Done: P+0x1B6B4, key = quest id, isnil byte +0x1D.
-QUEST_ACTIVE, QUEST_ACTIVE_NODE, QUEST_ACTIVE_NIL = 0x1B6A4, 0x62, 0x61
-QUEST_DONE, QUEST_DONE_NODE, QUEST_DONE_NIL = 0x1B6B4, 0x1E, 0x1D
+QUEST_ACTIVE, QUEST_ACTIVE_NODE, QUEST_ACTIVE_NIL = 0x1B94C, 0x62, 0x61
+QUEST_DONE, QUEST_DONE_NODE, QUEST_DONE_NIL = 0x1B95C, 0x1E, 0x1D
 QUEST_TREE_MAX = 500
 
 

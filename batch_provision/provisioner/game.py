@@ -13,12 +13,12 @@ from ctypes import wintypes as W
 from . import native
 from .world import nav_object, team_object
 
-RVA_MOVE_TO = 0x111C0        # stdcall MoveTo(x, y): same-map walk
-RVA_NAVIGATE = 0x18B600      # official path-finder: ECX=map, EDX=x, EAX=y, stack=nav object
-RVA_CANCEL_NAV = 0x18B500    # EAX=nav object
-RVA_CLICK_NPC = 0x10B60      # stdcall ClickNpc(npc_id)
-RVA_SELECT_DIALOG = 0x11650  # stdcall SelectNpcDialogEntry(index); 0 = 离开
-RVA_FIGHT_CMD = 0x16C780     # cdecl SendFightCmdPacket(is_pet, target_client_pos, action, param) -> 0x1004
+RVA_MOVE_TO = 0x117E0        # stdcall MoveTo(x, y): same-map walk
+RVA_NAVIGATE = 0x18CC80      # official path-finder: ECX=map, EDX=x, EAX=y, stack=nav object
+RVA_CANCEL_NAV = 0x18CB80    # EAX=nav object
+RVA_CLICK_NPC = 0x11180      # stdcall ClickNpc(npc_id)
+RVA_SELECT_DIALOG = 0x11C70  # stdcall SelectNpcDialogEntry(index); 0 = 离开
+RVA_FIGHT_CMD = 0x16D110     # cdecl SendFightCmdPacket(is_pet, target_client_pos, action, param) -> 0x1004
 
 # Fight actions (CFightCmdSelf factory RVA 0x23A210, 2026-10-12): 2 = 普攻, 0xB = 捕捉 (level check
 # in 0x237A70), 8 = 逃跑 — confirmed live on mw01..08: 7 novice battles, each ended 0.6..2 s after the
@@ -27,10 +27,10 @@ FIGHT_ATTACK = 2
 FIGHT_ESCAPE = 8
 
 # The client's own packet sender (same one DLL command 103 uses for 0x0002 create):
-# ESI = connection object [base+0x64B1B8] (its +0x20 socket must not be -1), EBX = opcode,
+# ESI = connection object [base+RVA_CONNECTION] (its +0x20 socket must not be -1), EBX = opcode,
 # EDI = body length, stack = body pointer; ret 4. It encodes and queues the packet itself.
-RVA_SEND = 0x312220
-RVA_CONNECTION = 0x64B1B8
+RVA_SEND = 0x316AB0          # 2.100 (2.98/2.99: 0x312220); all RVAs below are 2.100, compared with 2.98
+RVA_CONNECTION = 0x6959F4    # instruction by instruction to the ret (2026-10-22)
 CONNECTION_SOCKET = 0x20
 MAX_BODY = 512
 
@@ -69,8 +69,8 @@ TRADE_CONFIRM_BODY = struct.pack('<I', 17)
 #   (49 bytes, mostly uninitialised) and hides the invite dialog, so we call the client's own function.
 # - leave: RVA 0x29f2b0 (2.97: 0x29ce60) (no arguments) sends 0x33 with 8 zero bytes.
 OP_TEAM_INVITE = 0x30
-RVA_TEAM_ACCEPT = 0x21F590
-RVA_TEAM_LEAVE = 0x29F2B0
+RVA_TEAM_ACCEPT = 0x220960     # 2.98/2.99: 0x21F590
+RVA_TEAM_LEAVE = 0x2A0DA0      # 2.98/2.99: 0x29F2B0
 TEAM_NAME_SIZE = 17
 
 
@@ -78,8 +78,8 @@ TEAM_NAME_SIZE = 17
 # stdcall(target client pos, id, level), ret 0xC; they convert the position themselves (disassembled 2026-10-12).
 # CastSkillToFighter sends 0x1005 (16 bytes), CastPetMagicToFighter sends 0x1004. Lua NormalAttack /
 # PetNormalAttack (RVA 0x12DB0 / 0x12DE0) are just SendFightCmdPacket(is_pet, target, 2, 0) = fight_command().
-RVA_CAST_SKILL = 0x12EA0
-RVA_CAST_PET_MAGIC = 0x12F60
+RVA_CAST_SKILL = 0x134C0       # 2.98/2.99: 0x12EA0
+RVA_CAST_PET_MAGIC = 0x13580   # 2.98/2.99: 0x12F60
 
 # Talent points (bb01 2026-10-05, TALENT_ALLOCATION_BB_20261005.md): 0x0070, 24 bytes <6i>, the 4th = 体质 delta.
 # The server answers 0x4740 and ignores a request for more points than remain.

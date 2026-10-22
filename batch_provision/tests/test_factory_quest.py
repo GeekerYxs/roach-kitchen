@@ -7,6 +7,7 @@ from factory.observe import quest_state
 from factory.phase import QUEST_ACTIVE, QUEST_DONE, QUEST_NONE
 from factory.quest import (ACTION, CONFIRM_WAIT, MAX_CLICKS, NPC, SELECT_RETRY, STAND_POINT, Memo, decide,
                            menu_choice)
+from provisioner import world
 from provisioner.world import Dialog, Quest, Team, WorldState, read_quest
 
 AT_NPC = WorldState(char_id=1, map_id=81, x=1780.0, y=1370.0, target_x=1780.0, target_y=1370.0, flags=0,
@@ -141,10 +142,10 @@ def sentinel(root, size, nil_at):
 
 
 def fake_client(active_keys, done_keys, steps=b''):
-    session, session_ptr = 0x100000, 0x400000 + 0x64B1B4
-    p = session + 0x1658
-    blocks = {session_ptr: struct.pack('<I', session), p + 0x1B6A4: struct.pack('<I', 0x200000),
-              p + 0x1B6B4: struct.pack('<I', 0x300000)}
+    session, session_ptr = 0x100000, 0x400000 + world.SESSION_MGR_RVA
+    p = session + world.SESSION_PLAYER_DATA
+    blocks = {session_ptr: struct.pack('<I', session), p + world.QUEST_ACTIVE: struct.pack('<I', 0x200000),
+              p + world.QUEST_DONE: struct.pack('<I', 0x300000)}
     # a degenerate right-leaning chain is still a valid tree for a walk
     for base, keys, size, nil_at in ((0x200000, active_keys, 0x62, 0x61), (0x300000, done_keys, 0x1E, 0x1D)):
         addrs = [base + 0x100 * (i + 1) for i in range(len(keys))]

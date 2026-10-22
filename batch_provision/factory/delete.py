@@ -46,7 +46,7 @@ ROOT = Path(__file__).resolve().parent.parent
 ACTION = 'delete_role'
 CONNECTION = 0x150          # session context +0x150: the connection the client's builder sends on
 BUSY = 0x148                # session context +0x148: the client's own "delete in progress" flag
-MANAGER = 0x64B1B8          # [base+0x64B1B8]: the connection DLL commands 103/107 send on
+MANAGER = 0x6959F4          # [base+0x6959F4] (2.100; 2.98/2.99 0x64B1B8): the connection DLL commands 103/107 send on
 
 
 class Refused(Exception):

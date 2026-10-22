@@ -47,7 +47,7 @@ static void enter() {
 // world pointer appears (author's loop). Used by the login thread and by the
 // controller's "enter" command (105) after it has checked the roster.
 static bool enter_world(uintptr_t selector,DWORD role_index) {
-    const uintptr_t world_flag=base+0x64b1ac;
+    const uintptr_t world_flag=base+0x6959e8;   // 2.100 (2.98/2.99: 0x64b1ac)
     status->role_index=role_index;
     stage(6);
     if(!write_bytes(selector+0x1a8,&role_index,4)) { fail(108); return false; }
@@ -79,9 +79,10 @@ static DWORD WINAPI login_thread(void* parameter) {
     status->started=GetTickCount();
     status->role_index=packet.role_index;
     // Address initialization: original DLL 10004250..100042D6.
-    const uintptr_t login_flag=base+0x64b1a4;
-    const uintptr_t world_flag=base+0x64b1ac;
-    const uintptr_t selection_root=base+0x64b1a8;
+    // 2.100 globals (2.98/2.99: 0x64b1a4 / 0x64b1ac / 0x64b1a8), located 2026-10-22.
+    const uintptr_t login_flag=base+0x6959e0;
+    const uintptr_t world_flag=base+0x6959e8;
+    const uintptr_t selection_root=base+0x6959e4;
     stage(2);
     if(!wait_nonzero(login_flag,30000)) { fail(101); goto done; }
     {
