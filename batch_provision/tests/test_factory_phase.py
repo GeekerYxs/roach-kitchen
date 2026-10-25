@@ -215,6 +215,14 @@ class NoDishTrade(unittest.TestCase):
         self.assertEqual(self.off(obs, replace(READY, sold_at=20.0)).phase, P.QUEUE_RECEIVER)
         self.assertEqual(self.off(replace(obs, team_leader=COAST_LEADER)).phase, P.LEAVE_TEAM)
 
+    def test_junk_is_sold_even_with_no_gold_or_no_dish(self):
+        # the run of 2026-10-25: alts traded their gold without selling first
+        for obs in (replace(self.HANDED_IN, junk=7, gold=0), replace(self.HANDED_IN, junk=7, dishes=0),
+                    replace(self.HANDED_IN, junk=7, gold=None)):
+            self.assertEqual(self.off(obs).phase, P.SELL_JUNK, obs)
+        self.assertEqual(self.off(replace(self.HANDED_IN, junk=7, gold=0), replace(READY, sold_at=20.0)).phase,
+                         P.DELETE)
+
     def test_gold_unread_waits_for_the_receiver(self):
         self.assertEqual(self.off(replace(self.HANDED_IN, gold=None)).phase, P.QUEUE_RECEIVER)
 

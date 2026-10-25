@@ -26,7 +26,8 @@ def observe(mem, world):
     capacity = read_bag_capacity(mem)
     free = None if capacity is None else max(0, capacity - len(bag))
     junk = 0
-    if dishes and world.map_id == COAST_MAP:        # only the junk run (phase.SELL_JUNK) needs it
+    if (dishes or quest.done) and world.map_id == COAST_MAP:    # only the junk run (phase.SELL_JUNK) needs it; quest
+        # done counts too: without the 料理 trade (phase.DISH_TRADE off) the sale must not hang on the 料理 being there
         worn = read_equipment(mem)
         if worn is None:
             return None

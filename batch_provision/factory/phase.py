@@ -134,11 +134,14 @@ def derive_phase(obs, ledger, stations, dish_trade=None):
             return Plan(QUEUE_RECEIVER, f'有料理 {obs.dishes} 个，排队交给收货人')
         return _to_coast(obs, leader_role, gold, '有料理但不在海岸')
     if obs.quest == QUEST_DONE:
+        if not dish_trade and obs.map_id == COAST_MAP and obs.junk and ledger.sold_at is None:
+            # the junk run comes first, whatever the gold (its money goes to the receiver with the rest)
+            if obs.team_leader:
+                return Plan(LEAVE_TEAM, '任务已交，卖杂物前要离队')
+            return Plan(SELL_JUNK, f'任务已交，先去花袭人卖掉 {obs.junk} 样杂物和装备')
         if obs.gold != 0 and obs.map_id == COAST_MAP:     # None = unread: the receiver reads it and skips at 0
             if obs.team_leader:
                 return Plan(LEAVE_TEAM, '有金币待收回但还在队里')
-            if not dish_trade and obs.junk and ledger.sold_at is None:
-                return Plan(SELL_JUNK, f'任务已交，先去花袭人卖掉 {obs.junk} 样杂物和装备')
             return Plan(QUEUE_RECEIVER, f'料理已交出，金币 {obs.gold} 排队交给收货人' if dish_trade else
                         f'任务已交，金币 {obs.gold} 排队交给收货人')
         if obs.gold != 0 and not dish_trade:      # the receiver stands at the coast

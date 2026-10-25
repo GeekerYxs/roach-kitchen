@@ -26,12 +26,12 @@ from provisioner import native
 from provisioner.game import FIGHT_ESCAPE, Game
 from provisioner.memory import ProcessMemory
 from provisioner.world import (item_count, read_bag, read_bag_capacity, read_dialog, read_equipment, read_gold,
-                               read_world)
+                               read_quest, read_world)
 
 from . import db, items
 from .config import ROOT, load_settings
 from .observe import observe
-from .phase import COAST_MAP, DISH_ITEM, SELL_JUNK, derive_phase
+from .phase import COAST_MAP, DISH_ITEM, QUEST_ID, SELL_JUNK, derive_phase
 from .runner import run_stage
 from .supply import NURSE, SHOP_RANGE, ShopClient
 
@@ -63,7 +63,8 @@ class SellJob:
                     if plan.phase != SELL_JUNK:
                         self.log.info('不用卖（阶段 %s：%s）', plan.phase, plan.reason)
                         return {**result, 'ok': True, 'skipped': True}
-                    final = item_count(read_bag(mem) or (), DISH_ITEM) > 0
+                    quest = read_quest(mem, QUEST_ID)
+                    final = item_count(read_bag(mem) or (), DISH_ITEM) > 0 or bool(quest and quest.done)
                     self._run(conn, mem, game, shop, result, final)
                     after = self._phase(conn, mem)
                     if not final and after.phase == SELL_JUNK:

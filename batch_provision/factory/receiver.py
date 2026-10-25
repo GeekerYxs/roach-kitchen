@@ -250,6 +250,10 @@ class ReceiveJob:
         gold_step = not self.s.dish_trade                       # 料理 first (when it can be traded), then the gold
         try:
             with ProcessMemory(self.alt.session.pid, self.alt.session.base) as mem:
+                stale = self._stale(mem)
+                if stale:
+                    self.log.info('不收（%s）', stale)
+                    return {**result, 'ok': True, 'skipped': stale, 'seconds': round(time.monotonic() - started, 1)}
                 game = Game(self.alt.session, mem)
                 try:
                     while True:
@@ -324,6 +328,16 @@ class ReceiveJob:
             self.log.error('失败: %s', e, exc_info=not isinstance(e, RuntimeError))
         result['seconds'] = round(time.monotonic() - started, 1)
         return result
+
+    def _stale(self, mem):
+        """The queue row may be older than the alt (e.g. it still has junk to sell): re-derive the phase from a fresh
+        read first. -> None to go on, else why not (the phase is saved, so the chores pick the alt up)."""
+        obs = observe(mem, read_world(mem))
+        if obs is None:
+            return None             # still loading: decide()/decide_gold() wait for it
+        plan = derive_phase(obs, db.ledger(self.conn, self.alt.char_id), db.station_roles(self.conn))
+        db.save_observation(self.conn, obs, plan, time.time())
+        return None if plan.phase == QUEUE_RECEIVER else f'阶段是 {plan.phase}：{plan.reason}'
 
     def _save_phase(self, mem, result):
         obs = observe(mem, read_world(mem))
