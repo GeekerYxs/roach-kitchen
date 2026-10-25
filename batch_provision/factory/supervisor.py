@@ -73,7 +73,7 @@ from .shoe import ShoeJob
 from .transport import TransportRun
 from .wellteam import LeaderUnheard, WellTeamRun
 from .welltrain import WellTrainRun
-from .sell import SellJob
+from .sell import SellJob, parked
 from .schedule import (COAST_WAIT, DOWNSTREAM, FARMING_SIDE, OTHER, PULL_COAST, PULL_FRESH, UPSTREAM, WELL, Known,
                        PullPolicy, alt_window_cap, close_reason, count_sides, decide_pull, has_candidate, pick_delete, pick_rebuild, pick_roles, retry_quarantined,
                        team_ready)
@@ -362,7 +362,12 @@ class Supervisor:
         self.recv_room = (None, 0.0)    # (receiver_body's last BagRoom, monotonic time it was read)
         self.full_warned = -1e9         # last 'receiver bag full' error, monotonic
         us = getattr(s, 'unload', None)
-        self.unloader = StoreUnload(us, s.factory, s.login, self.throttle, self.own, logger) if us else None
+        # store roles only hold 料理: with dish_trade = false no 料理 comes in, so [receiver] stores is ignored
+        # (user, 2026-10-26: no store roles for now)
+        self.unloader = StoreUnload(us, s.factory, s.login, self.throttle, self.own, logger) \
+            if us and s.factory.dish_trade else None
+        if us and not s.factory.dish_trade:
+            logger.info('料理不交易（dish_trade = false）：不用仓库号，local.toml [receiver] stores 忽略')
         self.unload_after = 0.0         # monotonic: no unload before (after a failed one)
         self.bag_blocked = {}           # station_id -> alarm text: bag still short of room after selling (supply)
         self.relogin = getattr(s, 'relogin', None)
@@ -878,7 +883,8 @@ class Supervisor:
     def chore(self, conn, roles, cid, aw):
         c = aw.client
         with ProcessMemory(c.session.pid, c.session.base) as mem:
-            obs = observe(mem, read_world(mem))
+            world = read_world(mem)
+            obs = observe(mem, world)
         if obs is None or obs.char_id != cid:
             # 2026-10-13 live: mw19r1 dropped back to the account/password screen with its process alive; it stayed
             # in the queue and two coast leaders each waited 120 s for it. Unreadable -> not offered to stations.
@@ -909,6 +915,8 @@ class Supervisor:
         elif plan.phase == HANDIN:
             job, label = HandinJob(c, aw.account, aw.slot, fs, lg), '交任务'
         elif plan.phase == SELL_JUNK:
+            if fs.sell_pause and parked(world):
+                return          # test: stays at 花袭人 unsold
             job, label = SellJob(c, aw.account, aw.slot, fs, lg), '卖杂物'
         elif plan.phase in ORPHAN_TEAM:
             job, label = LeaveJob(c, lg), '离队'

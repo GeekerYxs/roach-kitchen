@@ -10,6 +10,7 @@ from . import native
 from .log import for_account
 from .login import LaunchThrottle, login, read_session  # noqa: F401  (LaunchThrottle re-exported)
 from .memory import ProcessMemory
+from .pipeline import last_rosters, remember_roster
 from .protocol import MAX_SLOTS, OP_CREATE_REPLY, TapReader, build_create, parse_create_reply
 from .state import CREATED, EXISTS, FAILED, NO_SLOT, UNCERTAIN, AccountState
 
@@ -25,6 +26,16 @@ CREATE_RESULT = {RESULT_NOT_READY: '服务器未就绪（推测：登录数据�
 NOT_READY_RETRY_DELAY = 3.0
 SLOTS_FULL = 'slots_full'
 NOT_READY = 'not_ready'
+
+
+def may_skip(roles, is_done, last_roster):
+    """Skip the account without logging in? Only when every role is recorded as created AND the selection screen,
+    the last time any tool saw it (state/pipeline/rosters.json, None = never), did not lack one of them: records of
+    2026-10-12 still said created after the roles were deleted, so 29 of 30 accounts were skipped (2026-10-26) and
+    the supervisor had nothing to pull."""
+    if not all(is_done(r) for r in roles):
+        return False
+    return last_roster is None or all(r in last_roster for r in roles)
 
 
 class StepError(RuntimeError):
@@ -48,7 +59,8 @@ class AccountJob:
     def run(self):
         started = time.monotonic()
         summary = {'account': self.account.name, 'ok': False, 'step': None, 'error': None}
-        if not self.s.keep_windows_open and all(self.state.is_done(r) for r in self.roles):
+        if not self.s.keep_windows_open and may_skip(self.roles, self.state.is_done,
+                                                     last_rosters().get(self.account.name)):
             self.log.info('%d 个角色记录均已创建，且不保留窗口，跳过本号', len(self.roles))
             summary.update(ok=True, skipped=True, roles={r: self.state.role(r).get('status') for r in self.roles},
                            pid=None, hwnd=None, seconds=0)
@@ -103,7 +115,9 @@ class AccountJob:
         return login(self.s, self.account, self.runtime, self.throttle, self.log, self.s.kill_on_failure)
 
     def _read_session(self):
-        return read_session(self.session, self.account.name, self.log, own_names=self.roles)
+        context, roster = read_session(self.session, self.account.name, self.log, own_names=self.roles)
+        remember_roster(self.account.name, roster)
+        return context, roster
 
     def _create_roles(self, reader, context, roster):
         present = {name for _, _, name in roster}

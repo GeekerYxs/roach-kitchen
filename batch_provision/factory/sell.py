@@ -18,6 +18,8 @@ Mid-chain (no 料理 yet, phase.bag_blocked: the bag is too full for the quest-7
 no unequip, no sold_at (the final run still comes), and the alt stays at 花袭人; still blocked afterwards -> quarantine.
 Live 2026-10-20 (client 2.99, mvp01r1 at 小美): 扳手 + 5 新手装 sold 6/6, gold 0 -> 515 = exactly half the ItemLib
 prices, 8.9 s.
+factory.toml / local.toml [factory] sell_pause = true (test, user 2026-10-26: find out why the shop now answers
+「物品不存在」): step 1 only, the alt stands at 花袭人 with everything still on, and the supervisor leaves it there.
 Pure parts: factory/items.py (junk_count, unequip_plan), phase.derive_phase (tests).
 """
 import math
@@ -77,6 +79,10 @@ class SellJob:
                         return {**result, 'ok': True, 'skipped': True}
                     quest = read_quest(mem, QUEST_ID)
                     final = item_count(read_bag(mem) or (), DISH_ITEM) > 0 or bool(quest and quest.done)
+                    if self.s.sell_pause:
+                        self.walk(mem, game, NURSE.spot, '去花袭人')
+                        self.log.info('测试 sell_pause：到花袭人了，停在这里，不脱装备也不卖')
+                        return {**result, 'ok': True, 'paused': True}
                     self._run(conn, mem, game, shop, result, final)
                     after = self._phase(conn, mem)
                     if not final and after.phase == SELL_JUNK:
@@ -206,6 +212,11 @@ class SellJob:
 
 
 assert ARRIVE_RANGE <= SHOP_RANGE      # close enough for the shop as supply.py measures it
+
+
+def parked(w):
+    """sell_pause: this alt already stands at 花袭人 (the supervisor sends no more junk runs)."""
+    return w is not None and w.map_id == COAST_MAP and math.dist((w.x, w.y), NURSE.spot) <= ARRIVE_RANGE
 
 
 def main():

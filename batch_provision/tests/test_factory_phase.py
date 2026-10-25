@@ -129,7 +129,7 @@ class Coast(unittest.TestCase):
     def test_materials_done_below_18_farms_on(self):
         p = phase(replace(FARMING, legs=10, rumps=21, level=P.HANDIN_LEVEL - 1))
         self.assertEqual(p.phase, P.QUEUE_COAST)
-        self.assertIn('18', p.reason)
+        self.assertIn(str(P.HANDIN_LEVEL), p.reason)
         in_team = replace(FARMING, legs=10, rumps=20, level=12, team_leader=COAST_LEADER)
         self.assertEqual(phase(in_team).phase, P.FARMING)
         self.assertEqual(phase(replace(in_team, team_leader=DISPATCHER)).phase, P.WAIT_DISBAND)

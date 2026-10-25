@@ -1,7 +1,8 @@
-"""factory.toml -> Settings."""
-import tomllib
+"""factory.toml (with this machine's local.toml [factory] laid over) -> Settings."""
 from dataclasses import dataclass
 from pathlib import Path
+
+from provisioner import config
 
 from . import phase
 
@@ -45,6 +46,7 @@ class Settings:
     receiver_bag_warn: int = 3
     dish_trade: bool = False        # off: the receiver collects only the gold (phase.DISH_TRADE)
     handin_level: int = 18          # hand in quest 78 at this level (phase.HANDIN_LEVEL)
+    sell_pause: bool = False        # test: alts walk to 花袭人 and stop there, nothing is taken off or sold
 
 
 def _point(value, name):
@@ -61,7 +63,7 @@ def _patrol(value, name):
 
 
 def load_settings(path):
-    data = tomllib.loads(Path(path).read_text('utf-8')) if Path(path).is_file() else {}
+    data = config._read(path) if Path(path).is_file() else {}      # local.toml [factory] = this machine only
     f = data.get('factory', {})
     size = int(f.get('well_team_size', 4))
     if not 1 <= size <= 4:
@@ -81,6 +83,9 @@ def load_settings(path):
             or not phase.TARGET_LEVEL <= handin_level <= 100:
         raise ValueError(f'handin_level 应是 {phase.TARGET_LEVEL}..100 的整数，实际 {handin_level!r}')
     phase.HANDIN_LEVEL = handin_level
+    sell_pause = f.get('sell_pause', False)
+    if not isinstance(sell_pause, bool):
+        raise ValueError(f'sell_pause 应是 true 或 false，实际 {sell_pause!r}')
     return Settings(db_path=ROOT / f.get('db', 'state/factory.db'), tick=float(f.get('tick', 0.2)),
                     meat_timeout=float(f.get('meat_timeout', 60)), shoe_timeout=float(f.get('shoe_timeout', 60)),
                     gold_amount=int(f.get('gold_amount', 500)),
@@ -111,4 +116,4 @@ def load_settings(path):
                     receive_timeout=float(f.get('receive_timeout', 60)),
                     receive_lease=float(f.get('receive_lease', 120)),
                     receiver_bag_warn=int(f.get('receiver_bag_warn', 3)), dish_trade=dish_trade,
-                    handin_level=handin_level)
+                    handin_level=handin_level, sell_pause=sell_pause)

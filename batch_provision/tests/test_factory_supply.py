@@ -179,7 +179,7 @@ class Requests(unittest.TestCase):
         self.bags = [junk_bag, ()]
         self.assertEqual(self.client.sell(NURSE, list(junk_bag)), 2)
         shop = [b for op, b in self.sent() if op == 0x55]
-        self.assertEqual(shop, [struct.pack('<IIBBHBBBB', 0, 409, 2, 1, 0, 0, 1, 1, 4)])
+        self.assertEqual(shop, [struct.pack('<IIBBHBHBH', 0, 409, 2, 1, 0, 0, 1, 1, 4)])
         self.assertEqual([b for op, b in self.sent() if op == 0x51], [struct.pack('<III', 0, 2, 0)])
 
     def test_sell_batches_of_20_each_with_a_fresh_open(self):
@@ -188,7 +188,7 @@ class Requests(unittest.TestCase):
         self.assertEqual(self.client.sell(NURSE, list(big)), 25)
         shop = [b for op, b in self.sent() if op == 0x55]
         self.assertEqual([b[8] for b in shop], [20, 5])
-        self.assertEqual([len(b) for b in shop], [52, 22])
+        self.assertEqual([len(b) for b in shop], [72, 27])
         self.assertEqual(len([op for op, _ in self.sent() if op == 0x50]), 2)
 
     def test_sell_counts_only_slots_that_left_the_bag(self):
@@ -204,7 +204,7 @@ class Requests(unittest.TestCase):
         def shop(op, body):         # all or nothing per request; item 502 is never accepted
             if op != 0x55:
                 return
-            asked = {body[12 + 2 * i] for i in range(body[8])}
+            asked = {body[12 + 3 * i] for i in range(body[8])}
             have = [b for b in state['bag'] if b.slot in asked]
             if all(b.item_id != 502 for b in have):
                 state['bag'] = tuple(b for b in state['bag'] if b.slot not in asked)
@@ -221,7 +221,11 @@ class Requests(unittest.TestCase):
         self.assertEqual([b[8] for op, b in self.sent() if op == 0x55], [2])
 
     def test_sell_body(self):
-        self.assertEqual(sell_body(409, [(3, 2)]), struct.pack('<IIBBHBB', 0, 409, 1, 1, 0, 3, 2))   # live 1-slot shape
+        # client 2.100's own requests, captured 2026-10-26 (mw101r1 at 花袭人)
+        self.assertEqual(sell_body(409, [(7, 1)]).hex(), '000000009901000001010000070100')
+        self.assertEqual(sell_body(409, [(2, 1), (3, 1), (4, 1)]).hex(),
+                         '000000009901000003010000' '020100' '030100' '040100')
+        self.assertEqual(sell_body(409, [(5, 300)])[-3:], bytes([5, 0x2c, 0x01]))     # qty is 16 bits now
         with self.assertRaises(ValueError):
             sell_body(409, [(1, 1)] * 21)
         with self.assertRaises(ValueError):

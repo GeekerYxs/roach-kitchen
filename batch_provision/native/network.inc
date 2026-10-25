@@ -99,6 +99,9 @@ static LRESULT generic_call(const COPYDATASTRUCT* copy){
 }
 static LRESULT provision_command(const COPYDATASTRUCT* copy){
     if(copy->dwData==106)return generic_call(copy);
+    // arm only observes (send/recv tap): allowed in world too, to record the client's own requests
+    // (2026-10-26: the shop's sell reply 「第三个物品不存在」 on 2.100)
+    if(copy->dwData==100&&status->stage==8)return arm();
     if(status->stage!=9)return FALSE;
     if(copy->dwData==100)return arm();
     if(copy->dwData==101&&copy->cbData==12){const DWORD* p=(const DWORD*)copy->lpData;if(p[0]>1024||p[1]>768||p[2]>2)return FALSE;UINT msg=p[2]==0?WM_MOUSEMOVE:(p[2]==1?WM_LBUTTONDOWN:WM_LBUTTONUP);return PostMessageW(window,msg,p[2]==1?MK_LBUTTON:0,MAKELPARAM(p[0],p[1]));}

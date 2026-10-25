@@ -12,7 +12,7 @@ sold at 花袭人 for +578 = half the ItemLib price, supplies and 重要物品 k
       options 1 购买宠物道具, 3 出售物品
 Requests: open = 0x50 <I 0><I npc> + 0x51 <I 0><I option><I 0>; then ONE
 0x55 <I 0><I npc><B 1><B 0 buy | 1 sell><H 0><B shelf slot | bag slot><B qty>. Every buy needs a fresh open (a
-second 0x55 without one is ignored). A sell carries up to 20 (bag slot, qty) pairs after the count byte (sell_body). A buy fills the existing stack first, then new bag slots. Afterwards the NPC
+second 0x55 without one is ignored). A sell carries up to 20 (bag slot, u16 qty) entries after the count byte (sell_body; 2.100 format). A buy fills the existing stack first, then new bag slots. Afterwards the NPC
 dialog is closed (离开 = SelectNpcDialogEntry(0)): left open, the next NPC's dialog is misread (live 2026-10-20:
 小美's dialog was taken for PP鸡's).
 
@@ -194,16 +194,18 @@ def blocked_text(who, free, capacity, top):
 
 
 def sell_body(npc, entries):
-    """0x55 sell: <I 0><I npc><B n><B 1 = sell><H 0> + n x <B bag slot><B qty>, 12 + 2n bytes, n <= SELL_BATCH.
-    The client's builder (RVA 0x1fc0b0, disassembled 2026-10-20) writes the entry count at offset 8 and length
-    (n + 6) * 2; with n = 1 it is the 14-byte request verified live (box01 / cap07)."""
+    """0x55 sell: <I 0><I npc><B n><B 1 = sell><H 0> + n x <B bag slot><H qty>, 12 + 3n bytes, n <= SELL_BATCH.
+    Client 2.100 (captured 2026-10-26 on mw101r1, the client's own sells at 花袭人): one slot
+    00000000 99010000 01 01 0000 070100 (15 bytes), three slots ... 03 01 xxxx 020100 030100 040100 (21 bytes);
+    the qty became 16 bits. The 2.99 body (<B slot><B qty>, 12 + 2n) is read 3 bytes per entry by the 2.100 server:
+    every sell failed, one with 「第三个物品不存在」. The client's <H> after the count held stack garbage; we send 0."""
     if not 0 < len(entries) <= SELL_BATCH:
         raise ValueError(f'一次卖 {len(entries)} 格，应为 1..{SELL_BATCH}')
     body = struct.pack('<IIBBH', 0, npc, len(entries), 1, 0)
     for slot, qty in entries:
-        if not (0 <= slot < 256 and 0 < qty < 256):
+        if not (0 <= slot < 256 and 0 < qty < 65536):
             raise ValueError(f'背包格 {slot} / 数量 {qty} 超出范围')
-        body += struct.pack('<BB', slot, qty)
+        body += struct.pack('<BH', slot, qty)
     return body
 
 
