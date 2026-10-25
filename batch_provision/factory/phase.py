@@ -8,7 +8,8 @@ from dataclasses import dataclass
 
 NOVICE_MAP, VILLAGE_MAP, MEADOW_MAP, WELL_MAP, COAST_MAP = 271, 1, 130, 651, 81
 TARGET_LEVEL = 11
-HANDIN_LEVEL = 18               # user, 2026-10-25: materials done -> the coast team farms on until 18, then hand in
+HANDIN_LEVEL = 18               # factory.toml handin_level (user, 2026-10-25): materials done -> the coast team farms
+                                # on until this level, then hand in; config.load_settings sets it for the process
 TELEPORT_FEE = 190
 GOLD_GIFT = 500                 # covers two teleports (e.g. died at the coast and must come back)
 GOLD_TOPUP_BELOW = 2 * TELEPORT_FEE   # user, 2026-10-12: keep enough for two teleports, top up below 380

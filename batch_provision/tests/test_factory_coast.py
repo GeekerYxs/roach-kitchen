@@ -201,10 +201,10 @@ class Settings_(unittest.TestCase):
         self.assertEqual(len(s.coast_level_patrol), 2)
         self.assertGreaterEqual(s.coast_farm_timeout, 3600)        # farming on to 18 takes hours
 
-    def test_dish_trade_switch_sets_the_phase_default(self):
+    def test_switches_set_the_phase_defaults(self):
         import tempfile
         from factory import phase
-        old = phase.DISH_TRADE
+        old, old_level = phase.DISH_TRADE, phase.HANDIN_LEVEL
         try:
             self.assertFalse(load_settings(ROOT / 'factory.toml').dish_trade)     # 2026-10-25: 料理不能交易
             self.assertFalse(phase.DISH_TRADE)
@@ -216,8 +216,18 @@ class Settings_(unittest.TestCase):
                 cfg.write_text('[factory]\ndish_trade = "no"\n', 'utf-8')
                 with self.assertRaises(ValueError):
                     load_settings(cfg)
+                self.assertEqual(load_settings(ROOT / 'factory.toml').handin_level, phase.HANDIN_LEVEL)
+                cfg.write_text('[factory]\nhandin_level = 15\n', 'utf-8')
+                self.assertEqual(load_settings(cfg).handin_level, 15)
+                self.assertEqual(phase.HANDIN_LEVEL, 15)
+                self.assertEqual(choose_spot([(10, 20)], [15]), 'done')       # the coast follows the setting
+                self.assertEqual(choose_spot([(10, 20)], [14]), 'level')
+                for bad in ('10', '"18"', 'true', '18.5'):
+                    cfg.write_text(f'[factory]\nhandin_level = {bad}\n', 'utf-8')
+                    with self.assertRaises(ValueError):
+                        load_settings(cfg)
         finally:
-            phase.DISH_TRADE = old
+            phase.DISH_TRADE, phase.HANDIN_LEVEL = old, old_level
 
 
 if __name__ == '__main__':

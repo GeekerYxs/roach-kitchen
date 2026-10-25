@@ -44,6 +44,7 @@ class Settings:
     receive_lease: float
     receiver_bag_warn: int = 3
     dish_trade: bool = False        # off: the receiver collects only the gold (phase.DISH_TRADE)
+    handin_level: int = 18          # hand in quest 78 at this level (phase.HANDIN_LEVEL)
 
 
 def _point(value, name):
@@ -75,6 +76,11 @@ def load_settings(path):
     if not isinstance(dish_trade, bool):
         raise ValueError(f'dish_trade 应是 true 或 false，实际 {dish_trade!r}')
     phase.DISH_TRADE = dish_trade       # every derive_phase() of this process follows factory.toml
+    handin_level = f.get('handin_level', 18)
+    if isinstance(handin_level, bool) or not isinstance(handin_level, int) \
+            or not phase.TARGET_LEVEL <= handin_level <= 100:
+        raise ValueError(f'handin_level 应是 {phase.TARGET_LEVEL}..100 的整数，实际 {handin_level!r}')
+    phase.HANDIN_LEVEL = handin_level
     return Settings(db_path=ROOT / f.get('db', 'state/factory.db'), tick=float(f.get('tick', 0.2)),
                     meat_timeout=float(f.get('meat_timeout', 60)), shoe_timeout=float(f.get('shoe_timeout', 60)),
                     gold_amount=int(f.get('gold_amount', 500)),
@@ -104,4 +110,5 @@ def load_settings(path):
                     receive_post_timeout=float(f.get('receive_post_timeout', 180)),
                     receive_timeout=float(f.get('receive_timeout', 60)),
                     receive_lease=float(f.get('receive_lease', 120)),
-                    receiver_bag_warn=int(f.get('receiver_bag_warn', 3)), dish_trade=dish_trade)
+                    receiver_bag_warn=int(f.get('receiver_bag_warn', 3)), dish_trade=dish_trade,
+                    handin_level=handin_level)

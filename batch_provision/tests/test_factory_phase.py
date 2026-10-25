@@ -116,6 +116,16 @@ class Coast(unittest.TestCase):
         self.assertEqual(phase(replace(FARMING, legs=10, rumps=21, level=P.HANDIN_LEVEL)).phase, P.HANDIN)
         self.assertEqual(phase(replace(FARMING, legs=10, rumps=20, level=25)).phase, P.HANDIN)
 
+    def test_handin_level_follows_the_setting(self):
+        old = P.HANDIN_LEVEL
+        try:
+            P.HANDIN_LEVEL = P.TARGET_LEVEL         # 11 = hand in as soon as the materials are there (the old way)
+            self.assertEqual(phase(replace(FARMING, legs=10, rumps=20, level=11)).phase, P.HANDIN)
+            P.HANDIN_LEVEL = 20
+            self.assertEqual(phase(replace(FARMING, legs=10, rumps=20, level=19)).phase, P.QUEUE_COAST)
+        finally:
+            P.HANDIN_LEVEL = old
+
     def test_materials_done_below_18_farms_on(self):
         p = phase(replace(FARMING, legs=10, rumps=21, level=P.HANDIN_LEVEL - 1))
         self.assertEqual(p.phase, P.QUEUE_COAST)
