@@ -196,6 +196,30 @@ class Requests(unittest.TestCase):
         self.bags = [(BagSlot(1, 501, 4),)] * 40           # slot 1 refused
         self.assertEqual(self.client.sell(NURSE, list(junk_bag)), 1)
 
+    def test_refused_batch_is_retried_slot_by_slot(self):
+        # live 2026-10-25: the server refused a whole batch for its third entry; the others must still go
+        junk_bag = bag((500, 1), (501, 4), (502, 1))
+        state = {'bag': junk_bag}
+
+        def shop(op, body):         # all or nothing per request; item 502 is never accepted
+            if op != 0x55:
+                return
+            asked = {body[12 + 2 * i] for i in range(body[8])}
+            have = [b for b in state['bag'] if b.slot in asked]
+            if all(b.item_id != 502 for b in have):
+                state['bag'] = tuple(b for b in state['bag'] if b.slot not in asked)
+        self.game.send.side_effect = shop
+        with mock.patch.object(supply, 'read_bag', side_effect=lambda mem: state['bag']):
+            self.assertEqual(self.client.sell(NURSE, list(junk_bag)), 2)
+        self.assertEqual([b[8] for op, b in self.sent() if op == 0x55], [3, 1, 1, 1])   # batch, then slot by slot
+        self.assertEqual(state['bag'], (junk_bag[2],))
+
+    def test_same_slot_is_sent_once(self):
+        junk_bag = bag((500, 1), (501, 4))
+        self.bags = [junk_bag, ()]
+        self.assertEqual(self.client.sell(NURSE, list(junk_bag) + [junk_bag[0]]), 2)
+        self.assertEqual([b[8] for op, b in self.sent() if op == 0x55], [2])
+
     def test_sell_body(self):
         self.assertEqual(sell_body(409, [(3, 2)]), struct.pack('<IIBBHBB', 0, 409, 1, 1, 0, 3, 2))   # live 1-slot shape
         with self.assertRaises(ValueError):

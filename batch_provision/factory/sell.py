@@ -9,8 +9,11 @@ User, 2026-10-20: alts sell everything sellable before the delete, the worn 专�
      in the equipment table and the bag
   3. sell the alt-rule bag slots at 花袭人 (factory/supply.py ShopClient: fresh open per item, verified per slot),
      close the dialog
-  4. ledger sold_at = now (also after a partial sale: an item the shop refuses must not loop the alt), walk back to
-     the receiver post; phase.derive_phase then puts the alt into queue_receiver
+  4. ledger sold_at = now once nothing sellable is left (bag and worn), walk back to the receiver post;
+     phase.derive_phase then puts the alt into queue_receiver. Something still left (live 2026-10-25: the server
+     refused a 20-slot request with 「第三个物品不存在」, the alt traded its gold and was deleted unsold) -> no sold_at,
+     a 'sell_left' event, the alt stays sell_junk and runs again; after SELL_TRIES runs that still leave something
+     (items the shop really refuses must not loop the alt) sold_at is set all the same and the leftovers are logged
 Mid-chain (no 料理 yet, phase.bag_blocked: the bag is too full for the quest-78 materials): steps 1 and 3 only,
 no unequip, no sold_at (the final run still comes), and the alt stays at 花袭人; still blocked afterwards -> quarantine.
 Live 2026-10-20 (client 2.99, mvp01r1 at 小美): 扳手 + 5 新手装 sold 6/6, gold 0 -> 515 = exactly half the ItemLib
@@ -42,6 +45,15 @@ STALL = 6.0                     # path-finder 'active' but not moving this long 
                                 # stopped at (1200,1080) on the way back, 2026-10-20)
 ESCAPE_EVERY = 2.0
 UNEQUIP_WAIT = 3.0
+SELL_TRIES = 3                  # final junk runs before the leftovers are given up (see the module doc)
+
+
+def after_sale(left, tries_before, limit=SELL_TRIES):
+    """A final junk run ended with `left` sellable slots/worn items still there, after `tries_before` earlier runs
+    that also left some. -> 'done' (nothing left) | 'again' (stay sell_junk) | 'give_up' (book it as sold)."""
+    if not left:
+        return 'done'
+    return 'give_up' if tries_before + 1 >= limit else 'again'
 
 
 class SellJob:
@@ -114,13 +126,25 @@ class SellJob:
         gold = read_gold(mem)
         result['gold_change'] = None if gold is None or gold_before is None else gold - gold_before
         if final:
-            db.complete_action(conn, self.c.char_id, time.time(), sold_at=time.time())
+            left = items.sell_slots(read_bag(mem) or (), table) + items.worn_to_sell(read_equipment(mem) or (), table)
+            tries = conn.execute("SELECT COUNT(*) FROM events WHERE kind='sell_left' AND char_id=?",
+                                 (self.c.char_id,)).fetchone()[0]
+            verdict = after_sale(left, tries)
+            result['left'], result['again'] = len(left), verdict == 'again'
+            if verdict != 'done':
+                names = ', '.join(f'第{s.slot}格 {table[s.item_id].name}×{s.quantity}' for s in left)
+                db.log_event(conn, time.time(), 'sell_left', f'第 {tries + 1} 次卖完还剩 {len(left)} 样: {names}',
+                             char_id=self.c.char_id)
+                self.log.warning('第 %d/%d 次卖完还剩 %d 样没卖掉: %s%s', tries + 1, SELL_TRIES, len(left), names,
+                                 '；不再重试，照常交金币' if verdict == 'give_up' else '；稍后再卖一次，先不交金币')
+            if verdict != 'again':
+                db.complete_action(conn, self.c.char_id, time.time(), sold_at=time.time())
         db.log_event(conn, time.time(), 'sell', f'{"" if final else "腾背包 "}卖 {result["sold"]}/{len(slots)} 格 '
                      f'脱 {result["unequipped"]} 件 金币变化 {result["gold_change"]}', char_id=self.c.char_id)
         self.log.info('卖了 %d/%d 格，脱下 %d 件，金币 %s -> %s', result['sold'], len(slots), result['unequipped'],
                       gold_before, gold)
-        if not final:
-            return          # back to queue_coast: the coast leader calls it over from here
+        if not final or result.get('again'):
+            return          # back to queue_coast (the coast leader calls it over) / sell again from 花袭人
         try:
             self.walk(mem, game, self.s.receiver_post, '回收货点')
         except RuntimeError as e:     # sold and booked already; the receiver walks the alt over itself

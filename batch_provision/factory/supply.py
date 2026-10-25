@@ -274,9 +274,15 @@ class ShopClient:
         return ok
 
     def sell(self, shop, slots):
-        """Sell the given bag slots, up to SELL_BATCH per request (one fresh open each), verified in the bag.
-        -> number sold."""
-        sold = 0
+        """Sell the given bag slots, up to SELL_BATCH per request (one fresh open each), verified in the bag; what a
+        batch left behind is tried once more slot by slot (live 2026-10-25: the server answered 「第三个物品不存在」
+        and the whole 20-slot request sold nothing). -> number sold."""
+        seen, unique = set(), []
+        for s in slots:                 # one entry per bag slot: a slot twice in one request is a missing item
+            if s.slot not in seen:
+                seen.add(s.slot)
+                unique.append(s)
+        slots, sold = unique, 0
         for i in range(0, len(slots), SELL_BATCH):
             batch = slots[i:i + SELL_BATCH]
             self.open(shop, shop.sell_option)
@@ -285,6 +291,15 @@ class ShopClient:
             left = still_there(read_bag(self.mem) or (), batch)
             sold += len(batch) - len(left)
             self.log.info('%s 一次卖 %d 格，成功 %d 格', shop.name, len(batch), len(batch) - len(left))
+            if len(batch) > 1:
+                for s in left:
+                    if not still_there(read_bag(self.mem) or (), [s]):
+                        sold += 1       # it went after all (late update)
+                        continue
+                    self.open(shop, shop.sell_option)
+                    self._sell_request(shop, [s])
+                    sold += self._wait(lambda bag: not still_there(bag, [s]))
+                left = still_there(read_bag(self.mem) or (), batch)
             for s in left:
                 self.log.warning('%s 卖 背包第 %d 格（物品 %d ×%d）没成功', shop.name, s.slot, s.item_id, s.quantity)
         return sold
