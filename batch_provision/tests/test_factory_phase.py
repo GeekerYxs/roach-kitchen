@@ -19,8 +19,8 @@ ON_COAST = replace(AT_11, map_id=P.COAST_MAP, gold=310)
 FARMING = replace(ON_COAST, quest=P.QUEST_ACTIVE)
 
 
-def phase(obs, ledger=READY):
-    return derive_phase(obs, ledger, STATIONS)
+def phase(obs, ledger=READY, dish_trade=True):
+    return derive_phase(obs, ledger, STATIONS, dish_trade)
 
 
 class Village(unittest.TestCase):
@@ -113,7 +113,16 @@ class Coast(unittest.TestCase):
         self.assertEqual(phase(done).phase, P.FARMING)
 
     def test_done_and_alone_hands_in(self):
-        self.assertEqual(phase(replace(FARMING, legs=10, rumps=21)).phase, P.HANDIN)
+        self.assertEqual(phase(replace(FARMING, legs=10, rumps=21, level=P.HANDIN_LEVEL)).phase, P.HANDIN)
+        self.assertEqual(phase(replace(FARMING, legs=10, rumps=20, level=25)).phase, P.HANDIN)
+
+    def test_materials_done_below_18_farms_on(self):
+        p = phase(replace(FARMING, legs=10, rumps=21, level=P.HANDIN_LEVEL - 1))
+        self.assertEqual(p.phase, P.QUEUE_COAST)
+        self.assertIn('18', p.reason)
+        in_team = replace(FARMING, legs=10, rumps=20, level=12, team_leader=COAST_LEADER)
+        self.assertEqual(phase(in_team).phase, P.FARMING)
+        self.assertEqual(phase(replace(in_team, team_leader=DISPATCHER)).phase, P.WAIT_DISBAND)
 
     def test_legs_alone_are_not_enough(self):
         self.assertEqual(phase(replace(FARMING, legs=10, rumps=19)).phase, P.QUEUE_COAST)
@@ -183,6 +192,51 @@ class Finish(unittest.TestCase):
         self.assertEqual(phase(replace(AT_11, quest=P.QUEST_DONE, gold=900)).phase, P.DELETE)
 
 
+class NoDishTrade(unittest.TestCase):
+    """factory.toml dish_trade = false: the 料理 stays in the bag, the receiver only collects the gold."""
+    HANDED_IN = replace(FARMING, quest=P.QUEST_DONE, dishes=1, gold=1753)
+
+    def off(self, obs, ledger=READY):
+        return phase(obs, ledger, dish_trade=False)
+
+    def test_gold_goes_to_receiver_with_the_dish_in_the_bag(self):
+        p = self.off(self.HANDED_IN)
+        self.assertEqual(p.phase, P.QUEUE_RECEIVER)
+        self.assertIn('1753', p.reason)
+
+    def test_gold_handed_over_deletes_with_the_dish(self):
+        p = self.off(replace(self.HANDED_IN, gold=0))
+        self.assertEqual(p.phase, P.DELETE)
+        self.assertIn('随角色删除', p.reason)
+
+    def test_junk_is_sold_once_before_the_receiver(self):
+        obs = replace(self.HANDED_IN, junk=7)
+        self.assertEqual(self.off(obs).phase, P.SELL_JUNK)
+        self.assertEqual(self.off(obs, replace(READY, sold_at=20.0)).phase, P.QUEUE_RECEIVER)
+        self.assertEqual(self.off(replace(obs, team_leader=COAST_LEADER)).phase, P.LEAVE_TEAM)
+
+    def test_gold_unread_waits_for_the_receiver(self):
+        self.assertEqual(self.off(replace(self.HANDED_IN, gold=None)).phase, P.QUEUE_RECEIVER)
+
+    def test_gold_off_the_coast_goes_back(self):
+        self.assertEqual(self.off(replace(self.HANDED_IN, map_id=P.VILLAGE_MAP)).phase, P.QUEUE_TRANSPORT)
+        self.assertEqual(self.off(replace(self.HANDED_IN, map_id=P.WELL_MAP)).phase, P.RETURN_HOME)
+
+    def test_before_the_hand_in_nothing_changes(self):
+        for obs in (FARMING, replace(FARMING, legs=10, rumps=20), FRESH, AT_11):
+            self.assertEqual(self.off(obs), phase(obs))
+
+    def test_module_switch_is_the_default(self):
+        old = P.DISH_TRADE
+        try:
+            P.DISH_TRADE = False
+            self.assertEqual(derive_phase(replace(self.HANDED_IN, gold=0), READY, STATIONS).phase, P.DELETE)
+            P.DISH_TRADE = True
+            self.assertEqual(derive_phase(replace(self.HANDED_IN, gold=0), READY, STATIONS).phase, P.QUEUE_RECEIVER)
+        finally:
+            P.DISH_TRADE = old
+
+
 class ReturnHome(unittest.TestCase):
     def test_shoe_first(self):
         self.assertEqual(return_method(FRESH, READY, now=100.0), 'shoe')
@@ -203,11 +257,18 @@ class Potato(unittest.TestCase):
     def test_first_potato(self):
         self.assertTrue(should_eat_potato(FRESH, READY, now=0.0))
 
-    def test_not_again_within_55_min(self):
+    def test_not_again_while_the_pair_lasts(self):
+        self.assertEqual(P.POTATO_RENEW, 2 * 3600 - 300)
         self.assertFalse(should_eat_potato(FRESH, replace(READY, potato_at=0.0), now=P.POTATO_RENEW - 1))
 
-    def test_second_after_55_min(self):
+    def test_again_after_the_pair_ran_out(self):
         self.assertTrue(should_eat_potato(FRESH, replace(READY, potato_at=0.0), now=P.POTATO_RENEW))
+
+    def test_two_in_a_row_at_formation(self):
+        just_ate = replace(READY, potato_at=100.0)
+        self.assertTrue(should_eat_potato(replace(FRESH, potatoes=1), just_ate, now=105.0, eaten=1))
+        self.assertFalse(should_eat_potato(FRESH, just_ate, now=110.0, eaten=P.POTATOES_AT_START))
+        self.assertFalse(should_eat_potato(replace(FRESH, potatoes=0), just_ate, now=105.0, eaten=1))
 
     def test_none_left_or_already_11(self):
         self.assertFalse(should_eat_potato(replace(FRESH, potatoes=0), READY, now=0.0))

@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 NOVICE_MAP, VILLAGE_MAP, MEADOW_MAP, WELL_MAP, COAST_MAP = 271, 1, 130, 651, 81
 TARGET_LEVEL = 11
+HANDIN_LEVEL = 18               # user, 2026-10-25: materials done -> the coast team farms on until 18, then hand in
 TELEPORT_FEE = 190
 GOLD_GIFT = 500                 # covers two teleports (e.g. died at the coast and must come back)
 GOLD_TOPUP_BELOW = 2 * TELEPORT_FEE   # user, 2026-10-12: keep enough for two teleports, top up below 380
@@ -15,7 +16,8 @@ LEGS_ITEM, RUMPS_ITEM, DISH_ITEM = 10571, 10572, 27002
 LEGS_NEEDED, RUMPS_NEEDED = 10, 20
 MEAT_ITEM, POTATO_ITEM, SCROLL_ITEM = 30188, 32004, 9801
 POTATO_SECONDS = 3600           # one 地瓜 = 1 h double exp
-POTATO_RENEW = 55 * 60          # still below 11 this long after eating -> eat the second one
+POTATOES_AT_START = 2           # user, 2026-10-25: eat two 地瓜 in a row when the well team forms (was one)
+POTATO_RENEW = POTATOES_AT_START * POTATO_SECONDS - 5 * 60   # still below 11 this long after eating -> eat again
 SHOE_COOLDOWN = 3600            # 飞鞋 return: once per hour, server-checked
 
 QUEST_ID = 78                   # 飞刀王的晚餐
@@ -45,6 +47,10 @@ DELETE = 'delete'
 DELETED = 'deleted'             # server accepted the delete (stage 10); set by db.mark_deleted, never derived
 QUARANTINED = 'quarantined'
 UNKNOWN = 'unknown'
+
+# factory.toml dish_trade (user, 2026-10-25: 美味小强料理 cannot be traded for now). Off: the 料理 stays in the
+# alt's bag and is deleted with it; the receiver only collects the gold. config.load_settings sets this for the process.
+DISH_TRADE = False
 
 QUEUES = {QUEUE_WELL: WELL, QUEUE_TRANSPORT: DISPATCHER, QUEUE_COAST: COAST, QUEUE_RECEIVER: RECEIVER}
 
@@ -106,8 +112,10 @@ def needs_gold(obs):
     return obs.map_id == VILLAGE_MAP and obs.gold is not None and obs.gold < GOLD_TOPUP_BELOW
 
 
-def derive_phase(obs, ledger, stations):
-    """stations: {char_id: role} of the resident station characters."""
+def derive_phase(obs, ledger, stations, dish_trade=None):
+    """stations: {char_id: role} of the resident station characters. dish_trade: None = DISH_TRADE."""
+    if dish_trade is None:
+        dish_trade = DISH_TRADE
     if ledger.quarantined:
         return Plan(QUARANTINED, '已隔离，等人工处理')
     if obs.map_id == NOVICE_MAP:
@@ -117,7 +125,7 @@ def derive_phase(obs, ledger, stations):
     if obs.team_leader and leader_role is None:
         return Plan(LEAVE_TEAM, f'在陌生队伍里（队长 {obs.team_leader}）')
 
-    if obs.dishes > 0:
+    if obs.dishes > 0 and dish_trade:
         if obs.map_id == COAST_MAP:
             if obs.team_leader:
                 return Plan(LEAVE_TEAM, '有料理但还在队里')
@@ -129,8 +137,14 @@ def derive_phase(obs, ledger, stations):
         if obs.gold != 0 and obs.map_id == COAST_MAP:     # None = unread: the receiver reads it and skips at 0
             if obs.team_leader:
                 return Plan(LEAVE_TEAM, '有金币待收回但还在队里')
-            return Plan(QUEUE_RECEIVER, f'料理已交出，金币 {obs.gold} 排队交给收货人')
-        return Plan(DELETE, '任务已完成、料理和金币已交出，删除角色')
+            if not dish_trade and obs.junk and ledger.sold_at is None:
+                return Plan(SELL_JUNK, f'任务已交，先去花袭人卖掉 {obs.junk} 样杂物和装备')
+            return Plan(QUEUE_RECEIVER, f'料理已交出，金币 {obs.gold} 排队交给收货人' if dish_trade else
+                        f'任务已交，金币 {obs.gold} 排队交给收货人')
+        if obs.gold != 0 and not dish_trade:      # the receiver stands at the coast
+            return _to_coast(obs, leader_role, gold, '有金币待收回但不在海岸')
+        return Plan(DELETE, '任务已完成、料理和金币已交出，删除角色' if dish_trade else
+                    '任务已完成、金币已交出（料理不可交易，随角色删除），删除角色')
 
     if obs.level < TARGET_LEVEL:
         if leader_role == WELL:
@@ -157,8 +171,10 @@ def derive_phase(obs, ledger, stations):
             return Plan(FARMING, f'刷怪中 腿{obs.legs} 鸡屁股{obs.rumps}')
         if obs.team_leader:
             return Plan(LEAVE_TEAM, f'任务中却在{leader_role}队里')
+        if obs.materials_done and obs.level >= HANDIN_LEVEL:
+            return Plan(HANDIN, f'材料齐（腿{obs.legs} 鸡屁股{obs.rumps}）、{obs.level} 级，交任务')
         if obs.materials_done:
-            return Plan(HANDIN, f'材料齐（腿{obs.legs} 鸡屁股{obs.rumps}），交任务')
+            return Plan(QUEUE_COAST, f'材料齐，{obs.level} 级，排刷怪队列继续刷到 {HANDIN_LEVEL} 级')
         if obs.no_room:
             if obs.junk:
                 return Plan(SELL_JUNK, f'背包满，腿/鸡屁股放不下，先去花袭人卖掉 {obs.junk} 格杂物')
@@ -195,8 +211,9 @@ def return_method(obs, ledger, now):
     return 'walk'
 
 
-def should_eat_potato(obs, ledger, now):
-    """Eat one 地瓜 when the well team is formed and about to leave; a second one only if the first ran out."""
-    if obs.level >= TARGET_LEVEL or obs.potatoes <= 0:
+def should_eat_potato(obs, ledger, now, eaten=0):
+    """When the well team is formed and about to leave, eat POTATOES_AT_START 地瓜 in a row (eaten: how many this
+    formation already ate); again only if they ran out before 11."""
+    if obs.level >= TARGET_LEVEL or obs.potatoes <= 0 or eaten >= POTATOES_AT_START:
         return False
-    return ledger.potato_at is None or now - ledger.potato_at >= POTATO_RENEW
+    return eaten > 0 or ledger.potato_at is None or now - ledger.potato_at >= POTATO_RENEW

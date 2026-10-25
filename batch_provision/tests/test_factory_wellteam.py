@@ -120,8 +120,8 @@ BAG = (BagSlot(0, 1, 1), BagSlot(4, POTATO_ITEM, 2))
 
 
 class Potato(unittest.TestCase):
-    def d(self, obs=OBS, bag=BAG, ledger=Ledger(), pending=None, memo=None, now=10.0, wall=100000.0):
-        return decide_potato(obs, W, bag, ledger, pending, memo or Eat(), now, wall)
+    def d(self, obs=OBS, bag=BAG, ledger=Ledger(), pending=None, memo=None, now=10.0, wall=100000.0, eaten=0):
+        return decide_potato(obs, W, bag, ledger, pending, memo or Eat(), now, wall, eaten)
 
     def test_eats_from_the_potato_slot(self):
         d = self.d()
@@ -142,6 +142,16 @@ class Potato(unittest.TestCase):
         self.assertEqual(self.d(bag=(BagSlot(4, POTATO_ITEM, 1),), memo=memo, now=10.4).kind, 'verified')
         self.assertEqual(self.d(memo=memo, now=10.0 + CONFIRM_WAIT - 0.1).kind, 'wait')
         self.assertEqual(self.d(memo=memo, now=10.0 + CONFIRM_WAIT).kind, 'unconfirmed')
+
+    def test_second_potato_right_after_the_first(self):
+        just_ate = Ledger(potato_at=100000.0 - 3)
+        one_left = (BagSlot(4, POTATO_ITEM, 1),)
+        d = self.d(obs=replace(OBS, potatoes=1), bag=one_left, ledger=just_ate, eaten=1)
+        self.assertEqual((d.kind, d.arg.slot), ('use', 4))
+        d = self.d(obs=replace(OBS, potatoes=0), bag=(), ledger=just_ate, eaten=2)
+        self.assertEqual(d.kind, 'done')
+        self.assertIn('2', d.reason)
+        self.assertEqual(self.d(obs=replace(OBS, potatoes=0), bag=(), ledger=just_ate, eaten=1).kind, 'done')
 
     def test_pending_after_crash_counts_as_eaten(self):
         self.assertEqual(self.d(pending=ACTION_POTATO).kind, 'verified')

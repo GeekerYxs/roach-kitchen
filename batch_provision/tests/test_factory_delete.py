@@ -84,17 +84,25 @@ ROW = {'quarantined': 0, 'last_error': None, 'pending_action': None, 'phase': DE
 
 class Gate(unittest.TestCase):
     def test_finished_alt_may_be_deleted(self):
-        self.assertIsNone(gate(ROW, DONE_OBS, True))
+        self.assertIsNone(gate(ROW, DONE_OBS, True, True))
 
     def test_refusals(self):
-        self.assertIn('隔离', gate({**ROW, 'quarantined': 1}, DONE_OBS, True))
-        self.assertIn('不重发', gate({**ROW, 'pending_action': ACTION}, DONE_OBS, True))
-        self.assertIn('queue_receiver', gate({**ROW, 'phase': 'queue_receiver'}, DONE_OBS, True))
-        self.assertIn('观察', gate(ROW, None, True))
-        self.assertIn('任务', gate(ROW, AltObs(1, 81, 12, 0, 0, QUEST_ACTIVE), True))
-        self.assertIn('料理', gate(ROW, AltObs(1, 81, 12, 0, 0, QUEST_DONE, dishes=1), True))
-        self.assertIn('金币', gate(ROW, AltObs(1, 81, 12, 1753, 0, QUEST_DONE), True))
-        self.assertIn('收货', gate(ROW, DONE_OBS, False))
+        self.assertIn('隔离', gate({**ROW, 'quarantined': 1}, DONE_OBS, True, True))
+        self.assertIn('不重发', gate({**ROW, 'pending_action': ACTION}, DONE_OBS, True, True))
+        self.assertIn('queue_receiver', gate({**ROW, 'phase': 'queue_receiver'}, DONE_OBS, True, True))
+        self.assertIn('观察', gate(ROW, None, True, True))
+        self.assertIn('任务', gate(ROW, AltObs(1, 81, 12, 0, 0, QUEST_ACTIVE), True, True))
+        self.assertIn('料理', gate(ROW, AltObs(1, 81, 12, 0, 0, QUEST_DONE, dishes=1), True, True))
+        self.assertIn('金币', gate(ROW, AltObs(1, 81, 12, 1753, 0, QUEST_DONE), True, True))
+        self.assertIn('收货', gate(ROW, DONE_OBS, False, True))
+
+    def test_without_dish_trade_the_dish_goes_with_the_role(self):
+        with_dish = AltObs(1, 81, 12, 0, 0, QUEST_DONE, dishes=1)
+        self.assertIsNone(gate(ROW, with_dish, True, False))
+        self.assertIsNone(gate(ROW, with_dish, False, False))      # gold was 0 already: no receive record
+        self.assertIn('金币', gate(ROW, AltObs(1, 81, 12, 1753, 0, QUEST_DONE, dishes=1), True, False))
+        self.assertIn('任务', gate(ROW, AltObs(1, 81, 12, 0, 0, QUEST_ACTIVE, dishes=1), True, False))
+        self.assertIn('隔离', gate({**ROW, 'quarantined': 1}, with_dish, True, False))
 
 
 class Roster(unittest.TestCase):

@@ -4,7 +4,7 @@ import unittest
 from dataclasses import replace
 
 from factory.receiver import (CONFIRM_WAIT, NAV_RETRY, BagRoom, Memo, bag_alarm, bag_room, bag_text, decide, decide_gold,
-                              dish_count, dish_slot, hours_left)
+                              dish_count, dish_slot, hours_left, step_events)
 from provisioner.game import trade_item_offer_body
 from provisioner.world import BagSlot, Team, WorldState
 
@@ -85,6 +85,18 @@ class DecideGold(unittest.TestCase):
     def test_wrong_amount_at_receiver_fails_without_retrading(self):
         memo = Memo(sent_at=10.0, alt_before=1753, recv_before=5000)
         self.assertEqual(gold(alt_gold=0, recv_gold=6700, memo=memo, now=10.0 + CONFIRM_WAIT).kind, 'fail')
+
+
+class StepEvents(unittest.TestCase):
+    def test_with_dish_trade(self):
+        self.assertEqual(step_events(False, True, True), ['receive'])
+        self.assertEqual(step_events(True, True, True), ['receive_gold'])
+        self.assertEqual(step_events(False, False, True), [])
+        self.assertEqual(step_events(True, False, True), [])
+
+    def test_without_dish_trade_the_gold_step_settles_the_alt(self):
+        self.assertEqual(step_events(True, True, False), ['receive_gold', 'receive'])
+        self.assertEqual(step_events(True, False, False), ['receive'])     # its gold was 0 already
 
 
 class Bag(unittest.TestCase):

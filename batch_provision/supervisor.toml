@@ -93,7 +93,9 @@ kill_settle = 10             # 关完窗口等这么多秒再启动（让服务�
 # 产量兜底（最后一道保险，排在"工位卡住自动重登"之后）：总大脑跑满 output_after_minutes 分钟后，最近 1 小时收到的料理少于
 #   output_floor_per_hour 个、同时有 output_min_waiting 个以上小号在海岸 / 收货排队（有人等却没出货 = 卡住），就全部重启。
 #   收货人背包满了、维护前收尾时不判断。正常产线约 46-72 个/小时。写 0 = 关掉产量兜底。
-output_floor_per_hour = 10
+#   2026-10-25 海岸改成刷到 18 级才交任务：一批 1.5~3 小时、一次出 4 个，某个小时出 0 个是正常的，10 会误杀正在刷的批次，
+#   所以先关掉；卡住的队长仍由"无进展关窗"（stall，海岸约 coast_form_timeout + coast_farm_timeout + 10 分钟）处理。
+output_floor_per_hour = 0
 output_after_minutes = 90
 output_min_waiting = 4
 

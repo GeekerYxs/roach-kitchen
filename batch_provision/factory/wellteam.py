@@ -1,4 +1,4 @@
-"""Stage 4a: the well leader forms its team at the village spawn and every member eats one 地瓜.
+"""Stage 4a: the well leader forms its team at the village spawn and every member eats two 地瓜.
 
 Entry: python -m factory.wellteam [factory.toml]
 The well leader is the station registered with role 'well' (一键登录工位.cmd). One batch per run:
@@ -6,7 +6,8 @@ The well leader is the station registered with role 'well' (一键登录工位.c
   2. alts on map 1 whose derived phase is queue_well (level < 11, meat eaten, shoe recorded, no team) are
      claimed (lease in factory.db), oldest first, up to 4; alts already in the leader's team are kept
   3. invite (leader, request 0x30) -> accept (alt, client function 0x21f590) -> both rosters agree
-  4. each member eats one 地瓜 32004 unless it ate one less than 55 min ago (phase.should_eat_potato)
+  4. each member eats POTATOES_AT_START (2, user 2026-10-25) 地瓜 32004 in a row, one confirmed before the next,
+     unless it ate them less than POTATO_RENEW ago (phase.should_eat_potato)
 Stage 4b (walk to the well, train to 11, return) picks the team up from here.
 
 An alt that fails 3 times (invite/accept/eat not confirmed) is quarantined and dropped from the batch;
@@ -157,9 +158,9 @@ class Eat:
     count_before: int | None = None
 
 
-def decide_potato(obs, world, bag, ledger, pending_action, memo, now, wall_now):
+def decide_potato(obs, world, bag, ledger, pending_action, memo, now, wall_now, eaten=0):
     """'done' | 'skip' | 'use' | 'wait' | 'verified' | 'unconfirmed' | 'fail'. `now` is monotonic, `wall_now`
-    is time.time() (the ledger's clock)."""
+    is time.time() (the ledger's clock); eaten: 地瓜 this member already ate in this formation."""
     if obs is None or world is None or bag is None:
         return Decision('wait', '加载中')
     count = item_count(bag, POTATO_ITEM)
@@ -171,7 +172,9 @@ def decide_potato(obs, world, bag, ledger, pending_action, memo, now, wall_now):
         return Decision('unconfirmed', f'{CONFIRM_WAIT:.0f}s 内地瓜数量没变（{count}）')
     if pending_action == ACTION_POTATO:
         return Decision('verified', '上次已发出吃地瓜请求（程序中断过），按已吃处理')
-    if not should_eat_potato(obs, ledger, wall_now):
+    if not should_eat_potato(obs, ledger, wall_now, eaten):
+        if eaten:
+            return Decision('done', f'这次吃了 {eaten} 个地瓜（还剩 {count} 个）')
         if ledger.potato_at is not None:
             return Decision('done', f'{(wall_now - ledger.potato_at) / 60:.0f} 分钟前吃过地瓜，还有效')
         return Decision('skip', f'不吃地瓜（{obs.level} 级，地瓜 {obs.potatoes} 个）')
@@ -190,6 +193,7 @@ class Member:
         self.c, self.account, self.slot, self.mem = client, account, slot, mem
         self.game = Game(client.session, mem)
         self.join, self.eat = Join(), Eat()
+        self.eaten = 0                  # 地瓜 eaten in this formation (phase.POTATOES_AT_START in a row)
         self.state = 'joining'          # joining -> eating -> ready | dropped
         self.error = None
         self.last_reason = None
@@ -360,13 +364,13 @@ class WellTeamRun:
             self.drop(m, f'已隔离: {row["last_error"]}')
             return
         d = decide_potato(obs, world, bag, db.ledger(self.conn, m.c.char_id), row['pending_action'], m.eat, now,
-                          time.time())
+                          time.time(), m.eaten)
         m.say(d)
         if d.kind in ('done', 'skip'):
             m.state = 'ready'
         elif d.kind == 'verified':
             db.complete_action(self.conn, m.c.char_id, time.time(), potato_at=time.time())
-            m.state = 'ready'
+            m.eaten, m.eat = m.eaten + 1, Eat()     # stays 'eating': the next tick eats the next one or is done
         elif d.kind == 'fail':
             self.drop(m, d.reason)
         elif d.kind == 'unconfirmed':

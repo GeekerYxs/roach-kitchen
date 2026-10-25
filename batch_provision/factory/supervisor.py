@@ -709,7 +709,7 @@ class Supervisor:
 
     def unload_due(self, rmem):
         """Stage 2c: the receiver is at receiver_bag_warn empty slots or fewer and has 料理 for the store roles."""
-        if self.unloader is None or time.monotonic() < self.unload_after:
+        if self.unloader is None or not self.s.factory.dish_trade or time.monotonic() < self.unload_after:
             return False
         return should_unload(read_room(rmem), dish_count(read_bag(rmem)), self.s.factory.receiver_bag_warn)
 
@@ -728,7 +728,10 @@ class Supervisor:
 
     def bag_full(self, rmem, lg):
         """Read the receiver's bag for status(); True when not one more 料理 fits. Then no alt is claimed: a trade
-        into a full bag fails and would quarantine the alt (db.MAX_RETRIES), so the alts wait in their queue."""
+        into a full bag fails and would quarantine the alt (db.MAX_RETRIES), so the alts wait in their queue.
+        Without the 料理 trade (dish_trade = false) only gold comes in: never full, no bag figures."""
+        if not self.s.factory.dish_trade:
+            return False
         room = read_room(rmem)
         self.recv_room = (room, time.monotonic())
         if bag_alarm(room, self.s.factory.receiver_bag_warn) != 'full':
@@ -1191,11 +1194,12 @@ class Supervisor:
         room, read_at = self.recv_room
         if time.monotonic() - read_at > 2 * STATUS_EVERY:      # receiver offline or busy: do not show old numbers
             room = None
-        bag = bag_text(room, self.bag_hours(room))
-        if self.unloader:
+        bag = bag_text(room, self.bag_hours(room)) if self.s.factory.dish_trade else '料理不交易（收货人只收金币）'
+        if self.unloader and self.s.factory.dish_trade:
             bag += ' | ' + stores_text(db.stores(self.conn), self.unloader.names)
-        self.log.info('窗口 %d/%d（登录中 %d）| %s | 本次收料理 %d | %s | 待删 %d 本次删 %d%s | 本次重建 %d%s | 工位: %s',
-                      len(alts), self.s.policy.max_windows, pending, sides, dishes, bag, waiting, self.deleted,
+        self.log.info('窗口 %d/%d（登录中 %d）| %s | 本次%s %d | %s | 待删 %d 本次删 %d%s | 本次重建 %d%s | 工位: %s',
+                      len(alts), self.s.policy.max_windows, pending, sides,
+                      '收料理' if self.s.factory.dish_trade else '交完（任务+金币）', dishes, bag, waiting, self.deleted,
                       '' if self.s.delete else '（删除未启用）', self.rebuilt,
                       '' if self.s.rebuild_after else '（重建未启用）', st)
         with self.lock:

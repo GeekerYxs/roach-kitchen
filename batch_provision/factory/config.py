@@ -3,6 +3,8 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import phase
+
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -35,11 +37,13 @@ class Settings:
     coast_lease: float
     coast_legs_patrol: tuple
     coast_rumps_patrol: tuple
+    coast_level_patrol: tuple
     receiver_post: tuple
     receive_post_timeout: float
     receive_timeout: float
     receive_lease: float
     receiver_bag_warn: int = 3
+    dish_trade: bool = False        # off: the receiver collects only the gold (phase.DISH_TRADE)
 
 
 def _point(value, name):
@@ -67,6 +71,10 @@ def load_settings(path):
     coast_size = int(f.get('coast_team_size', 4))
     if not 1 <= coast_size <= 4:
         raise ValueError(f'coast_team_size 应在 1..4，实际 {coast_size}')
+    dish_trade = f.get('dish_trade', False)
+    if not isinstance(dish_trade, bool):
+        raise ValueError(f'dish_trade 应是 true 或 false，实际 {dish_trade!r}')
+    phase.DISH_TRADE = dish_trade       # every derive_phase() of this process follows factory.toml
     return Settings(db_path=ROOT / f.get('db', 'state/factory.db'), tick=float(f.get('tick', 0.2)),
                     meat_timeout=float(f.get('meat_timeout', 60)), shoe_timeout=float(f.get('shoe_timeout', 60)),
                     gold_amount=int(f.get('gold_amount', 500)),
@@ -89,8 +97,11 @@ def load_settings(path):
                                               'coast_legs_patrol'),
                     coast_rumps_patrol=_patrol(f.get('coast_rumps_patrol', [[1170, 2883], [1000, 2700]]),
                                                'coast_rumps_patrol'),
+                    coast_level_patrol=_patrol(f.get('coast_level_patrol', f.get('coast_rumps_patrol',
+                                                                                  [[1170, 2883], [1000, 2700]])),
+                                               'coast_level_patrol'),
                     receiver_post=_point(f.get('receiver_post', [1780, 1370]), 'receiver_post'),
                     receive_post_timeout=float(f.get('receive_post_timeout', 180)),
                     receive_timeout=float(f.get('receive_timeout', 60)),
                     receive_lease=float(f.get('receive_lease', 120)),
-                    receiver_bag_warn=int(f.get('receiver_bag_warn', 3)))
+                    receiver_bag_warn=int(f.get('receiver_bag_warn', 3)), dish_trade=dish_trade)

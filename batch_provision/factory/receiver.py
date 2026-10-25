@@ -19,7 +19,10 @@ where the alts already stand after the hand-in: map 81 next to 海子, factory.t
      the receiver exactly that much more; 5 s without it -> re-read and trade again (3 tries, then quarantine).
      The alt is then phase delete (stage 10). phase.derive_phase keeps an alt with quest 78 done and gold left in
      queue_receiver, so a crash between the two trades comes back here, not to the delete.
-decide() / decide_gold() are pure (tests/test_factory_receiver.py).
+factory.toml dish_trade = false (user, 2026-10-25: the 料理 cannot be traded): steps 3-4 are skipped, the 料理 stays in
+the alt's bag and is deleted with it; after step 5 the alt is logged 'receive' all the same (one alt settled), which
+the delete check (db.received), the 料理/h figures and the guard's output floor count.
+decide() / decide_gold() / step_events() are pure (tests/test_factory_receiver.py).
 
 Item offer 0x63 <IqIII>(0, 0, 1, bag slot, quantity) comes from the old runtime's UI capture (Gemini mwxqll_game
 reference_runtime/item_trade.py); the step order with the receiver inviting is new.
@@ -173,6 +176,14 @@ def _ready(alt, alt_team, recv, memo, now):
     return None
 
 
+def step_events(gold_step, verified, dish_trade):
+    """Event kinds to log when a step ends ('done' or 'verified')."""
+    kinds = ['receive_gold' if gold_step else 'receive'] if verified else []
+    if gold_step and not dish_trade:
+        kinds.append('receive')         # no 料理 step: the gold step settles the alt
+    return kinds
+
+
 def trade_dish(recv_game, recv_id, alt_game, alt_id, slot, quantity, gap):
     _trade(recv_game, recv_id, alt_game, alt_id, (alt_game.trade_offer_item, (slot, quantity)), gap)
 
@@ -235,7 +246,8 @@ class ReceiveJob:
         started = time.monotonic()
         cid = self.alt.char_id
         result = {'name': self.alt.name, 'char_id': cid, 'ok': False}
-        memo, last_reason, gold_step = Memo(), None, False     # 料理 first, then the gold
+        memo, last_reason = Memo(), None
+        gold_step = not self.s.dish_trade                       # 料理 first (when it can be traded), then the gold
         try:
             with ProcessMemory(self.alt.session.pid, self.alt.session.base) as mem:
                 game = Game(self.alt.session, mem)
@@ -265,10 +277,12 @@ class ReceiveJob:
                         last_reason = d.reason
                         action, key = (GOLD_ACTION, 'gold') if gold_step else (ACTION, 'dish')
                         if d.kind in ('done', 'verified'):
+                            note = '料理不可交易，留在小号身上；' if gold_step and not self.s.dish_trade else ''
+                            for kind in step_events(gold_step, d.kind == 'verified', self.s.dish_trade):
+                                db.log_event(self.conn, time.time(), kind, (note if kind == 'receive' else '') + d.reason,
+                                             char_id=cid, station_id=self.sid)
                             if d.kind == 'verified':
                                 db.complete_action(self.conn, cid, time.time())
-                                db.log_event(self.conn, time.time(), 'receive_gold' if gold_step else 'receive',
-                                             d.reason, char_id=cid, station_id=self.sid)
                                 result[key] = {'moved': memo.alt_before, 'receiver': recv_has,
                                                'seconds_to_verify': round(now - memo.sent_at, 2)}
                                 time.sleep(SETTLE_GAP)
@@ -377,7 +391,7 @@ def main():
         try:
             for cid in queue:                           # strictly one trade at a time
                 room = read_room(rmem)
-                if bag_alarm(room, settings.receiver_bag_warn) == 'full':
+                if settings.dish_trade and bag_alarm(room, settings.receiver_bag_warn) == 'full':
                     logger.error('%s，停止收货（小号留在队列里，不隔离）；换收货人见 docs/DEPLOY.md 第 10 节',
                                  bag_text(room))
                     break

@@ -11,7 +11,8 @@ Every station registered with role 'coast' (一键登录工位.cmd) runs one bat
      whole batch, no refill). Otherwise claim queue_coast alts on map 81, oldest first, up to 4, one at a time
      (the other leader claims from the same queue); far ones walk over (escaping battles), then invite -> accept
   4. farm: someone has legs < 10 -> patrol the legs pair; else someone has rumps < 20 -> the rumps pair; else
-     done. The leader casts 扫射 803, its pet 烈焰爆发 1504 (stage 4b); members only spend talent on 体质
+     someone is below phase.HANDIN_LEVEL 18 (user, 2026-10-25: hand in only at 18) -> the coast_level_patrol pair;
+     else done. The leader casts 扫射 803, its pet 烈焰爆发 1504 (stage 4b); members only spend talent on 体质
   5. walk back to the rendezvous, wait for the members, the leader leaves the team; a member still in a team
      after 5 s leaves itself. Members are then phase handin (stage 8)
 A member that leaves the team (died -> village, dropped) is released and queued again by its phase.
@@ -37,8 +38,8 @@ from provisioner.world import (item_count, read_bag, read_bag_capacity, read_bat
 from . import db
 from .config import ROOT, load_settings
 from .observe import observe
-from .phase import (COAST, COAST_MAP, LEGS_ITEM, LEGS_NEEDED, QUEUE_COAST, RUMPS_ITEM, RUMPS_NEEDED, VILLAGE_MAP,
-                    bag_blocked, derive_phase)
+from .phase import (COAST, COAST_MAP, HANDIN_LEVEL, LEGS_ITEM, LEGS_NEEDED, QUEUE_COAST, RUMPS_ITEM, RUMPS_NEEDED,
+                    VILLAGE_MAP, bag_blocked, derive_phase)
 from .runner import ROLE_NAME
 from .transport import Trip, behind, decide_trip
 from .welltrain import Fight, Overdue, Talent, decide_battle, decide_talent, scroll_slot
@@ -209,6 +210,8 @@ def gain_misses(before, after, spot, misses):
     {char_id: battles in a row it got nothing}. Every member in a battle with the target gets exactly 1 (user-verified),
     so a member that still needs the item and stays put while a teammate gains is not receiving it. A battle where
     nobody gained (no target in it) changes nothing. -> new misses."""
+    if spot not in ('legs', 'rumps'):
+        return dict(misses)     # farming exp only: nobody is owed an item
     i, need = (0, LEGS_NEEDED) if spot == 'legs' else (1, RUMPS_NEEDED)
     needy = [cid for cid in after if cid in before and before[cid][i] < need]
     out = dict(misses)
@@ -218,12 +221,15 @@ def gain_misses(before, after, spot, misses):
     return out
 
 
-def choose_spot(counts):
-    """counts: [(legs, rumps)] of the members still in the batch -> 'legs' | 'rumps' | 'done'."""
+def choose_spot(counts, levels=()):
+    """counts: [(legs, rumps)] of the members still in the batch; levels: their levels (None = unread, counts as
+    not there yet) -> 'legs' | 'rumps' | 'level' | 'done'."""
     if any(legs < LEGS_NEEDED for legs, _ in counts):
         return 'legs'
     if any(rumps < RUMPS_NEEDED for _, rumps in counts):
         return 'rumps'
+    if any(level is None or level < HANDIN_LEVEL for level in levels):
+        return 'level'
     return 'done'
 
 
@@ -762,7 +768,9 @@ class CoastRun:
             m.talent = Talent(sent_at=now, before=points, misses=m.talent.misses)
 
     def farm(self):
-        patrols = {'legs': self.s.coast_legs_patrol, 'rumps': self.s.coast_rumps_patrol}
+        patrols = {'legs': self.s.coast_legs_patrol, 'rumps': self.s.coast_rumps_patrol,
+                   'level': self.s.coast_level_patrol}
+        labels = {'legs': '刷腿', 'rumps': '刷鸡屁股', 'level': f'刷经验（到 {HANDIN_LEVEL} 级）'}
         self.farming = True
         self.screen(self.counts())
         while True:
@@ -773,15 +781,17 @@ class CoastRun:
             for m in self.active():
                 self.step_talent(m, now)
             counts = self.counts()
-            spot = choose_spot([c for _, c in counts]) if counts else 'done'
+            levels = [read_level(m.mem) for m, _ in counts]
+            spot = choose_spot([c for _, c in counts], levels) if counts else 'done'
             if spot == 'done' and not (w and w.in_battle):
                 self.leave_battle(now)
-                self.log.info('本批材料齐了（%s），回集合点', ', '.join(f'{m.c.name} 腿{c[0]} 屁股{c[1]}'
-                                                                for m, c in counts) or '队里没有小号了')
+                self.log.info('本批材料齐、全员 %d 级了（%s），回集合点', HANDIN_LEVEL,
+                              ', '.join(f'{m.c.name} 腿{c[0]} 屁股{c[1]} {lv}级' for (m, c), lv in zip(counts, levels))
+                              or '队里没有小号了')
                 self.farming = False
                 return
             if spot != 'done' and spot != self.walk.spot:
-                self.log.info('开始%s: %s', '刷腿' if spot == 'legs' else '刷鸡屁股', patrols[spot])
+                self.log.info('开始%s: %s', labels[spot], patrols[spot])
                 self.walk.spot, self.walk.patrol, self.walk.last_nav = spot, 0, -1e9
             self.walk.observe(w, now)
             d = decide_farm(w, patrols[self.walk.spot], self.walk, now) if self.walk.spot else _ready(w)
@@ -889,7 +899,7 @@ class CoastRun:
             if obs is not None:
                 db.save_observation(self.conn, obs, derive_phase(obs, db.ledger(self.conn, m.c.char_id), roles), now)
             ok = (m.state == 'done' and obs is not None and obs.map_id == COAST_MAP and not obs.team_leader
-                  and obs.materials_done)
+                  and obs.materials_done and obs.level >= HANDIN_LEVEL)
             results.append({'leader': self.leader.name, 'name': m.c.name, 'char_id': m.c.char_id, 'ok': ok,
                             'legs': obs.legs if obs else None, 'rumps': obs.rumps if obs else None,
                             'level': obs.level if obs else None, 'map': obs.map_id if obs else None,

@@ -1,5 +1,6 @@
 """Unit tests for stage 7 (coast leaders farm legs and rumps), no game needed."""
 import unittest
+from pathlib import Path
 from dataclasses import replace
 
 from factory.coast import (ARRIVE, ESCAPE_FALLBACK, LANDING, LEAVE_WAIT, NAV_RETRY, NEAR_LEADER, RECORD_SETTLE,
@@ -92,6 +93,17 @@ class Spot(unittest.TestCase):
         self.assertEqual(choose_spot([(10, 0), (12, 20)]), 'rumps')
         self.assertEqual(choose_spot([(10, 20), (11, 25)]), 'done')
         self.assertEqual(choose_spot([]), 'done')
+
+    def test_materials_done_farms_exp_until_18(self):
+        done = [(10, 20), (11, 25)]
+        self.assertEqual(choose_spot(done, [12, 18]), 'level')
+        self.assertEqual(choose_spot(done, [18, None]), 'level')     # unread: not there yet
+        self.assertEqual(choose_spot(done, [18, 19]), 'done')
+        self.assertEqual(choose_spot([(9, 20), (10, 20)], [18, 18]), 'legs')    # materials still come first
+        self.assertEqual(choose_spot([(10, 20), (10, 3)], [12, 12]), 'rumps')
+
+    def test_exp_farming_counts_no_misses(self):
+        self.assertEqual(gain_misses({1: (10, 20)}, {1: (10, 20)}, 'level', {1: 2}), {1: 2})
 
 
 class GainMisses(unittest.TestCase):
@@ -186,6 +198,26 @@ class Settings_(unittest.TestCase):
         self.assertEqual(s.coast_legs_patrol[0], (678, 1821))
         self.assertEqual(s.coast_rumps_patrol[0], (1170, 2883))
         self.assertTrue(1 <= s.coast_team_size <= 4)
+        self.assertEqual(len(s.coast_level_patrol), 2)
+        self.assertGreaterEqual(s.coast_farm_timeout, 3600)        # farming on to 18 takes hours
+
+    def test_dish_trade_switch_sets_the_phase_default(self):
+        import tempfile
+        from factory import phase
+        old = phase.DISH_TRADE
+        try:
+            self.assertFalse(load_settings(ROOT / 'factory.toml').dish_trade)     # 2026-10-25: 料理不能交易
+            self.assertFalse(phase.DISH_TRADE)
+            with tempfile.TemporaryDirectory() as d:
+                cfg = Path(d) / 'f.toml'
+                cfg.write_text('[factory]\ndish_trade = true\n', 'utf-8')
+                self.assertTrue(load_settings(cfg).dish_trade)
+                self.assertTrue(phase.DISH_TRADE)
+                cfg.write_text('[factory]\ndish_trade = "no"\n', 'utf-8')
+                with self.assertRaises(ValueError):
+                    load_settings(cfg)
+        finally:
+            phase.DISH_TRADE = old
 
 
 if __name__ == '__main__':

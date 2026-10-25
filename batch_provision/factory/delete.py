@@ -7,7 +7,8 @@ the supervisor (stage 11) pulls the next role (any account, any slot) when a que
 Per alt (accounts in parallel, the roles of one account one after another):
   1. gate (pure, refuses on any doubt; deleting cannot be undone): phase delete, not quarantined, last observation
      says quest 78 done and no 料理 in the bag, stage 9 logged the 料理 reaching the receiver, and no earlier delete
-     of it is unresolved
+     of it is unresolved. factory.toml dish_trade = false (the 料理 cannot be traded): the 料理 may stay in the bag and
+     no receive record is needed; quest done and gold 0 still are
   2. its game window still open -> observe once more (must still be phase delete), close it
   3. any other window shows a role of the same account -> skip the account (a login would kick that role)
   4. fresh login that stops on the selection screen (the same login every tool uses), arm the DLL tap
@@ -37,7 +38,7 @@ from provisioner.protocol import (OP_DELETE_REPLY, ROSTER_PROTECT, TapReader, bu
                                   read_roster_raw)
 from provisioner.world import read_world
 
-from . import db
+from . import db, phase
 from .config import load_settings
 from .observe import observe
 from .phase import DELETE, QUEST_DONE, derive_phase
@@ -55,9 +56,13 @@ class Refused(Exception):
 
 # ---- pure decisions -------------------------------------------------------------------------------------
 
-def gate(row, obs, got_dish):
+def gate(row, obs, got_dish, dish_trade=None):
     """None = may delete; otherwise why not. row: alts row (mapping); obs: last AltObs or None;
-    got_dish: stage 9 verified this alt's 料理 at the receiver."""
+    got_dish: stage 9 verified this alt's 料理 at the receiver. dish_trade: None = phase.DISH_TRADE; off = the 料理
+    cannot be traded, so one left in the bag is deleted with the role and no receive record is needed (the gold must
+    still be 0: the receiver collected it)."""
+    if dish_trade is None:
+        dish_trade = phase.DISH_TRADE
     if row['quarantined']:
         return f'已隔离: {row["last_error"]}'
     if row['pending_action'] == ACTION:
@@ -68,11 +73,11 @@ def gate(row, obs, got_dish):
         return '没有观察记录'
     if obs.quest != QUEST_DONE:
         return f'任务 78 状态是 {obs.quest}，不是已完成'
-    if obs.dishes:
+    if obs.dishes and dish_trade:
         return f'背包里还有料理 {obs.dishes} 个'
     if obs.gold:
         return f'身上还有金币 {obs.gold}'
-    if not got_dish:
+    if not got_dish and dish_trade:
         return '没有收货人收到料理的记录'
     return None
 
