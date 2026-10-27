@@ -23,3 +23,9 @@ __pycache__/
 
 # 生产日志不进代码仓库（历史里已清除，见 2026-10-20 的改写）
 *日志/
+
+# 师徒研究工具：运行时录包、日志、进度文件、DLL 副本各电脑自己一份
+batch_provision/research/shitu/logs/
+batch_provision/research/shitu/runtime/
+batch_provision/research/shitu/bin/
+batch_provision/research/shitu/state*.json
