@@ -50,13 +50,17 @@ class Escaper:
 
 
 def _walk(c, fighter, xy, near, timeout):
-    end, last, still = time.monotonic() + timeout, 0, (None, time.monotonic())
+    """Walk c to xy; seconds spent in battles do not count toward timeout (2026-10-28 亿万44: a battle on the way to
+    a 通天花 ate the 60 s, the dew step failed), but the whole walk stops after 3 * timeout."""
+    t0 = time.monotonic()
+    end, last, still, prev = t0 + timeout, 0, (None, t0), t0
     while True:
         now, s = time.monotonic(), c.world()
         pos = (round(s.x), round(s.y))
         if s.in_battle or s.moving or pos != still[0]:
             still = (pos, now)
         if s.in_battle:
+            end = min(end + now - prev, t0 + 3 * timeout)
             fighter.tick(now)
         elif math.dist((s.x, s.y), xy) <= near and not s.moving:
             return
@@ -67,7 +71,8 @@ def _walk(c, fighter, xy, near, timeout):
             c.game.navigate(MAP, *xy)
             last, still = now, (pos, now)
         if now > end:
-            raise t.Stop(f'{c.name} {timeout}s 没走到 {xy}')
+            raise t.Stop(f'{c.name} {timeout}s 没走到 {xy}（含战斗共 {now - t0:.0f}s）')
+        prev = now
         time.sleep(0.15)
 
 

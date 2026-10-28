@@ -1,24 +1,61 @@
 """Who is in a batch: masters, apprentice names, accounts, log ids, the env every script gets.
 
-Same rules as r4_env.sh (tests/test_line.py checks the two agree), so old logs / state files keep their names:
-  team a..d = 伏地魔1..4; batch N, team k (0..3) = 亿万(16(N-1)+4k+1 .. +4); team slot i uses account cap(n0+i),
-  role slot N (n0: a 21, b 25, c 29, d 33). LOGID r4<team> for batch 1, r4<team>_b<N> after.
+Teams come from line.toml [team.<name>] (master, slot, gold). Same rules as r4_env.sh for slots 0..3 (tests/test_line.py
+checks the two agree for teams a..d), so old logs / state files keep their names:
+  batch N, slot k (0..3) = 亿万(16(N-1)+4k+1 .. +4); team slot i uses account cap(21+4k+i), role slot N.
+  LOGID r4<team> for batch 1, r4<team>_b<N> after (the team name, not the slot: a new master = a new name).
 """
+import tomllib
 from dataclasses import dataclass, field
+from pathlib import Path
 
 MASTER_SLOTS = 4                 # a master holds 4 apprentices at most (excluded ones stay bound and take a slot)
-TEAMS = {                        # team -> (master, first account number, starting gold the master hands out)
-    'a': ('伏地魔1', 21, 50000),
-    'b': ('伏地魔2', 25, 50000),
-    'c': ('伏地魔3', 29, 50000),
-    'd': ('伏地魔4', 33, 10000),
-}
 SCROLLS = 20                     # 回城卷 each apprentice gets from the master (SHITU_SCROLLS)
+CONFIG = Path(__file__).with_name('line.toml')
+
+
+@dataclass(frozen=True)
+class Team:
+    master: str
+    slot: int                    # which 4 accounts / which names (0..3)
+    gold: int                    # starting gold the master hands out
+
+    @property
+    def first_account(self):
+        return 21 + 4 * self.slot
+
+
+def load_teams(path=CONFIG):
+    raw = tomllib.loads(path.read_text(encoding='utf-8')).get('team', {})
+    teams = {k: Team(v['master'], int(v['slot']), int(v.get('gold', 50000))) for k, v in raw.items()}
+    for k, t in teams.items():
+        if not 0 <= t.slot < 4:
+            raise ValueError(f'line.toml [team.{k}] slot {t.slot} 不在 0..3')
+    return teams
+
+
+TEAMS = load_teams()
+
+
+def check_teams(names, teams=None):
+    """Teams run together must exist and use different account groups (same slot = same accounts and names)."""
+    teams = TEAMS if teams is None else teams
+    missing = [n for n in names if n not in teams]
+    if missing:
+        raise ValueError(f'line.toml 里没有这些队: {missing}')
+    seen = {}
+    for n in names:
+        s = teams[n].slot
+        if s in seen:
+            raise ValueError(f'队 {seen[s]} 和 {n} 用同一组账号（slot {s}），不能一起跑')
+        seen[s] = n
+    masters = [teams[n].master for n in names]
+    if len(set(masters)) != len(masters):
+        raise ValueError(f'同一个师傅出现在两队: {masters}')
 
 
 def batch_names(team, batch):
-    k = 'abcd'.index(team) * 4
-    o = 16 * (batch - 1) + k
+    o = 16 * (batch - 1) + TEAMS[team].slot * 4
     return [f'亿万{o + i}' for i in range(1, 5)]
 
 
@@ -42,7 +79,7 @@ class Batch:
 
     @property
     def master(self):
-        return TEAMS[self.team][0]
+        return TEAMS[self.team].master
 
     @property
     def all_names(self):
@@ -55,7 +92,7 @@ class Batch:
     @property
     def pairs(self):
         """'capNN:亿万M' for the kept apprentices (account of their team slot, whatever was skipped)."""
-        n0 = TEAMS[self.team][1]
+        n0 = TEAMS[self.team].first_account
         return [f'cap{n0 + i}:{n}' for i, n in enumerate(self.all_names) if n not in self.skip]
 
     @property
@@ -77,7 +114,7 @@ class Batch:
             'SHITU_STATE': self.state_file,
             'SHITU_MASTERS': self.master,
             'SHITU_APPRENTICES': ','.join(self.apprentices),
-            'SHITU_GOLD': str(TEAMS[self.team][2]),
+            'SHITU_GOLD': str(TEAMS[self.team].gold),
             'SHITU_SCROLLS': str(SCROLLS),
             'LOGID': self.logid,
             'PAIRS': ' '.join(self.pairs),

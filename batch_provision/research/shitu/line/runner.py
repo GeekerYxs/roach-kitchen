@@ -151,6 +151,8 @@ class Runner:
         names = R.NAMES[R.NAMES.index(frm):] if frm else R.NAMES
         if until:
             names = names[:names.index(until) + 1]
+        if not self.p['done'] and not frm:
+            self.event('批次开始')              # r5_compare.py: the batch's first step starts here
         for name in names:
             if name in self.p['done'] and not frm:
                 continue
@@ -221,7 +223,7 @@ class Runner:
             return []
 
     def _marker(self, step):
-        if self.execute is self._execute:
+        if self.execute == self._execute:      # `is` never holds: every attribute access makes a new bound method
             with open(self.logs / f'{self.b.logid}_{self.stage_log}.log', 'a', encoding='utf-8') as f:
                 f.write(f'== STEP {step.name} {time.strftime("%H:%M:%S")} apps={",".join(self.b.apprentices)}\n')
 

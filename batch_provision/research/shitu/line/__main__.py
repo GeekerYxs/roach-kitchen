@@ -56,20 +56,27 @@ def save_team(team, data):
 
 
 def load_config(path=CONFIG):
-    cfg = {'teams': ['a', 'b', 'c', 'd'], 'batches': [3, 4], 'retries': 3, 'recover_tries': 2, 'recover_wait': 300,
+    cfg = {'teams': ['a', 'b', 'c', 'd'], 'batches': [3], 'retries': 3, 'recover_tries': 2, 'recover_wait': 300,
            'silent': 900, 'stagger': 60, 'stuck': {}}
     if path.exists():
         cfg.update(tomllib.loads(path.read_text(encoding='utf-8')))
     return cfg
 
 
-def quizbot_running():
+def quizbot_running(tries=3, list_procs=None):
     """启动答题器 answers the boss / battle quizzes and unlocks the 辅助工具 pages; scripts fall back to
-    boss_quiz.py without it, but the battle quiz (0x46F4) has no fallback."""
+    boss_quiz.py without it, but the battle quiz (0x46F4) has no fallback. 2026-10-28 15:00 team b alerted while the
+    same 答题器 process ran the whole time (one tasklist read came back without it): only `tries` misses count."""
     import subprocess
-    out = subprocess.run(['tasklist', '/FO', 'CSV', '/NH'], capture_output=True, text=True, encoding='gbk',
-                         errors='replace').stdout
-    return any(q.lower() in out.lower() for q in QUIZBOT)
+    list_procs = list_procs or (lambda: subprocess.run(['tasklist', '/FO', 'CSV', '/NH'], capture_output=True,
+                                                       text=True, encoding='gbk', errors='replace').stdout or '')
+    for i in range(tries):
+        out = list_procs()
+        if any(q.lower() in out.lower() for q in QUIZBOT):
+            return True
+        if i + 1 < tries:
+            time.sleep(2)
+    return False
 
 
 def next_batch(cfg, data):
@@ -175,6 +182,7 @@ def main(argv):
         cfg['teams'] = arg(argv, '--teams').split(',')
     if '--status' in argv:
         return status(cfg)
+    plan.check_teams(cfg['teams'])
     if '--dry-run' in argv:
         return dry_run(cfg)
     if '--team' in argv:                 # manual catch-up of one batch

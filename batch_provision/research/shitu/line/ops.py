@@ -10,7 +10,8 @@ ops: close NAME..        close these roles' windows (previous batch, same accoun
      take224_master      the master takes task 224 at the boss (he gathers the 9 花 + 3 石 in the cave)
      gather              the master gathers 9 遗忘之花, then 暗·遗忘之花 until 3 遗忘之石 (up to 5 rounds)
      fairy               apprentices with 183 open: 梦幻岛 神仙姐姐 finishes it (转勇者), back to 逍遥村西区
-     when COND..         exit 0 when COND holds, 1 when not: lv_lt N | lv_ge N | master_on MAP | kills5
+     when COND..         exit 0 when COND holds, 1 when not: lv_lt N | lv_ge N | master_on MAP |
+                         master_off MAP.. | kills5
      level               print the lowest apprentice level
 Exit: 0 ok, 1 failed (trial_run.Stop), 2 master window missing.
 """
@@ -37,6 +38,8 @@ def cond(name, *args):
         return level() >= int(args[0])
     if name == 'master_on':
         return t.Client(M).world().map_id == int(args[0])
+    if name == 'master_off':  # on none of these maps
+        return t.Client(M).world().map_id not in {int(a) for a in args}
     if name == 'kills5':      # somebody still needs the 5 拳手 of 任务 24 (state mark kills5 = already counted)
         from bai_shi import done
         return any(tuple(w.read_quest(t.Client(n).mem, 24).steps) == (0, 0, 1) and not done(n, 'kills5')
@@ -67,8 +70,12 @@ def arm(names):
 
 def master_up():
     from common import find_roles
+    from r4_util import offline
     if M not in find_roles((M,)):
         t.say(f'师傅 {M} 的窗口不在，需要人工登录')
+        raise SystemExit(2)
+    if offline(M):
+        t.say(f'师傅 {M} 掉线了（窗口在、网络断开），需要人工关窗重新登录')
         raise SystemExit(2)
 
 

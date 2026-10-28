@@ -122,6 +122,21 @@ def double_due():
     return max(min(due), time.time() + 60) if due else 0
 
 
+def yam_due():
+    """Earliest time (epoch) an apprentice that has claimed the 3 小时 and still has a 加钙地瓜 runs out of double exp
+    (eat then, anywhere: no trip home); 0 = nobody (2026-10-28 team a: double ran out at 18:12 in the middle of
+    通天塔二区, exp per battle 7300 -> 4100 for the last 35 minutes, the yams stayed in the bags)."""
+    from bai_shi import done
+    due = [double_end(n) for n in APPRENTICES
+           if done(n, 'double3h') and w.item_count(w.read_bag(t.Client(n).mem), YAM)]
+    return max(min(due), time.time() + 60) if due else 0
+
+
+def stop_at(*dues):
+    """The earliest of the non-zero due times (double_due / yam_due), 0 = none."""
+    return min((d for d in dues if d), default=0)
+
+
 def double():
     """User 2026-10-28: when the double time is (nearly) over, claim 3 小时 at 散福老人 (only from 逍遥村), afterwards
     eat one 加钙地瓜 at a time whenever the double time has run out."""
@@ -162,24 +177,53 @@ def _short_file():
     return Path(__file__).resolve().parent / 'logs' / f"{os.environ.get('LOGID', 'r4')}_short.txt"
 
 
+def offline(name):
+    """True when the role's window is up but it is out of the world: connection gone (socket -1, nothing can be
+    sent) or no world state any more (back at the login screen)."""
+    from common import find_roles, module_base
+    from provisioner.game import NotSent
+    from provisioner.memory import ProcessMemory
+    found = find_roles((name,))
+    if name not in found:
+        return False                 # no window: the caller's other check
+    pid = found[name][0]
+    if w.read_world(ProcessMemory(pid, module_base(pid))) is None:
+        return True
+    try:
+        t.Client(name).game._check_connection()
+    except NotSent:
+        return True
+    return False
+
+
 def windows(accounts):
     """Before a supervisor run: the master's and the apprentices' game windows must exist. A missing apprentice is
     logged in again with make_apprentices (accounts = the batch's 'capNN:亿万M' pairs, the role already exists so it
     only enters the world); a missing master cannot be (its account is not in our config) -> Stop (exit 2)."""
     import subprocess
     from common import find_roles
+    from provisioner import native
     names = (MASTERS[0],) + APPRENTICES
     found = find_roles(names)
     if MASTERS[0] not in found:
         t.say(f'师傅 {MASTERS[0]} 的窗口不在，需要人工登录')
         raise SystemExit(2)
-    lost = [n for n in APPRENTICES if n not in found]
+    if offline(MASTERS[0]):          # 2026-10-28 16:16 伏地魔1: window still there, socket -1 -> every step failed
+        t.say(f'师傅 {MASTERS[0]} 掉线了（窗口在、网络断开），需要人工关窗重新登录')
+        raise SystemExit(2)
+    dead = [n for n in APPRENTICES if n in found and offline(n)]
+    for n in dead:
+        c = t.Client(n)
+        st = native.read_status(c.pid)
+        t.say(f'[{n}] 掉线了，关窗重登 {native.close(native.Session(c.pid, st["hwnd"], st["game_base"]))}')
+    if dead:
+        time.sleep(3)
+    lost = [n for n in APPRENTICES if n not in found or n in dead]
     if not lost:
         return
     pairs = [p for p in accounts if p.split(':')[1] in lost]
     t.say(f'徒弟窗口不在: {lost}，重新登录 {pairs}')
     subprocess.run([sys.executable, '-X', 'utf8', 'make_apprentices.py', *pairs], check=True)
-    from provisioner import native
     for n in lost:
         c = t.Client(n)
         st = native.read_status(c.pid)

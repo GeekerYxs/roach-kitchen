@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 SHITU = Path(__file__).resolve().parent.parent / 'research' / 'shitu'
@@ -27,6 +28,37 @@ class Plan(unittest.TestCase):
             self.assertEqual(self.r4_env(team, batch, ' '.join(skip)),
                              [e['SHITU_APPRENTICES'], e['PAIRS'], e['LOGID'], e['SHITU_MASTERS'], e['SHITU_GOLD'],
                               e['SHITU_STATE']], (team, batch, skip))
+
+    def test_teams_from_config(self):
+        self.assertEqual(plan.TEAMS['fei'].master, '飞天把你射成蜂窝')
+        self.assertEqual(plan.TEAMS['tian'].master, '舔尊')
+        b = plan.Batch('fei', 3)                       # slot 2 = team c's accounts and names, its own LOGID
+        self.assertEqual(b.apprentices, ['亿万41', '亿万42', '亿万43', '亿万44'])
+        self.assertEqual(b.pairs[0], 'cap29:亿万41')
+        self.assertEqual(b.prev_names, ['亿万25', '亿万26', '亿万27', '亿万28'])
+        self.assertEqual(b.env()['SHITU_MASTERS'], '飞天把你射成蜂窝')
+        self.assertEqual(b.env()['SHITU_GOLD'], '50000')
+        self.assertEqual(b.logid, 'r4fei_b3')
+        self.assertEqual(plan.Batch('tian', 3).pairs[-1], 'cap36:亿万48')
+
+    def test_check_teams(self):
+        plan.check_teams(['a', 'b', 'fei', 'tian'])
+        with self.assertRaises(ValueError):
+            plan.check_teams(['c', 'fei'])                 # same accounts
+        with self.assertRaises(ValueError):
+            plan.check_teams(['a', 'zz'])                  # unknown team
+        T = plan.Team
+        with self.assertRaises(ValueError):
+            plan.check_teams(['x', 'y'], {'x': T('m', 0, 1), 'y': T('m', 1, 1)})   # one master twice
+
+    def test_load_teams_rejects_bad_slot(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / 'l.toml'
+            p.write_text('[team.x]\nmaster = "m"\nslot = 4\n', encoding='utf-8')
+            with self.assertRaises(ValueError):
+                plan.load_teams(p)
+            p.write_text('[team.x]\nmaster = "m"\nslot = 1\n', encoding='utf-8')
+            self.assertEqual(plan.load_teams(p)['x'], plan.Team('m', 1, 50000))
 
     def test_skip_and_prev(self):
         self.assertEqual(plan.plan_skip('d', 3, ['亿万13']), ['亿万13', '亿万48'])
@@ -60,7 +92,7 @@ class Route(unittest.TestCase):
         tree = ast.parse(src)
         main = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'main')
         ops = {k.value for d in ast.walk(main) if isinstance(d, ast.Dict) for k in d.keys} | {'when', 'level'}
-        conds = {'lv_lt', 'lv_ge', 'master_on', 'kills5'}
+        conds = {'lv_lt', 'lv_ge', 'master_on', 'master_off', 'kills5'}
         for s in R.ROUTE:
             if s.unless:
                 self.assertIn(s.unless.split()[0], conds)
@@ -149,6 +181,19 @@ class Ladder(unittest.TestCase):
         self.assertEqual(p['done'], R.NAMES)
         self.assertEqual(self.sleeps, [])
 
+    def test_step_marker_and_batch_start_event(self):
+        """Round 5: `self.execute is self._execute` never held, the `== STEP` markers were never written."""
+        r = Runner(plan.Batch('a', 3), logs=self.logs, say=lambda m: None)
+        r.stage_log = 'line_make'
+        r._marker(R.step('make'))
+        self.assertIn('== STEP make ', (self.logs / 'r4a_b3_line_make.log').read_text(encoding='utf-8'))
+        self.runner(FakeGame({'when': [1]})).run('snake', 'snake')     # a FROM run is no batch start
+        self.assertNotIn('批次开始', (self.logs / 'r4a_b3_line.json').read_text(encoding='utf-8'))
+        (self.logs / 'r4a_b3_line.json').unlink()
+        self.runner(FakeGame({'when': [1]})).run()
+        ev = json.loads((self.logs / 'r4a_b3_line.json').read_text(encoding='utf-8'))['events']
+        self.assertTrue(ev[0].endswith(' 批次开始'))
+
     def test_resume_skips_done_steps(self):
         game = FakeGame({'when': [1], 'dts.py': [1]})
         r = self.runner(game, retries=0, recover_tries=0)
@@ -180,6 +225,16 @@ class Ladder(unittest.TestCase):
         self.assertEqual(self.sleeps, [5, 5, 5, 300, 300])
         self.assertEqual(self.steps_run(game, 'r4_util.py leave'), 3)   # snake cleans up with leave
         self.assertEqual(self.steps_run(game, 'r4_util.py home'), 2)    # recoveries always go home
+
+    def test_snake_redoes_the_trip_only_when_not_there(self):
+        on_20 = FakeGame({'master_off 20 750': [1], 'master_on 20': [0], 'when': [1]})    # normal: at 无尽2路口
+        self.assertTrue(self.runner(on_20).run('snake', 'snake').ok)
+        self.assertEqual(self.steps_run(on_20, 'r4_util.py home'), 0)
+        self.assertEqual(self.steps_run(on_20, 'pp_chain.py'), 0)
+        home = FakeGame({'master_off 20 750': [0], 'master_on 1': [0], 'master_on 20': [0], 'when': [1]})
+        self.assertTrue(self.runner(home).run('snake', 'snake').ok)
+        for s in ('r4_util.py home', 'pp_chain.py', 'take224.py', 'go_cave.py'):
+            self.assertGreaterEqual(self.steps_run(home, s), 1, s)
 
     def test_recovers_on_second_try(self):
         game = FakeGame({'when': [1], 'dts.py': [1, 0]})
@@ -240,9 +295,16 @@ class Controller(unittest.TestCase):
     def test_next_batch_and_config(self):
         from line.__main__ import load_config, next_batch
         cfg = load_config()
-        self.assertEqual(cfg['batches'], [3, 4])
+        self.assertEqual(cfg['batches'], [3])
         self.assertEqual(next_batch(cfg, {'done': [2]}), 3)
         self.assertEqual(next_batch(cfg, {'done': [3, 4]}), None)
+
+    def test_quizbot_one_bad_read_is_not_an_alert(self):
+        from line import __main__ as M
+        reads = iter(['', '"启动答题器.exe","13356"'])
+        with unittest.mock.patch.object(M.time, 'sleep'):
+            self.assertTrue(M.quizbot_running(list_procs=lambda: next(reads)))
+            self.assertFalse(M.quizbot_running(list_procs=lambda: 'python.exe'))
 
     def test_dry_run_prints_every_step(self):
         out = subprocess.run([sys.executable, '-X', 'utf8', '-m', 'line', '--dry-run', '--teams', 'd'], cwd=SHITU,

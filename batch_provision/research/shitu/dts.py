@@ -38,8 +38,16 @@ def main():
             m.main()
             st = lead.world()
             t.say(f'[{LEADER}] 到二层通道 ({st.x:.0f},{st.y:.0f})，点 NPC {LAYER2}')
-            lead.game.click_npc(LAYER2)
-            t.wait(lambda: lead.world().y > LOWER_Y or lead.dialog(), 8, '进二层')
+            for attempt in range(3):         # 2026-10-28 飞天: one click right on arrival did nothing (8 s)
+                t.wait(lambda: not (s := lead.world()).moving and not s.busy, 5, f'{LEADER} 站稳')
+                lead.game.click_npc(LAYER2)
+                try:
+                    t.wait(lambda: lead.world().y > LOWER_Y or lead.dialog(), 8, '进二层')
+                    break
+                except t.Stop:
+                    if attempt == 2:
+                        raise
+                    t.say(f'[{LEADER}] 点 NPC {LAYER2} 没反应，第 {attempt + 2} 次点')
             d = lead.dialog()
             if d:
                 t.say(f'[{LEADER}] 二层通道对话: {t.body(d)[:60]} {d.options}')
@@ -62,7 +70,12 @@ def main():
     casters = [Caster(c) for c in cs if c.name in CASTERS]
     for attempt in range(1, 5):
         lead.game.click_npc(SNAKE)
-        d = t.wait(lambda: lead.dialog() or lead.world().in_battle, 5, '地头蛇的对话')
+        try:
+            d = t.wait(lambda: lead.dialog() or lead.world().in_battle, 5, '地头蛇的对话')
+        except t.Stop:              # 2026-10-28 伏地魔2: right after the boss quiz the click got no dialog
+            t.say(f'第 {attempt} 次点地头蛇 5 秒没反应，3 秒后再点')
+            time.sleep(3)
+            continue
         if d is True or getattr(d, 'options', None) is None:
             break
         t.say(f'[{LEADER}] 地头蛇: {t.body(d)[:60]} 选项 {d.options}')

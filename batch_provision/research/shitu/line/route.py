@@ -75,7 +75,8 @@ ROUTE = (
         C('ops', 'q94'),
     ), retry='leave'),
     Step('double3h', 'early', (C('double_exp.py', '{A}'),), retry='leave'),     # user: 3 小时 right after 转职
-    Step('pp', 'early', (C('supply_go.py'), C('pp_unlock.py', '{APPS}')), retry='leave'),
+    # the master talks too: 飞天 / 舔尊 (2026-10-28 batch 3) never ran this line, their PP鸡 permission is unknown
+    Step('pp', 'early', (C('supply_go.py'), C('pp_unlock.py', '{M}', '{APPS}')), retry='leave'),
     Step('lunhui', 'early', (C('lunhui15.py'),), retry='leave', unless='lv_ge 15'),
     Step('maze', 'early', (C('maze_train.py'),), retry='leave'),
 
@@ -93,7 +94,15 @@ ROUTE = (
     ), retry='leave'),
     Step('q224', 'mid', (HOME, C('pp_chain.py', '龙之都', '平静海岸2区'), C('U', 'leave'),
                          C('take224.py', '{A}')), retry='leave'),
-    Step('snake', 'mid', (C('go_cave.py'), C('dts.py')), retry='leave'),
+    # starts at 无尽2路口 (q224) or in the cave (a rerun after leave); anywhere else (2026-10-28 伏地魔1 dropped,
+    # relogged, everybody home) the q224 trip comes first, else go_cave stops on the unexpected map every time
+    Step('snake', 'mid', (
+        C('U', 'home', when='master_off 20 750'),
+        C('pp_chain.py', '龙之都', '平静海岸2区', when='master_on 1'),
+        C('U', 'leave', when='master_on 20'),
+        C('take224.py', '{A}', when='master_on 20'),
+        C('go_cave.py'), C('dts.py'),
+    ), retry='leave'),
     Step('tower1', 'mid', (HOME, DOUBLE, C('pp_chain.py', '通天塔', '平静海岸2区'), C('tower28.py', '33')),
          retry='leave', unless='lv_ge 33'),
     Step('end', 'mid', (HOME, C('sell_tradable.py', '--safe', '{APPS}'),
