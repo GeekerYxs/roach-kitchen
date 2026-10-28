@@ -15,6 +15,7 @@ Every tick decides from what is read, so a restart continues:
 No UI clicks (game functions via DLL command 106).
 """
 import math
+import os
 import sys
 import time
 
@@ -30,6 +31,8 @@ LEADER = APPRENTICES[0]
 HELPERS = MASTERS
 PATROL = ((2214, 1653), (1000, 260))           # factory.toml well_patrol
 EAT = ((32004, '加钙地瓜', 2), (30187, '小酒池', 1), (30188, '小肉林', 1))
+if os.environ.get('SHITU_STATE', '').startswith('state_r4'):     # user 2026-10-28: no 地瓜 at the start; 3 小时 at
+    EAT = EAT[1:]                                                 # 散福老人 right after the 10 级 转职 instead
 EAT_WAIT = 5.0
 TICK = 0.15
 INVITE_RANGE = 150      # px; ~150 worked, ~270 refused
@@ -78,6 +81,20 @@ def form_team(lead, others):
             c.game.team_leave()
             t.wait(lambda: not c.team(), 5, f'{c.name} 离队')
         ls, cst = lead.world(), c.world()
+        if ls.map_id != cst.map_id:
+            # 2026-10-28 (user): apprentices left at an NPC on another map walked back one by one after 3 lost
+            # accepts each (~40 s apiece); a 回城卷 puts them on the leader in 逍遥村 at once
+            if ls.map_id == 1:
+                from quanshou import scroll
+                t.say(f'[{c.name}] 在地图 {cst.map_id}，师傅在逍遥村：直接用回城卷')
+                scroll(c)
+            else:
+                import teamwalk
+                t.say(f'[{c.name}] 在地图 {cst.map_id}，师傅在地图 {ls.map_id}：走到师傅脚下再邀请')
+                teamwalk.MAP = ls.map_id
+                teamwalk.regroup(lead, [c])
+                continue
+            ls, cst = lead.world(), c.world()
         if ls.map_id == cst.map_id and math.dist((ls.x, ls.y), (cst.x, cst.y)) > INVITE_RANGE:
             # live 2026-10-27 01:39 at ~270 px: 0x46ff「你所邀请的对象与你距离太远，无法接受你的邀请」
             # round 3 13:09: an apprentice walking alone in 通天塔二区 met monsters and died -> the LEADER walks over
@@ -103,7 +120,7 @@ def form_team(lead, others):
         t.wait(lambda: w.read_team(c.mem).inviter == lead.char_id, 5, f'{c.name} 收到邀请')
         # the inviter field keeps the LAST inviter, so it can already read lead before this invite arrives
         # (live 2026-10-27 00:51: 0x31 went out 47 ms before the 0x4704 invite and was lost): wait, then retry
-        for attempt in range(3):
+        for attempt in range(1):       # round 4 logs: 96 first accepts failed, the 2nd / 3rd never once helped
             time.sleep(0.5)
             c.game.team_accept()
             try:
@@ -112,7 +129,12 @@ def form_team(lead, others):
             except t.Stop:
                 t.say(f'[{c.name}] 第 {attempt + 1} 次接受后还没进队')
         else:
-            raise t.Stop(f'{c.name} 接受 3 次邀请都没进队')
+            # round 4 00:3x (4 teams at 无尽2路口): 3 accepts lost; teamwalk.regroup = the apprentice walks onto the
+            # leader, a fresh invite, accept 1.5 s later (the round-3 cure for「旧邀请人」/ obstacles)
+            t.say(f'[{c.name}] 接受后没进队，改用 regroup（走到师傅脚下再邀请）')
+            import teamwalk
+            teamwalk.MAP = lead.world().map_id
+            teamwalk.regroup(lead, [c])
     t.say(f'[{lead.name}] 队伍 {lead.team()}')
 
 

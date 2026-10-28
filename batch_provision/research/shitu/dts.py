@@ -7,14 +7,15 @@ Recorded 2026-10-26 23:21 (欧皇, GATHER.md 5c): every member must have task 22
   1. walk to 蛇王卧室入口 NPC 10214 (3306,6183) (maze_train goal stage: random battles are fought on the way)
   2. ClickNpc(10214): no dialog, the whole team jumps to (4194,8157) in the same map
   3. ClickNpc(1172 地头蛇) ->「啊哈！新鲜的肉！…」opt 1 -> battle. The anti-bot quiz 0x46f5 may pop up instead
-     (live 23:21:54); that is the quizbot's business: wait until it is gone, then click again (up to 4 times)
+     (live 23:21:54): boss_quiz.solve answers it silently (the new quizbot usually does it first, ~1.5 s), then
+     click again (up to 4 times). SHITU_DTS_ONCE is no longer needed.
   4. 伏地魔1/2 cast 扫射 + 烈焰爆发 (lunhui15.Caster) until the battle ends
   5. report task 224 of all 5 (expected steps (2,1)) and the leader's flowers / stones
 """
 import math
-import os
 import time
 
+import boss_quiz
 import maze_train as m
 from lunhui15 import CASTERS, LEADER, MEMBERS, Caster
 from provisioner import world as w
@@ -67,17 +68,17 @@ def main():
         t.say(f'[{LEADER}] 地头蛇: {t.body(d)[:60]} 选项 {d.options}')
         lead.game.select_dialog(d.options[0][0])
         end = time.monotonic() + 15
-        while time.monotonic() < end and not lead.world().in_battle:
+        while time.monotonic() < end and not lead.world().in_battle and not lead.world().verification:
             time.sleep(0.2)
         if lead.world().in_battle:
             break
         st = lead.world()
         if st.dialog:
             raise t.Stop(f'地头蛇不肯开打: {t.body(st.dialog)} {st.dialog.options}')
-        if os.environ.get('SHITU_DTS_ONCE') == '1':     # round 3: stop at once, the user answers the 0x46f5 by hand
-            raise t.Stop(f'没开打（多半是反外挂答题 0x46f5，验证中={st.verification}），等用户手动答完再重跑')
-        t.say(f'第 {attempt} 次没开打（可能是反外挂答题 0x46f5，验证中={st.verification}），等它结束再点')
-        t.wait(lambda: not lead.world().verification, 120, '反外挂答题结束')
+        # 「开打」被换成了 boss 答题 0x46f5：答题器（静默）或 boss_quiz 自己答掉，然后重新点蛇
+        if boss_quiz.solve(lead, say=t.say) is None:
+            t.say(f'第 {attempt} 次没开打（没有 boss 答题面板，验证中={st.verification}），等一下再点')
+        t.wait(lambda: not lead.world().verification, 120, '答题结束')
         time.sleep(1)
     else:
         raise t.Stop('点了 4 次地头蛇都没开打')

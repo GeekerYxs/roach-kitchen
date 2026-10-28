@@ -105,6 +105,36 @@ def past(lead, caster, xy):
     time.sleep(0.8)
 
 
+def _taps(*cs):
+    """Taps from now on, to print the server's 0x46ff answers when an invite fails (None when no tap file)."""
+    from monitor import Tap
+    out = []
+    for c in cs:
+        try:
+            tp = Tap(c.pid, from_end=True)
+            tp.ready()
+            out.append((c.name, tp))
+        except Exception:
+            pass
+    return out
+
+
+def _texts(taps):
+    from monitor import texts
+    got = []
+    for name, tp in taps:
+        try:
+            got += [f'{name}:' + ' '.join(texts(body)) for _, d, op, body, _ in tp.poll() if op == 0x46ff and d == 'S->C']
+        except Exception:
+            pass
+    return got
+
+
+def flee(c):
+    from quanshou import flee as run_away
+    run_away(c)
+
+
 def regroup(lead, members):
     """Bring every member back into lead's team (see the module doc)."""
     for c in members:
@@ -124,18 +154,62 @@ def regroup(lead, members):
                     esc.reset()
                     c.game.navigate(MAP, round(ls.x), round(ls.y))
                     last = time.monotonic()
-                if time.monotonic() > end:
-                    raise t.Stop(f'{c.name} 60s 没走到 {lead.name} 旁')
+                if time.monotonic() > end:     # 2026-10-28 亿万10 / 亿万1: the leader walks to the member instead
+                    if getattr(c, 'lead_came', False):
+                        raise t.Stop(f'{c.name} 60s 没走到 {lead.name} 旁，{lead.name} 走过去也没用')
+                    t.say(f'[{c.name}] 60s 没走到 {lead.name} 旁 ({s.x:.0f},{s.y:.0f})，改让 {lead.name} 走过来')
+                    c.lead_came = True
+                    c.game.cancel_navigation()
+                    s = c.world()
+                    flee(lead)   # 2026-10-28 亿万9 as the 蝎子王 leader: nobody fights a battle during a regroup
+                    lead.game.navigate(MAP, round(s.x), round(s.y))
+                    ls, end = s, time.monotonic() + 60
+                    t.wait(lambda: (q := lead.world()) and math.dist((q.x, q.y), (s.x, s.y)) <= JOIN_NEAR
+                           and not q.moving, 60, f'{lead.name} 走到 {c.name} 旁')
+                    continue
                 time.sleep(0.15)
-            t.wait(lambda: not lead.world().in_battle, 120, f'{lead.name} 战斗结束')
+            flee(lead)   # 2026-10-28 亿万9 as the 蝎子王 leader: nobody fights a battle during a regroup
+            if (dlg := c.dialog()) is not None:     # an NPC dialog left open (通天花 with nothing to gather) may block it
+                t.say(f'[{c.name}] 入队前还开着对话框 {[(o, t.plain(l)) for o, l in dlg.options]}，先关掉')
+                c.game.select_dialog(next((o for o, l in dlg.options if '离开' in t.plain(l)), 0))
+                time.sleep(0.5)
+            taps = _taps(lead, c)
             lead.game.team_invite(c.char_id, w.read_level(lead.mem), w.read_invite_byte(lead.mem), lead.name)
             time.sleep(1.5)
             c.game.team_accept()
             try:
                 t.wait(lambda: c.char_id in lead.team(), 3, f'{c.name} 入队')
+                c.lead_came = False
                 break
             except t.Stop:
-                t.say(f'[{c.name}] 第 {attempt + 1} 次邀请没进队')
+                s, ls = c.world(), lead.world()
+                said = _texts(taps)
+                t.say(f'[{c.name}] 第 {attempt + 1} 次邀请没进队（距离 {math.dist((s.x, s.y), (ls.x, ls.y)):.0f}，'
+                      f'busy={s.busy} 战斗={s.in_battle} 对话框={c.dialog() is not None} 队伍={c.team()}，'
+                      f'师傅队伍={lead.team()}，系统提示={said}）')
+                if any('距离太远' in x for x in said):
+                    # 2026-10-28 亿万28 in 苦无沙漠: 0 px on both clients, the server said 距离太远 four times (its
+                    # position on the server was stale). Walking a few steps sends the real position.
+                    # position on the server was stale; moving in place did not fix it (08:31): path-find over to a
+                    # spot beside the leader, so the client sends a full walk
+                    c.game.cancel_navigation()
+                    c.game.navigate(MAP, round(ls.x) + 120 * (1 if attempt % 2 else -1), round(ls.y))
+                    try:
+                        t.wait(lambda: not c.world().moving and not c.world().nav_active, 20, f'{c.name} 走开再回来')
+                    except t.Stop:
+                        pass
+                    c.game.navigate(MAP, round(ls.x), round(ls.y))
+                    time.sleep(3)
+                    continue
+                c.game.team_leave()     # 2026-10-28 亿万8: a stale team state on the member side; leaving clears it
+                time.sleep(1)
+                # 2026-10-28 亿万3 at 54 px: 0x46ff「与邀请者之间有障碍」; the leader walking onto the member fixed it
+                lead.game.navigate(MAP, round(s.x), round(s.y))
+                try:
+                    t.wait(lambda: (q := lead.world()) and math.dist((q.x, q.y), (s.x, s.y)) <= 10 and not q.moving,
+                           15, f'{lead.name} 走到 {c.name} 脚下')
+                except t.Stop as e:
+                    t.say(f'[{lead.name}] {e}')
         else:
             raise t.Stop(f'{c.name} 邀请 4 次都没进队')
     t.say(f'[{lead.name}] 队伍 {lead.team()}')

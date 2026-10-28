@@ -3,7 +3,8 @@ team, steps up to it (teamwalk.step_to, a battle on the way -> run away), clicks
 (e.g. 勇者 for「勇者的考验［进行中］」; several words joined by |, also used at later choices), then takes the single
 non-离开 option while there is one; stops on any other choice and prints it. Then everybody re-joins (teamwalk.regroup).
 
-    python -X utf8 research/shitu/team_npc.py MAP NPC X Y WORD QID MASTER 千万1 千万2 ...
+    python -X utf8 research/shitu/team_npc.py MAP NPC X Y WORD QID MASTER 千万1 千万2 ... [--no-regroup]
+    --no-regroup: leave the team apart afterwards (the caller scrolls everybody home next)
 
 183 step 4 (17:4x): the 侦察兵 is「一具尸体」NPC 966 at 巨石之城西部遗址 1000 (3030,4569) — only in the server's 0x40a0
 spawn list, not in NPCDirection.csv (the user pointed at it). Its dialog: 这会是那个侦察兵吗？ -> 掰开他紧握的手指看看 ->
@@ -19,15 +20,38 @@ from provisioner import world as w
 
 
 def talk(c, npc, xy, word, qid):
+    import r4_util
+    r4_util.space_one(c, 2)     # the NPC may hand over an item; loot from the walk filled the bag (2026-10-28)
     d.step_to(c, xy, near=80)
     before = w.read_quest(c.mem, qid)
     c.game.click_npc(npc)
     try:
         dlg = t.wait(lambda: c.dialog(), 5, f'{c.name} NPC {npc}')
     except t.Stop:
+        if w.read_quest(c.mem, qid).steps != before.steps:      # an object that counts on a plain click, no dialog
+            t.say(f'[{c.name}] 点 NPC {npc} 没有对话框，{qid} {before.steps} -> {w.read_quest(c.mem, qid).steps}')
+            return
+        taps = d._taps(c)
         d.step_to(c, xy, near=30)
         c.game.click_npc(npc)
-        dlg = t.wait(lambda: c.dialog(), 5, f'{c.name} NPC {npc}（走近后）')
+        try:
+            dlg = t.wait(lambda: c.dialog(), 5, f'{c.name} NPC {npc}（走近后）')
+        except t.Stop:
+            if w.read_quest(c.mem, qid).steps != before.steps:
+                t.say(f'[{c.name}] 点 NPC {npc} 没有对话框，{qid} {before.steps} -> {w.read_quest(c.mem, qid).steps}')
+                return
+            # 2026-10-28 亿万24 (古迹水晶, 尸体) / 亿万28 (水源): the client stood at the NPC, the server had it
+            # elsewhere. A path-found walk away and back sends the real position; then click once more.
+            t.say(f'[{c.name}] 走近后点 NPC {npc} 还是没对话框（系统提示 {d._texts(taps)}），走开再回来重点')
+            c.game.cancel_navigation()
+            c.game.navigate(d.MAP, xy[0] + 150, xy[1])
+            try:
+                t.wait(lambda: not c.world().moving and not c.world().nav_active, 20, f'{c.name} 走开')
+            except t.Stop:
+                pass
+            d.step_to(c, xy, near=30)
+            c.game.click_npc(npc)
+            dlg = t.wait(lambda: c.dialog(), 5, f'{c.name} NPC {npc}（走开再回来后）')
     seen = []
     for _ in range(10):
         opts = [(o, t.plain(l)) for o, l in dlg.options if o]
@@ -50,7 +74,7 @@ def talk(c, npc, xy, word, qid):
     t.say(f'[{c.name}] 选了 {seen}；{qid} {before.steps} -> {w.read_quest(c.mem, qid).steps}')
 
 
-def main(map_id, npc, xy, word, qid, master, names):
+def main(map_id, npc, xy, word, qid, master, names, regroup=True):
     d.MAP = map_id
     lead = t.Client(master)
     apps = [t.Client(n) for n in names]
@@ -60,13 +84,16 @@ def main(map_id, npc, xy, word, qid, master, names):
             t.wait(lambda: not c.team(), 5, f'{c.name} 离队')
     for c in apps:
         talk(c, npc, xy, word, qid)
-    d.regroup(lead, apps)
+    if regroup:     # --no-regroup: the next command scrolls everybody home, which breaks the team anyway (user 2026-10-28)
+        d.regroup(lead, apps)
 
 
 if __name__ == '__main__':
     a = sys.argv[1:]
+    keep = '--no-regroup' not in a
+    a = [x for x in a if x != '--no-regroup']
     try:
-        main(int(a[0]), int(a[1]), (int(a[2]), int(a[3])), a[4], int(a[5]), a[6], a[7:])
+        main(int(a[0]), int(a[1]), (int(a[2]), int(a[3])), a[4], int(a[5]), a[6], a[7:], regroup=keep)
     except t.Stop as e:
         t.say(f'停止: {e}')
         raise SystemExit(1)

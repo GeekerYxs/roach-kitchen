@@ -12,6 +12,7 @@ import sys
 import time
 
 import trial_run as t
+from provisioner import world as w
 from lunhui15 import Caster
 from monitor import Tap, texts
 import teamwalk
@@ -20,6 +21,7 @@ from teamwalk import lead_to, past, regroup, step_to     # moved there 18:5x; de
 MAP = teamwalk.MAP = 280
 FLOWERS = ((954, (292, 4295)), (957, (1050, 4065)), (955, (1440, 4724)))
 COUNT = re.compile(r'已经采集(\d+)滴花露')
+BOTTLE = 10692            # 花露瓶: given with the 5th drop (2026-10-28 team C, absent before), so in the bag = done
 FULL = '足够的花露'       # the 5th drop says「获得了1个花露瓶」+「你已经采集了足够的花露…」, no count (16:5x)
 ROUNDS = 6
 
@@ -58,6 +60,10 @@ def gather(c, tap, npc, xy, got):
 def main(master, counts):
     lead = t.Client(master)
     apps = {n: t.Client(n) for n in counts}
+    for n, c in apps.items():       # 2026-10-28: a rerun counted from 0 and lapped flowers already used up for C's four
+        if w.item_count(w.read_bag(c.mem), BOTTLE):
+            t.say(f'[{n}] 背包已有花露瓶，5 滴已采完')
+            counts[n] = 5
     taps = {n: Tap(c.pid, from_end=True) for n, c in apps.items()}
     for tap in taps.values():
         tap.ready()
@@ -81,6 +87,9 @@ def main(master, counts):
                 before = counts[n]
                 counts[n] = gather(apps[n], taps[n], npc, xy, counts[n])
                 t.say(f'[{n}] 通天花 {npc}: {before} -> {counts[n]}/5')
+            if all(v >= 5 for v in counts.values()):   # done: the next step scrolls home, no team needed (user 2026-10-28)
+                t.say(f'全部 5 滴: {counts}')
+                return counts
             regroup(lead, list(apps.values()))
         t.say(f'第 {lap + 1} 圈后: {counts}')
     t.say(f'{ROUNDS} 圈后: {counts}')

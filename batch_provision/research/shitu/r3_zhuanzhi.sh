@@ -4,6 +4,7 @@
 #   2. the master's task 224 (2,1) -> hand in at 大个王 + take again = (1,)  (take224.take, no teleport)
 #   3. everybody 回城卷 to map 1
 #   4. 转职: take task 24 (apprentices in parallel, own windows), 拳手 (team), hand in, 梦幻岛, NPC 308 task 94
+#   5. 3 小时双倍 at 散福老人 in 自由市场 (double_exp.py, apprentices in parallel), back in map 1
 set -e
 IFS=, read -ra APPS <<< "$SHITU_APPRENTICES"
 M=$SHITU_MASTERS
@@ -47,4 +48,7 @@ for n in '$SHITU_APPRENTICES'.split(','):
         if d:
             c.game.select_dialog(0)
 "
+pids=()
+for a in "${APPS[@]}"; do python -X utf8 double_exp.py "$a" & pids+=($!); done
+for p in "${pids[@]}"; do wait $p; done
 echo R3_ZHUANZHI_DONE

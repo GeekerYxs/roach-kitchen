@@ -28,7 +28,7 @@ from well10 import form_team
 from common import APPRENTICES, MASTERS  # noqa: E402
 MASTER = MASTERS[0]
 OTHERS = APPRENTICES + MASTERS[1:]
-SCROLLS, GOLD = int(os.environ.get('SHITU_SCROLLS', '10')), 50000   # round 3: 伏地魔1 had only 33
+SCROLLS, GOLD = int(os.environ.get('SHITU_SCROLLS', '10')), int(os.environ.get('SHITU_GOLD', '50000'))  # 伏地魔4 has less
 GAP = 0.5
 TRADE_NEAR = 80
 

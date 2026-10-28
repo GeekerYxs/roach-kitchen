@@ -17,7 +17,8 @@ from provisioner import world as w
 
 d.MAP = 170
 POTION = 10687
-SOURCES = ((971, (2010, 1317)), (968, (1650, 2205)), (967, (2718, 1521)), (972, (3162, 1054)), (973, (3858, 1725)),
+# 968 last: round 4 it broke five members there (no dialog, then the server kept a stale position: 「距离太远」 at 0 px)
+SOURCES = ((971, (2010, 1317)), (967, (2718, 1521)), (972, (3162, 1054)), (973, (3858, 1725)), (968, (1650, 2205)),
            (969, (354, 1809)), (970, (162, 963)))
 
 
@@ -84,12 +85,22 @@ def main(master, names):
             c.game.team_leave()
             t.wait(lambda: not c.team(), 5, f'{n} 离队')
         for n in need:
-            ok = place(apps[n], npc, xy)
+            try:
+                ok = place(apps[n], npc, xy)
+            except t.Stop as e:    # 2026-10-28 亿万4 / 亿万12 at 968: one member's miss must not stop the team
+                t.say(f'[{n}] 水源 {npc}: {e}')
+                if (dlg := apps[n].dialog()) is not None:
+                    apps[n].game.select_dialog(0)
+                ok = False
             t.say(f'[{n}] 水源 {npc}: {"放好" if ok else "没放上"}，还剩 {potions(apps[n])} 瓶')
+        if not any(potions(c) for c in apps.values()):
+            break           # all placed: the next command scrolls home, a regroup here is wasted (user 2026-10-28)
         d.regroup(lead, list(apps.values()))
     left = {n: potions(c) for n, c in apps.items()}
     q = {n: w.read_quest(c.mem, 183).steps for n, c in apps.items()}
     t.say(f'剩余蝎子药 {left}；183 {q}')
+    if any(left.values()):
+        raise t.Stop(f'7 个水源走完还有蝎子药没放: {left}')
 
 
 if __name__ == '__main__':

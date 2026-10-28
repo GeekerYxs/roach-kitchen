@@ -14,6 +14,7 @@ B point: the stage's patrol_b, or when None the first of 8 points PROBE px aroun
 reaches (a point it cannot reach stalls twice and the next one is tried).
 """
 import math
+import os
 import sys
 import time
 
@@ -46,6 +47,8 @@ CLICK_NEAR = 25     # live 01:09: 10159 ignored 3 clicks from 67 px, answered at
 CLICK_WAIT = 8.0
 
 
+MAX_FALLS = 5      # one apprentice knocked out this often in one stage = the map is too hard for it: stop
+
 class Route:
     def __init__(self, stage):
         self.stage, self.maze, self.legs, self.patrol_b = stage['name'], stage['maze'], stage['legs'], stage['patrol_b']
@@ -67,7 +70,13 @@ class Route:
             self.progress_xy, self.progress_at = (st.x, st.y), now
         if now - self.progress_at > STALL:
             self.stalls += 1
+            anchor = getattr(self, 'wedge_xy', None)      # stalls within 150 px of the first one count as one spot
+            if anchor is None or math.dist((st.x, st.y), anchor) > 150:
+                self.wedge_xy, self.wedged = (st.x, st.y), 0
+            self.wedged += 1
             self.say(f'{STALL:.0f}s 没动（第 {self.stalls} 次），重新寻路（{why}）')
+            if self.wedged >= 20:      # 2026-10-28 伏地魔2 wedged at 古迹 (3840,2944) for 300 tries; home + rerun fixes it
+                raise t.Stop(f'寻路连续卡住 {self.wedged} 次（{why}，在 ({st.x:.0f},{st.y:.0f})）')
             if st.nav_active:
                 lead.game.cancel_navigation()
             self.progress_at, self.last_nav = now, -1e9
@@ -144,6 +153,13 @@ class Route:
             self.say(f'{xy} 走不到跟前，停在 ({st.x:.0f},{st.y:.0f}) 离 {math.dist((st.x, st.y), xy):.0f} px，算到了，掉头')
             self.target, self.stalls, self.last_nav = 1 - self.target, 0, -1e9
             return
+        if self.stalls >= 2 and (self.patrol_b or self.target == 0) and getattr(self, 'flips', 0) < 4:
+            # round 4 通天塔二区 01:36: the path-finder hung twice on the 1700 px walk from the landing to A; walk to
+            # the other point instead (the next lap tries this one again); give up after 4 such turns in a row
+            self.flips = getattr(self, 'flips', 0) + 1
+            self.say(f'{xy} 卡住两次（停在 ({st.x:.0f},{st.y:.0f})），先去另一个巡逻点（第 {self.flips} 次）')
+            self.target, self.stalls, self.last_nav = 1 - self.target, 0, -1e9
+            return
         if self.stalls >= 2:
             if self.target == 0 or self.patrol_b or not isinstance(self.probes, list) or not self.probes:
                 raise t.Stop(f'巡逻点 {xy} 走不到')
@@ -152,12 +168,16 @@ class Route:
             self.stalls, self.last_nav = 0, -1e9
             return
         if math.dist((st.x, st.y), xy) <= ARRIVE and not st.moving:
+            self.flips = 0
             if self.target == 1 and self.probes is not None and not self.patrol_b and self.probes != 'fixed':
                 self.say(f'B 点定为 {xy}（实际走到了），以后在 {self.points[0]} <-> {xy} 巡逻')
                 self.probes = 'fixed'
             self.target, self.stalls, self.last_nav = 1 - self.target, 0, -1e9
             return
         self.walk(lead, st, self.maze, xy, now, f'巡逻去 {"AB"[self.target]} 点 {xy}')
+
+
+STOP_AT = float(os.environ.get('SHITU_STOP_AT') or 0)   # epoch seconds; 0 = never
 
 
 def main():
@@ -175,7 +195,7 @@ def main():
     route = Route(STAGES[stage_i])
     t.say(f'当前段: {STAGES[stage_i]["name"]}' + (f'（刷到 {STAGES[stage_i]["until"]} 级）' if STAGES[stage_i]['until'] else ''))
     battles, in_battle, last_levels, t0 = 0, False, None, time.monotonic()
-    fallen = set()                       # round 3 (user 12:3x): an apprentice died -> stop after that battle
+    fallen, falls = set(), {}            # round 3 (user 12:3x) stopped at the first death; now after MAX_FALLS
     while True:
         now = time.monotonic()
         sts = {n: c.world() for n, c in cs.items()}
@@ -189,10 +209,18 @@ def main():
                     fallen.add(n)
                     t.say(f'[{n}] 战斗中倒下了，这场打完就停')
         if fallen and not sts[LEADER].in_battle:
-            if sts[LEADER].nav_active:
-                lead.game.cancel_navigation()
-            raise t.Stop(f'{sorted(fallen)} 战斗中死亡，已停下（地图 {sts[LEADER].map_id} '
-                         f'({sts[LEADER].x:.0f},{sts[LEADER].y:.0f})，共 {battles} 场），等指示')
+            # unattended (2026-10-28): a knocked-out apprentice is back at full HP after the battle (亿万29 in
+            # 通天塔二区: 1935/1935) and still in the team; count it and go on, stop only when one falls MAX_FALLS times
+            for n in fallen:
+                falls[n] = falls.get(n, 0) + 1
+            t.say(f'{sorted(fallen)} 战斗中倒下（本段累计 {falls}），继续')
+            worst = max(falls.values())
+            fallen = set()
+            if worst >= MAX_FALLS:
+                if sts[LEADER].nav_active:
+                    lead.game.cancel_navigation()
+                raise t.Stop(f'{falls} 本段倒下 {worst} 次，已停下（地图 {sts[LEADER].map_id} '
+                             f'({sts[LEADER].x:.0f},{sts[LEADER].y:.0f})，共 {battles} 场），等指示')
         missing = [n for n, c in cs.items() if c.char_id not in lead.team()]
         if missing:
             raise t.Stop(f'{missing} 不在 {LEADER} 的队里了（掉线或死亡？）')
@@ -229,6 +257,11 @@ def main():
                 t.say(f'{stage["name"]} 完成：任务 {qid} ' + ', '.join(f'{n} {q}' for n, q in qs.items()) +
                       f'；共 {battles} 场，{(now - t0) / 60:.1f} 分；停在地图 {lw.map_id} ({lw.x:.0f},{lw.y:.0f})')
                 return
+        if STOP_AT and time.time() >= STOP_AT and not lw.in_battle:      # r4: break off for the 散福 3 小时双倍
+            if lw.nav_active:
+                lead.game.cancel_navigation()
+            t.say(f'{stage["name"]} 到点暂停（SHITU_STOP_AT）；共 {battles} 场，{(now - t0) / 60:.1f} 分')
+            return
         if stage.get('done_when') and not lw.in_battle and stage['done_when']():   # quanshou: 0x46ff kill count
             if lw.nav_active:
                 lead.game.cancel_navigation()

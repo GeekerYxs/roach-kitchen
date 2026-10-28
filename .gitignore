@@ -1,5 +1,8 @@
 # 本机配置（游戏路径、号段、密码）——每台电脑自己一份，绝不上传
 batch_provision/local.toml
+batch_provision/local (*).toml
+batch_provision/local*.toml
+!batch_provision/local.example.toml
 batch_provision/testrun/local.toml
 
 # 运行时生成的东西：每台电脑各自一份
@@ -29,3 +32,9 @@ batch_provision/research/shitu/logs/
 batch_provision/research/shitu/runtime/
 batch_provision/research/shitu/bin/
 batch_provision/research/shitu/state*.json
+
+# 答题器源码的编译产物和生成文件（src/build.ps1 生成）
+大冒险2_自动答题器_原生无感关窗版/src/build/
+大冒险2_自动答题器_原生无感关窗版/src/dll/bank_data.h
+大冒险2_自动答题器_原生无感关窗版/backup_*/
+大冒险2_自动答题器_原生无感关窗版/*.old_inuse

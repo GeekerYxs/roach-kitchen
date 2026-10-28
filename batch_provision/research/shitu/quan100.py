@@ -23,10 +23,17 @@ m.STAGES = (
 class Kills(quanshou.Kills):
     def __call__(self):
         super().__call__()
+        for n, v in self.count.items():
+            if v >= N and not quanshou.done(n, 'kills40'):
+                quanshou.mark(n, 'kills40')     # the server says it once; a rerun must not wait for it again
         return all(v >= N for v in self.count.values())
 
 
 if __name__ == '__main__':
+    # 2026-10-28 team D: a restart after the kills were done patrolled 44 min for a message that never came again
+    if all(quanshou.done(n, 'kills40') for n in m.APPRENTICES):
+        m.t.say('40 个拳手早已打够（state kills40），跳过')
+        raise SystemExit(0)
     try:
         m.STAGES[0]['done_when'] = Kills([m.t.Client(n) for n in m.APPRENTICES])
         m.main()

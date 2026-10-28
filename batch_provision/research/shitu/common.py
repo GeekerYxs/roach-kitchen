@@ -35,12 +35,12 @@ _ps.GetModuleFileNameExW.argtypes = [W.HANDLE, W.HMODULE, W.LPWSTR, W.DWORD]
 
 
 def find_roles(roles=DEFAULT_ROLES):
-    """{role: (pid, full window title)} for windows whose title contains '-<role>'."""
+    """{role: (pid, full window title)} for windows whose title contains '-<role>_' (the name, then _<build date>)."""
     out = {}
     for pid, titles in game_window_titles().items():
         for role in roles:
             for t in titles:
-                if f'-{role}' in t and '什么什么大冒险2' in t:
+                if f'-{role}_' in t and '什么什么大冒险2' in t:      # '-亿万1' must not match '-亿万10_'
                     out[role] = (pid, t)
     return out
 

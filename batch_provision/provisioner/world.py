@@ -25,6 +25,9 @@ BUSY_MASK_RVAS = (0x57385C, 0x573874, 0x57387C, 0x5738A4, 0x573894, 0x573884, 0x
 UI_RVA = 0x6959E8              # 2.100; 2.98/2.99 0x64B1AC
 UI_NAV_MGR, NAV_OBJECT, NAV_ACTIVE, NAV_READY = 0xDA4, 0x8, 0x1D4, 0x1A8
 UI_QUESTION, QUESTION_ACTIVE = 0x10C4, 0x1C
+# Second panel of the same class:「QuestionOnMap」, the quiz on 「开打」 at a boss (S->C 0x46F5), see
+# research/shitu/BOSS_QUIZ.md; +0x1C = 1 while shown (live 2026-10-27 22:26). verification covers both.
+UI_QUESTION_MAP = 0x10C8
 UI_DIALOG, DIALOG_VISIBLE, DIALOG_CTRL_FIRST, DIALOG_CTRL_LAST = 0xE90, 0x1C, 0xEC, 0xF0
 BATTLE_RVA = 0x6959EC          # 2.100; 2.98/2.99 0x64B1B0
 BATTLE_FIGHTERS, FIGHTER_SIZE, FIGHTER_SP = 0x1DC0, 0x510, 0xF4
@@ -221,12 +224,14 @@ def read_world(mem):
         busy_mask |= mem.u32(base + rva)
     nav = mem.u32(mem.u32(ui + UI_NAV_MGR) + NAV_OBJECT) if mem.u32(ui + UI_NAV_MGR) else 0
     question = mem.u32(ui + UI_QUESTION)
+    map_question = mem.u32(ui + UI_QUESTION_MAP)
     in_battle = bool(flags & FLAG_IN_BATTLE)
     return WorldState(
         char_id=char_id, map_id=mem.u32(session + SESSION_MAP_ID), x=x, y=y, target_x=tx, target_y=ty,
         flags=flags, busy=bool(flags & busy_mask), in_battle=in_battle,
         nav_active=bool(nav and mem.read(nav + NAV_ACTIVE, 1)[0]),
-        verification=bool(question and mem.u32(question + QUESTION_ACTIVE)),
+        verification=bool((question and mem.u32(question + QUESTION_ACTIVE)) or
+                          (map_question and mem.u32(map_question + QUESTION_ACTIVE))),
         my_sp=read_my_sp(mem) if in_battle else None,
         dialog=None if in_battle else read_dialog(mem),
         still_for=_still_for(mem, x, y),

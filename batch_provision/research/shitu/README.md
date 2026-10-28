@@ -1,7 +1,11 @@
 # research/shitu — 师徒「大带小」流水线工具箱
 
-一句话：两个 70 级师傅（伏地魔1、伏地魔2）各带 4 个新建小号，从 1 级做到 41 级出师。每个小号最后约 **50 万金币**，还有一套 40 级橙装。
-完整流程、协议、坑和优化见 **[docs/SHITU_PIPELINE.md](../../../docs/SHITU_PIPELINE.md)**。这一页只是代码地图和命令清单。
+一句话：70 级师傅（第 4 轮起 伏地魔1–4 四个）各带 4 个新建小号，从 1 级做到 41 级出师。每个小号最后约 **46–50 万金币**。
+
+- **无人值守产线（第 4 轮定型，现在用这个）**：[docs/SHITU_LINE.md](../../../docs/SHITU_LINE.md) —— 一键 `python -X utf8 r4_line.py`，
+  停 = `touch logs/LINE_STOP`。三层：总控 `r4_line.py` → 一批 `r4_batch.sh` → 监管器 `r4_supervise.sh` → 三段 `r4_early/mid/late.sh`。
+- 游戏事实、协议、坑：[docs/SHITU_PIPELINE.md](../../../docs/SHITU_PIPELINE.md)；第 4 轮的问题和经验数据：[ROUND4_NOTES.md](ROUND4_NOTES.md)。
+- 这一页只是代码地图和命令清单。
 
 - 所有脚本都在这个目录里运行：`python -X utf8 <脚本> ...`。
 - 也可以从 `batch_provision/` 运行：`python -X utf8 research/shitu/<脚本>`。
@@ -12,6 +16,8 @@
 | 路径 | 内容 | 进仓库？ |
 |---|---|---|
 | `*.py` / `r3_*.sh` | 工具和每一步的脚本 | 是 |
+| `r4_*.sh` / `r4_*.py` / `r4_line.toml` | 第 4 轮产线：总控、批次、监管器、三段流程、工具、统计（见 docs/SHITU_LINE.md 第 6 节） | 是 |
+| `ROUND4_NOTES.md`、`BOSS_QUIZ.md` | 第 4 轮运行记录；boss 开打答题 | 是 |
 | `ANALYSIS.md` | 考验一二三、拜师、10 级转职、解除师徒的协议分析（第 1 轮） | 是 |
 | `GATHER.md` | 遗忘洞穴采集、地头蛇、任务 224（第 1 轮） | 是 |
 | `notes/` | 第 2、3 轮的逐条流水和报告 | 是 |
@@ -19,7 +25,8 @@
 | `logs/` | `mem_<角色>.jsonl`、`net_<角色>.jsonl`（monitor.py 录的）和各步日志 | 否（几百 MB） |
 | `runtime/` | DLL 录包 `tap_<pid>.jsonl` | 否 |
 | `bin/` | attach_tap.py 复制过来的 DLL | 否 |
-| `state*.json` | 每队的进度文件（拜师 / 考验一二三做过没有） | 否 |
+| `state*.json` | 每队的进度文件（拜师 / 考验一二三 / 双倍 / 拳手做过没有） | 否 |
+| `logs/line_state.json`、`logs/line_alert.log`、`logs/LINE_STOP` | 产线总控的进度、报警、停止开关 | 否 |
 
 ## 环境变量（一队一套）
 
@@ -30,7 +37,9 @@
 | `SHITU_STATE` | 进度文件，两队同时跑时必须分开 | `state_r3a.json` |
 | `SHITU_SCROLLS` | supply_go 给每个徒弟几张回城卷 | `10` |
 | `SHITU_QID` | talk_chain.py 读哪个任务的步骤 | `183` |
-| `SHITU_GATHER_CAST` / `SHITU_DTS_ONCE` | 采集者自己出手 / 地头蛇只点一次 | `1` |
+| `SHITU_GATHER_CAST` | 采集者自己出手 | `1` |
+| `BATCH`、`SKIP` | 第 4 轮：第几批（= 账号的角色位）、不带哪些徒弟；`r4_env.sh TEAM` 据此算出上面几个变量和 `PAIRS`、`LOGID` | `2`、`亿万13` |
+| `FROM`、`UNTIL` | 第 4 轮三段脚本：从哪一步开始、跑完哪一步停 | `corpse` |
 
 ## 模块地图（按职责分层）
 
@@ -39,6 +48,8 @@
 - `trial_run.py`：`Client`（一个窗口：内存 + 发请求）、`wait`、`say`、对话工具 `pick` / `choose` / `body`。
 - `monitor.py`：只读录制器，每 0.2 秒记一次内存变化，同时记录所有收发的封包，写到 `logs/mem_*.jsonl`、`logs/net_*.jsonl`。
 - `attach_tap.py`：给已经进游戏的窗口挂上录包。
+- `boss_quiz_peek.py`：只读，看两块答题面板（战斗题 / boss 题）。
+- `boss_quiz.py`：boss「开打」时的答题（0x46f5）静默自动答，`dts.py`、`scorpion_king.py` 在用；单独运行 = 只读，打印会选哪项。详见 `BOSS_QUIZ.md`。
 - `r2_status.py`、`check_rosters.py`：状态和角色列表，只读。
 
 **第 1 层：移动**
@@ -63,6 +74,7 @@
   - 考验一二：`trial_run.py`
   - 考验三：`trial3_run.py`
   - 10 级转职（任务 24）：`zhuanzhi_take.py`、`quanshou.py`、`zhuanzhi_finish.py`
+  - 转职后领 3 小时双倍（自由市场散福老人）：`double_exp.py`（`r3_zhuanzhi.sh` 最后一步）
   - 任务 224：`take224.py`、`gather.py`、`dts.py`、`shoe_dagewang.py`
   - 40 级战士的试炼（任务 181）：`quan100.py`、`guji_crystal.py`、`dew_team.py`
   - 勇者的考验（任务 183）：`yongzhe_take.py`、`scorpion_water.py`、`scorpion_king.py`
@@ -91,7 +103,14 @@
 - `make_apprentices.py`：建号。
 - `delete_apprentices.py`：删号。
 
-## 第 3 轮的命令顺序（每队一套环境变量，两队同时跑）
+**第 5 层：第 4 轮产线**（详见 docs/SHITU_LINE.md）
+- `r4_line.py`：总控，每队一条线程，批次循环、放弃后的恢复、排除卡死的徒弟、报警。
+- `r4_batch.sh`、`r4_sup.sh`→`r4_supervise.sh`、`r4_run.sh`、`r4_env.sh`：一批 / 监管器 / 跑一段 / 每队环境。
+- `r4_early.sh`、`r4_mid.sh`、`r4_late.sh`：1→大个王、大个王→40、40→出师。
+- `r4_util.py`：home、leave、restock、supply、double、need（任务闸门）、windows（窗口检查 + 重新登录）、space。
+- `double_exp.py`（散福 3 小时）、`bazhen25.py`、`cave_train.py`、`tower28.py`、`tower2_patrol.py`（练级段）、`r4_stats.py`（经验表）。
+
+## 第 3 轮的命令顺序（每队一套环境变量，两队同时跑；第 4 轮起用 r4_line.py）
 
 ```
 # A 队：export SHITU_STATE=state_r3a.json SHITU_MASTERS=伏地魔1 SHITU_APPRENTICES=千万1,千万2,千万3,千万4
@@ -102,9 +121,9 @@ python -X utf8 well10.py                         # 1 -> 10，阴森古井
 python -X utf8 supply_go.py                      # 回城卷 + 5 万金币，到海岸，PP鸡 认证
 python -X utf8 lunhui15.py                       # 10 -> 15，轮回之城
 python -X utf8 maze_train.py                     # 15 -> 23，然后走到大个王
-bash r3_zhuanzhi.sh                              # 飞鞋，224 交了重接，10 级转职，任务 94
+bash r3_zhuanzhi.sh                              # 飞鞋，224 交了重接，10 级转职，任务 94，领 3 小时双倍
 bash r3_mid.sh                                   # 卖杂物，考验一二，通天塔练到 30
-bash r3_cave.sh; SHITU_DTS_ONCE=1 python -X utf8 dts.py   # 任务 224，打地头蛇（第一次会弹题）
+bash r3_cave.sh; python -X utf8 dts.py                   # 任务 224，打地头蛇（弹 boss 题会自动答）
 bash r3_end.sh                                   # 回城，卖杂物，考验三
 python -X utf8 tower2_go.py; python -X utf8 tower2_patrol.py 40   # 通天塔二区巡逻到 40
 # 40 级之后的任务 181 / 183 / 出师 / 收尾，逐条命令见 docs/SHITU_PIPELINE.md 第 4 节

@@ -35,8 +35,8 @@ def go(c):
 
 def take(c):
     q = w.read_quest(c.mem, QUEST)
-    if q.active:
-        t.say(f'[{c.name}] 任务 {QUEST} 已经接了 {q}')
+    if q.active or q.done:
+        t.say(f'[{c.name}] 任务 {QUEST} 已经接了或已完成 {q}')
         return
     go(c)
     talk(c, NPC, STEPS)

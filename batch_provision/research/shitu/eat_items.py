@@ -5,6 +5,7 @@
 User, round 3 (12:2x): eat all 幸运丸 / 酒池肉林 / 加钙地瓜 / 地沟果奶 / 心脏起搏器. A use that does not lower the count
 within WAIT seconds is logged and that item is skipped (no retry loop).
 """
+import os
 import sys
 import time
 
@@ -49,6 +50,8 @@ if __name__ == '__main__':
         i = args.index('--name')
         words.append(args[i + 1])
         del args[i:i + 2]
+    if os.environ.get('SHITU_STATE', '').startswith('state_r4'):   # round 4: 地瓜 one at a time (r4_util double)
+        words = [x for x in words if x != '加钙地瓜']
     try:
         for n in args:
             run(n, table, tuple(words))

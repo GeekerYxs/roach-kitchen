@@ -9,6 +9,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'research' / 'shitu'))
 
+import double_exp  # noqa: E402
 import mail_sell  # noqa: E402
 import sell_tradable  # noqa: E402
 import teamwalk  # noqa: E402
@@ -78,3 +79,17 @@ class WalkPast(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class DoubleExpMenu(unittest.TestCase):
+    MENU = [(1, '#00BFFF#我要领取#00FF00# 1 小时 #00BFFF#加倍经验'), (2, '#00BFFF#我要领取#00FF00# 2 小时 #00BFFF#加倍经验'),
+            (3, '#00BFFF#我要领取#00FF00# 3 小时 #00BFFF#加倍经验'), (4, '离开')]   # 2026-10-27 自由一号
+
+    def test_takes_three_hours(self):
+        self.assertEqual(double_exp.choose_hours(self.MENU), (3, 3))
+
+    def test_takes_largest_left(self):
+        self.assertEqual(double_exp.choose_hours(self.MENU[:2] + [(3, '离开')]), (2, 2))
+
+    def test_none_when_nothing_to_claim(self):
+        self.assertIsNone(double_exp.choose_hours([(1, '离开')]))

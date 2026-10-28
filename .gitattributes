@@ -1,0 +1,2 @@
+# shell scripts must keep LF: bash (Git Bash / MSYS) reads a CR as part of the command
+*.sh text eol=lf

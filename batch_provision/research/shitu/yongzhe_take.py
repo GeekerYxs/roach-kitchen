@@ -24,6 +24,22 @@ def active(c):
 
 def take(name):
     c = t.Client(name)
+    q = w.read_quest(c.mem, 183)
+    if q.active or q.done:          # a supervisor rerun of the q183 step (2026-10-28 team C): already taken
+        t.say(f'[{name}] 已有任务 183 {q}，跳过')
+        return
+    if c.team():
+        c.game.team_leave()
+        t.wait(lambda: not c.team(), 5, f'{name} 离队')
+    if not w.read_quest(c.mem, 181).done:   # 2026-10-28 亿万8: 181 not handed in yet, 631 has no 转职考验 option
+        import talk_chain
+        t.say(f'[{name}] 181 还没交 {w.read_quest(c.mem, 181)}，先找龙格尔交')
+        talk_chain.run(name, 20, (3174, 1251), 631, '战士的试炼')
+        if not w.read_quest(c.mem, 181).done:
+            raise t.Stop(f'{name} 181 交不掉: {w.read_quest(c.mem, 181)}')
+    if not c.dialog():
+        from pp_chain import walk
+        walk(c, 20, (3174, 1251), 'NPC 631')    # a rerun starts wherever the step left them in 龙之都外城
     before = active(c)
     d = c.dialog()
     if d and any('接受任务' in t.plain(l) for _, l in d.options):      # 千万1: probed up to here by hand
