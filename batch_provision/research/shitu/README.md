@@ -2,7 +2,9 @@
 
 一句话：70 级师傅（第 4 轮起 伏地魔1–4 四个）各带 4 个新建小号，从 1 级做到 41 级出师。每个小号最后约 **46–50 万金币**。
 
-- **无人值守产线（第 4 轮定型，现在用这个）**：[docs/SHITU_LINE.md](../../../docs/SHITU_LINE.md) —— 一键 `python -X utf8 r4_line.py`，
+- **新架构 v5（2026-10-28，接手先看这个）**：`python -X utf8 -m line`（`line/` 包：plan / route / ops / runner / 总控），
+  路线是 `line/route.py` 一张表，恢复全在 `line/runner.py`。说明见 docs/SHITU_LINE.md 第 8 节；第 4 轮 shell 版保留作退路。
+- **无人值守产线（第 4 轮定型，v5 的退路）**：[docs/SHITU_LINE.md](../../../docs/SHITU_LINE.md) —— 一键 `python -X utf8 r4_line.py`，
   停 = `touch logs/LINE_STOP`。三层：总控 `r4_line.py` → 一批 `r4_batch.sh` → 监管器 `r4_supervise.sh` → 三段 `r4_early/mid/late.sh`。
 - 游戏事实、协议、坑：[docs/SHITU_PIPELINE.md](../../../docs/SHITU_PIPELINE.md)；第 4 轮的问题和经验数据：[ROUND4_NOTES.md](ROUND4_NOTES.md)。
 - 这一页只是代码地图和命令清单。

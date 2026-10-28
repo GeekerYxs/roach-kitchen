@@ -5,6 +5,7 @@
 // 3. 自动多开发现与注入守护（自动为所有 WAATClient.exe 注入 quizbot_hook.dll）
 // 4. 内置 221 道精选题库与动态算术求解引擎，自适应乱序选项文本匹配
 // 5. 联动游戏主 UI 线程原生 CloseDialog (基址 + RVA_CLOSE_DIALOG) 瞬间关窗，零延迟、不抢鼠标、无残留
+// 6. 每个游戏窗口解锁自带「辅助工具」的战斗辅助页和自动采集页（native_unlock.h，内存补丁；--no-unlock 关掉）
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <tlhelp32.h>
@@ -26,6 +27,7 @@
 #include "../dll/game_addrs.h"
 #include "../dll/map_names.h"
 #include "boss_quiz.h"
+#include "native_unlock.h"
 
 // ---------------- 编码转换与原生 Unicode 控制台日志 ----------------
 static std::mutex g_log_mtx;
@@ -1085,8 +1087,37 @@ static void kill_stale_controllers() {
     CloseHandle(snap);
 }
 
+// ---------------- 辅助工具界面解锁（native_unlock.h） ----------------
+// -> true = 两页都已解锁（或这个进程不用再试）。游戏刚启动时模块可能还没映射全，没成功的下个周期再试。
+static bool unlock_native_ui(DWORD pid) {
+    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, pid);
+    if (snap == INVALID_HANDLE_VALUE) return false;
+    MODULEENTRY32W me; me.dwSize = sizeof(me);
+    uintptr_t base = 0; uint32_t size = 0;
+    if (Module32FirstW(snap, &me)) {
+        do {
+            if (_wcsicmp(me.szModule, L"WAATClient.exe") == 0) { base = (uintptr_t)me.modBaseAddr; size = me.modBaseSize; break; }
+        } while (Module32NextW(snap, &me));
+    }
+    CloseHandle(snap);
+    if (!base) return false;
+    HANDLE h = OpenProcess(PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_VM_OPERATION | PROCESS_QUERY_INFORMATION, FALSE, pid);
+    if (!h) {
+        log_info_w(L"解锁", 12, L"%ls 打不开进程 (错误码=%lu)", get_client_tag(pid).c_str(), GetLastError());
+        return false;
+    }
+    bool all_ok = false;
+    std::string msg = nu::unlock_process(h, base, size, nu::default_specs(ga::RVA_UNLOCK_FIGHT, ga::RVA_UNLOCK_GATHER), all_ok);
+    CloseHandle(h);
+    log_info_w(L"解锁", all_ok ? 10 : 12, L"%ls 辅助工具 %ls", get_client_tag(pid).c_str(), u8_to_ws(msg).c_str());
+    return all_ok;
+}
+
 // ---------------- 主入口 ----------------
-int main() {
+int main(int argc, char** argv) {
+    bool do_unlock = true;
+    for (int i = 1; i < argc; i++)
+        if (strcmp(argv[i], "--no-unlock") == 0) do_unlock = false;
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
     SetConsoleTitleW(L"大冒险2.0 自动答题器 (原生CloseDialog无感关窗·独立免安装版)");
@@ -1132,6 +1163,9 @@ int main() {
     std::thread(battle_tracker_thread).detach();
 
     std::set<DWORD> managed_pids;
+    std::map<DWORD, int> unlock_tries;     // pid -> 解锁试了几次（成功后记成 -1）
+    log_info_w(L"解锁", 14, do_unlock ? L"辅助工具界面解锁: 开（战斗辅助 + 自动采集；启动参数 --no-unlock 关掉）"
+                                        : L"辅助工具界面解锁: 关（--no-unlock）");
 
     while (true) {
         std::vector<DWORD> pids = find_game_pids();
@@ -1161,6 +1195,13 @@ int main() {
         }
 
 
+        for (DWORD pid : pids) {
+            if (!do_unlock || managed_pids.find(pid) == managed_pids.end()) continue;
+            int& n = unlock_tries[pid];
+            if (n < 0 || n >= 10) continue;            // 已解锁 / 试了 10 次（约 15 秒）还不行就不再刷屏
+            n = unlock_native_ui(pid) ? -1 : n + 1;
+        }
+
         std::set<DWORD> alive(pids.begin(), pids.end());
         for (auto it = managed_pids.begin(); it != managed_pids.end(); ) {
             if (alive.find(*it) == alive.end()) {
@@ -1169,6 +1210,7 @@ int main() {
                     std::lock_guard<std::mutex> lk(g_name_mtx);
                     g_pid_to_info.erase(*it);
                 }
+                unlock_tries.erase(*it);
                 it = managed_pids.erase(it);
             } else {
                 ++it;

@@ -15,6 +15,9 @@ constexpr uint32_t RVA_CODEC_ENC    = 0x571EE4;  // 编码表指针数组       
 constexpr uint32_t RVA_CODEC_DEC    = 0x571F0C;  // 解码表指针数组                        (2.98: 0x515D94)
 constexpr uint32_t RVA_QUIZ_SUBMIT  = 0x224330;  // thiscall(panel)：按 +0x1AC 发答案     (2.98: 0x220950)
 constexpr uint32_t RVA_CLOSE_DIALOG = 0x3C7E50;  // thiscall(parent, panel, 0)：关窗        (2.98: 0x391860)
+// 辅助工具界面解锁补丁的位置（controller/native_unlock.h；2026-10-28 用特征码在 2.100 exe 里核对，各只出现一次）
+constexpr uint32_t RVA_UNLOCK_FIGHT  = 0x5F570;  // 战斗辅助页「（待激活）」判断           (2.97: 0x5EA20)
+constexpr uint32_t RVA_UNLOCK_GATHER = 0x5F2BF;  // 自动采集页「（待激活）」判断           (2.97: 0x5E76F)
 
 // 两个答题面板（同一个界面类），见 batch_provision/research/shitu/BOSS_QUIZ.md
 constexpr uint32_t UI_QUIZ_BATTLE = 0x10C4;  // "Question"：战斗里的题 0x46F4 / 0x1F04

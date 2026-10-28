@@ -20,12 +20,16 @@ Write-Host "[2/5] Offline tests..." -ForegroundColor Yellow
 if ($LASTEXITCODE -ne 0) { throw "Build protocol_test failed" }
 & $gxx @cflags "$root\tools\boss_quiz_test.cpp" "-o" "$root\build\boss_quiz_test.exe"
 if ($LASTEXITCODE -ne 0) { throw "Build boss_quiz_test failed" }
+& $gxx @cflags "$root\tools\native_unlock_test.cpp" "-o" "$root\build\native_unlock_test.exe"
+if ($LASTEXITCODE -ne 0) { throw "Build native_unlock_test failed" }
 Push-Location $root
 try {
     & "$root\build\protocol_test.exe"
     if ($LASTEXITCODE -ne 0) { throw "protocol_test failed" }
     & "$root\build\boss_quiz_test.exe"
     if ($LASTEXITCODE -ne 0) { throw "boss_quiz_test failed" }
+    & "$root\build\native_unlock_test.exe"
+    if ($LASTEXITCODE -ne 0) { throw "native_unlock_test failed" }
 } finally { Pop-Location }
 
 Write-Host "[3/5] Compiling UAC manifest resource..." -ForegroundColor Yellow
