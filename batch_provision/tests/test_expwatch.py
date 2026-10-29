@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from expwatch import core
+from provisioner import world
 
 TABLE = core.load_table(Path(__file__).resolve().parent.parent / 'expwatch' / 'explib.csv')
 
@@ -57,11 +58,38 @@ class Tracking(unittest.TestCase):
         self.assertIsNone(out[0].cycle)
         self.assertEqual(out[0].gain, 3000)
 
+    def test_enemy_levels_from_the_fullest_sample(self):
+        out = self.feed([S(0, False), core.Sample(1, True, 46, 0, 700, 4, (21, 21, 22, 22)),
+                         core.Sample(5, True, 46, 0, 700, 2, (21, 22)), S(9, False, exp=984), S(15, True, exp=984)])
+        self.assertEqual((out[0].enemies, out[0].enemy_levels), (4, (21, 21, 22, 22)))
+
+    def test_enemy_levels_filled_when_first_sample_had_none(self):
+        out = self.feed([S(0, False), core.Sample(1, True, 46, 0, 700, 4, ()),
+                         core.Sample(2, True, 46, 0, 700, 4, (21, 22, 22, 22)), S(9, False, exp=9), S(15, True, exp=9)])
+        self.assertEqual(out[0].enemy_levels, (21, 22, 22, 22))
+
+    def test_enemy_text(self):
+        self.assertEqual(core.enemy_text((21, 21, 22)), ' 怪3只21~22级')
+        self.assertEqual(core.enemy_text((51,)), ' 怪1只51级')
+        self.assertEqual(core.enemy_text(()), '')
+
     def test_level_up_inside_battle(self):
         out = self.feed([S(0, False, exp=TABLE[46] - 100), S(1, True, exp=TABLE[46] - 100),
                          S(9, False, level=47, exp=3471), S(15, True, level=47, exp=3471)])
         self.assertEqual((out[0].gain, out[0].level, out[0].level_after), (3571, 46, 47))
         self.assertEqual(core.level_ups(out), {'cap07': {47: 9}})
+
+
+class FighterLevels(unittest.TestCase):
+    def test_rows_keyed_by_pos_not_order(self):
+        def r(pos, lv):
+            b = bytearray(world.GRADE_ROW)
+            b[world.GRADE_POS:world.GRADE_POS + 4] = pos.to_bytes(4, 'little', signed=True)
+            b[world.GRADE_LEVEL:world.GRADE_LEVEL + 4] = lv.to_bytes(4, 'little')
+            return bytes(b)
+        # Live 2026-10-29 八阵图: rows out of position order, the 70 leader first, empty rows pos -1.
+        block = r(17, 70) + r(2, 21) + r(0, 22) + r(-1, 0) + r(5, 0)
+        self.assertEqual(world.grades_by_pos(block), {17: 70, 2: 21, 0: 22})
 
 
 def B(role, start, level, gain, cycle=30.0, level_after=None):
@@ -90,10 +118,24 @@ class Rates(unittest.TestCase):
     def test_csv_round_trip(self):
         with tempfile.TemporaryDirectory() as d:
             p = Path(d) / 'x' / 'battles.csv'
-            bs = [B('cap07', 1.5, 46, 3571), B('cap08', 2.0, 46, 3571, cycle=None)]
+            bs = [B('cap07', 1.5, 46, 3571), B('cap08', 2.0, 46, 3571, cycle=None),
+                  core.Battle('cap09', 3.0, 9.0, 15.0, 22, 0, 22, 1582, 1582, 700, 4, (21, 21, 22, 22))]
             core.append_battles(p, bs[:1])
             core.append_battles(p, bs[1:])
             self.assertEqual(core.read_battles(p), bs)
+
+    def test_old_csv_without_level_column_is_rewritten(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / 'battles.csv'
+            p.write_text('role,start,fight,cycle,level,exp_before,level_after,exp_after,gain,map_id,enemies\n'
+                         'a,1.0,8.0,12.5,28,0,28,734,734,141,5\n', encoding='utf-8')
+            new = core.Battle('b', 2.0, 9.0, 15.0, 22, 0, 22, 1582, 1582, 700, 4, (21, 22))
+            core.append_battles(p, [new])
+            got = core.read_battles(p)
+            self.assertEqual(got[0].enemy_levels, ())
+            self.assertEqual(got[0].enemies, 5)
+            self.assertEqual(got[1], new)
+            self.assertTrue(p.read_text(encoding='utf-8').startswith(','.join(core.FIELDS)))
 
 
 if __name__ == '__main__':

@@ -48,6 +48,7 @@ class Sample:
     exp: int
     map_id: int
     enemies: int = 0    # live enemies read in this sample (0 outside battle / unreadable)
+    enemy_levels: tuple = ()    # their levels, ascending
 
 
 @dataclass(frozen=True)
@@ -63,6 +64,7 @@ class Battle:
     gain: int
     map_id: int
     enemies: int = 0    # most live enemies seen during the battle (0 = not read)
+    enemy_levels: tuple = ()    # levels of those enemies, ascending (() = not read)
 
 
 class Tracker:
@@ -78,6 +80,7 @@ class Tracker:
         self.cur = None         # Sample at the start of the battle being tracked
         self.end = None         # end time of that battle, None while it runs
         self.enemies = 0        # most live enemies seen in the battle being tracked
+        self.levels = ()        # enemy levels of the sample that saw them
 
     def feed(self, s):
         out = []
@@ -89,9 +92,10 @@ class Tracker:
                 b = self._close(s, cycle=s.t - self.cur.t)
                 if b:
                     out.append(b)
-            self.cur, self.end, self.enemies = s, None, s.enemies
+            self.cur, self.end, self.enemies, self.levels = s, None, s.enemies, s.enemy_levels
         elif s.in_battle and self.cur is not None and self.end is None:   # battle runs
-            self.enemies = max(self.enemies, s.enemies)
+            if s.enemies > self.enemies or (s.enemies == self.enemies and not self.levels):
+                self.enemies, self.levels = s.enemies, s.enemy_levels
         elif prev.in_battle and not s.in_battle:        # battle ends
             if self.cur is not None:
                 self.end = s.t
@@ -108,7 +112,7 @@ class Tracker:
         if g is None:
             return None
         return Battle(self.role, c.t, self.end - c.t, cycle, c.level, c.exp, s.level, s.exp, g, c.map_id,
-                      self.enemies)
+                      self.enemies, self.levels)
 
 
 @dataclass(frozen=True)
@@ -173,20 +177,21 @@ def measured_hours(ups, start, end):
 # ---- battles.csv (kept across runs so per-level rates use all history) ----
 
 FIELDS = ('role', 'start', 'fight', 'cycle', 'level', 'exp_before', 'level_after', 'exp_after', 'gain', 'map_id',
-          'enemies')
+          'enemies', 'enemy_levels')
 
 
 def to_row(b):
     return {'role': b.role, 'start': f'{b.start:.1f}', 'fight': f'{b.fight:.1f}',
             'cycle': '' if b.cycle is None else f'{b.cycle:.1f}', 'level': b.level, 'exp_before': b.exp_before,
             'level_after': b.level_after, 'exp_after': b.exp_after, 'gain': b.gain, 'map_id': b.map_id,
-            'enemies': b.enemies}
+            'enemies': b.enemies, 'enemy_levels': ' '.join(map(str, b.enemy_levels))}
 
 
 def from_row(r):
     return Battle(r['role'], float(r['start']), float(r['fight']), float(r['cycle']) if r['cycle'] else None,
                   int(r['level']), int(r['exp_before']), int(r['level_after']), int(r['exp_after']), int(r['gain']),
-                  int(r['map_id']), int(r.get('enemies') or 0))
+                  int(r['map_id']), int(r.get('enemies') or 0),
+                  tuple(map(int, (r.get('enemy_levels') or '').split())))
 
 
 def read_battles(path):
@@ -214,3 +219,11 @@ def append_battles(path, battles):
             w.writeheader()
         for b in battles:
             w.writerow(to_row(b))
+
+
+def enemy_text(levels):
+    """' 怪4只21~22级' for the battle log; '' when the levels were not read."""
+    if not levels:
+        return ''
+    lo, hi = min(levels), max(levels)
+    return f' 怪{len(levels)}只{lo}级' if lo == hi else f' 怪{len(levels)}只{lo}~{hi}级'

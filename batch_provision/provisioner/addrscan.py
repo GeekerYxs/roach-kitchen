@@ -116,6 +116,8 @@ SIGS = (
         '89 54 24 20 EB ?? 83 BE ?? ?? ?? ?? 0A'),
     Sig('BATTLE_PET_REAL_POS', DISP, 8, 4, 0x9188, 0x9180,
         '88 8E ?? ?? ?? ?? 89 86 ?? ?? ?? ?? 80 7F 28 0A'),
+    Sig('BATTLE_GRADES', DISP, 6, 4, 0x867c, 0x8674,     # GetFighterLevel; 0x8674 read from a 2.98/2.99 copy
+        '6B C0 2C 8D 84 30 ?? ?? ?? ?? 85 C0 75 ?? 5E 5D C2 04 00'),
     Sig('SCENE_INDEX', DISP, 8, 4, 0x24928, 0x24928,
         '8D 88 ?? ?? ?? ?? 8B 80 ?? ?? ?? ?? 8D 74 24 0C'),
     Sig('SCENE_FIRST', DISP, 8, 4, 0xe34, 0xe34,
@@ -246,6 +248,7 @@ def code_constants():
         'NAV_READY': world.NAV_READY, 'NAV_ACTIVE': world.NAV_ACTIVE, 'SHOE_MAP': world.SHOE_MAP,
         'SHOE_XY': world.SHOE_XY, 'BATTLE_FIGHTERS': world.BATTLE_FIGHTERS, 'BATTLE_SIDE': world.BATTLE_SIDE,
         'BATTLE_REAL_POS': world.BATTLE_REAL_POS, 'BATTLE_PET_REAL_POS': world.BATTLE_PET_REAL_POS,
+        'BATTLE_GRADES': world.BATTLE_GRADES,
         'SCENE_INDEX': world.SCENE_INDEX, 'SCENE_FIRST': world.SCENE_FIRST, 'SCENE_LAST': world.SCENE_LAST,
         'SESSION_MAP_ID': world.SESSION_MAP_ID, 'SESSION_LEVEL': world.SESSION_LEVEL, 'BAG_COUNT': world.BAG_COUNT,
         'BAG_GOLD': world.BAG_GOLD, 'EQUIP_TABLE': world.EQUIP_TABLE, 'SKILL_TABLE': world.SKILL_TABLE,

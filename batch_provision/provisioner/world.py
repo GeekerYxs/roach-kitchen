@@ -72,6 +72,10 @@ SESSION_TALENT = 0xEFC
 FIGHTER_DEAD = 0xCC
 BATTLE_PET_REAL_POS = 0x9188   # 2.100: 0x9180
 ENEMY_POSITIONS = range(10)
+# Fighter levels (Lua GetFighterLevel RVA 0x132c0 on 2.101): 20 rows of 0x2C at battle+0x867C, +0x10 client pos
+# (-1 = empty row), +0x28 level (wGrade); rows are not in position order. Read live 2026-10-29: 八阵图 enemies
+# 21/22, 惊魂监狱 51/52, team rows carry the members' levels. 2.98/2.99 copy: 0x8674.
+BATTLE_GRADES, GRADE_ROW, GRADE_ROWS, GRADE_POS, GRADE_LEVEL = 0x867C, 0x2C, 20, 0x10, 0x28
 # Learned skills and pets (Lua backing functions HasSkill RVA 0x11B30, HasFightPetHasAbility 0x11C90, GetPetMp
 # 0x10270; read live 2026-10-12 on 伏地魔1: 803 lv6, fighting pet index 1 with 1504 lv11 and 919 MP).
 # P = session+0x1658. Skills: 4 vectors {first,last} at P+0x1B600+0xC/0x1C/0x2C/0x3C, rows of 0x68 bytes inline,
@@ -408,6 +412,26 @@ def read_battle(mem):
     pet = _fighter(mem, battle, _client_pos(pet_real, side, my_real))
     enemies = tuple(p for p in ENEMY_POSITIONS if (f := _fighter(mem, battle, p)) and not f.dead)
     return Battle(me, pet, enemies)
+
+
+def grades_by_pos(block):
+    """{client pos: level} from the raw fighter-level rows (GRADE_ROWS * GRADE_ROW bytes)."""
+    out = {}
+    for i in range(len(block) // GRADE_ROW):
+        pos, level = struct.unpack_from('<i', block, i * GRADE_ROW + GRADE_POS)[0], \
+            struct.unpack_from('<H', block, i * GRADE_ROW + GRADE_LEVEL)[0]
+        if 0 <= pos < 20 and level:
+            out[pos] = level
+    return out
+
+
+def read_fighter_levels(mem, positions):
+    """Levels of the fighters at these client positions, same order (0 where no row), or None without a battle."""
+    battle = mem.u32(mem.base + BATTLE_RVA)
+    if not battle:
+        return None
+    by_pos = grades_by_pos(mem.read(battle + BATTLE_GRADES, GRADE_ROWS * GRADE_ROW))
+    return tuple(by_pos.get(p, 0) for p in positions)
 
 
 def _player_data(mem):

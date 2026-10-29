@@ -22,7 +22,7 @@ from pathlib import Path
 from provisioner import log as plog
 from provisioner.memory import ProcessMemory
 from provisioner.procs import game_window_titles
-from provisioner.world import read_battle
+from provisioner.world import read_battle, read_fighter_levels
 from provisioner.world import (FLAG_IN_BATTLE, ROW_FLAGS, SCENE_FIRST, SCENE_INDEX, SCENE_LAST, SCENE_ROW,
                                SESSION_LEVEL, SESSION_MAP_ID, SESSION_MGR_RVA)
 
@@ -78,14 +78,16 @@ def read_sample(mem):
     if not level:
         return None
     in_battle = bool(flags & FLAG_IN_BATTLE)
-    enemies = 0
+    enemies, levels = 0, ()
     if in_battle:
         try:
             b = read_battle(mem)
-            enemies = len(b.enemies) if b else 0
-        except Exception:              # battle object half built / torn down: count stays 0 for this sample
-            enemies = 0
-    return core.Sample(time.time(), in_battle, level, exp, mem.u32(session + SESSION_MAP_ID), enemies)
+            if b:
+                enemies = len(b.enemies)
+                levels = tuple(sorted(lv for lv in read_fighter_levels(mem, b.enemies) or () if lv))
+        except Exception:              # battle object half built / torn down: nothing read in this sample
+            enemies, levels = 0, ()
+    return core.Sample(time.time(), in_battle, level, exp, mem.u32(session + SESSION_MAP_ID), enemies, levels)
 
 
 def hours(h):
@@ -114,7 +116,8 @@ def battle_line(r, b, ranges):
     rt = core.rate(r.recent)
     cyc = '暂停' if b.cycle is None else f'{b.cycle:.1f}s'
     up = f' 升到{b.level_after}级!' if b.level_after > b.level else ''
-    s = (f'{r.name} {b.level}级 第{r.count}场 +{b.gain} 经验 战斗{b.fight:.1f}s 一场{cyc}{up} 地图{b.map_id} | '
+    s = (f'{r.name} {b.level}级 第{r.count}场 +{b.gain} 经验 战斗{b.fight:.1f}s 一场{cyc}{up} 地图{b.map_id}'
+         f'{core.enemy_text(b.enemy_levels)} | '
          f'本级 {b.exp_after}/{table[b.level_after]} ({b.exp_after / table[b.level_after]:.1%})')
     if rt and rt.per_hour > 0:      # 0 when the recent battles gave no exp (lv41 after 出师): no estimate
         s += (f' | 近{rt.battles}场 均{rt.avg_gain:.0f}/场 战斗{rt.avg_fight:.1f}s 一场{rt.avg_cycle:.1f}s '
