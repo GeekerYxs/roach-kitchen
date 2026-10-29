@@ -2,7 +2,7 @@
 //
 // 来源：D:\Codes\Gemini_Prj\smsm2_game\战斗辅助原生界面解锁工具（2.97 版，Gemini 写的）。按项目规矩只拿事实：
 // 两段特征码和补丁字节。2026-10-28 在 2.100 的 WAATClient.exe 磁盘文件里核对过：两段特征码在 .text 里各只出现一次，
-// 战斗 RVA 0x5F570、采集 RVA 0x5F2BF（2.97 是 0x5EA20 / 0x5E76F），写进了 game_addrs.h。
+// 战斗 RVA 0x61B40、采集 RVA 0x6188F（2.101；2.100 是 0x5F570 / 0x5F2BF，2.97 是 0x5EA20 / 0x5E76F），写进了 game_addrs.h。
 //
 // 原理（CUIFuzhu 每帧刷新控件时检查身上有没有辅助卡 0x400，没有就整页 SetEnable(0) 并显示「（待激活）」）：
 //   战斗: 75 04 jne / 33 db xor ebx,ebx / eb 03 jmp / 83 c3 18 add ebx,0x18

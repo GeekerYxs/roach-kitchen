@@ -47,16 +47,16 @@ static void enter() {
 // world pointer appears (author's loop). Used by the login thread and by the
 // controller's "enter" command (105) after it has checked the roster.
 static bool enter_world(uintptr_t selector,DWORD role_index) {
-    const uintptr_t world_flag=base+0x6959e8;   // 2.100 (2.98/2.99: 0x64b1ac)
+    const uintptr_t world_flag=base+0x6aab34;   // 2.101 (2.100: 0x6959e8, 2.98/2.99: 0x64b1ac)
     status->role_index=role_index;
     stage(6);
-    if(!write_bytes(selector+0x1a8,&role_index,4)) { fail(108); return false; }
+    if(!write_bytes(selector+0x3d8,&role_index,4)) { fail(108); return false; }
     Sleep(40);
     enter();
     stage(7);
     // Preserve author's selected-index + repeated Enter loop.
     for(unsigned i=0;i<200;++i) {
-        if(!write_bytes(selector+0x1a8,&role_index,4)) { fail(109); return false; }
+        if(!write_bytes(selector+0x3d8,&role_index,4)) { fail(109); return false; }
         enter();
         if(read32(world_flag)) {
             status->finished=GetTickCount();
@@ -79,14 +79,16 @@ static DWORD WINAPI login_thread(void* parameter) {
     status->started=GetTickCount();
     status->role_index=packet.role_index;
     // Address initialization: original DLL 10004250..100042D6.
-    // 2.100 globals (2.98/2.99: 0x64b1a4 / 0x64b1ac / 0x64b1a8), located 2026-10-22.
-    const uintptr_t login_flag=base+0x6959e0;
-    const uintptr_t world_flag=base+0x6959e8;
-    const uintptr_t selection_root=base+0x6959e4;
+    // 2.101 globals (2.100: 0x6959e0 / 0x6959e8 / 0x6959e4; 2.98/2.99: 0x64b1a4 / 0x64b1ac / 0x64b1a8), located 2026-10-29.
+    // 2.101 window classes grew 0x230 bytes from +0x174: UILoginNormal's account edit +0x180 -> +0x3b0 and
+    // CRoleSelectDlg's selected index +0x1a8 -> +0x3d8 (edit text +0x11c and the 0x118/0x31c chain unchanged).
+    const uintptr_t login_flag=base+0x6aab2c;
+    const uintptr_t world_flag=base+0x6aab34;
+    const uintptr_t selection_root=base+0x6aab30;
     stage(2);
     if(!wait_nonzero(login_flag,30000)) { fail(101); goto done; }
     {
-        const uintptr_t object=chain(login_flag,0x40,0x180);
+        const uintptr_t object=chain(login_flag,0x40,0x3b0);
         status->account_object=(DWORD)object;
         if(!object) { fail(102); goto done; }
         char first=0; SIZE_T n=0;

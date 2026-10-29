@@ -244,11 +244,11 @@ static void battle_tracker_thread() {
 
             uint32_t battle = 0;
             if (ReadProcessMemory(h, (void*)(base + ga::RVA_BATTLE), &battle, 4, NULL) && battle) {
-                uint8_t raw[10 * 0x510];
-                if (ReadProcessMemory(h, (void*)(battle + 0x1DC0), raw, sizeof(raw), NULL)) {
+                uint8_t raw[10 * ga::FIGHTER_SIZE];
+                if (ReadProcessMemory(h, (void*)(battle + ga::BATTLE_FIGHTERS), raw, sizeof(raw), NULL)) {
                     int cnt = 0;
                     for (int s = 0; s < 10; s++) {
-                        uint32_t kind = *(uint32_t*)(raw + s * 0x510);
+                        uint32_t kind = *(uint32_t*)(raw + s * ga::FIGHTER_SIZE);
                         if (kind != 0 && kind != 0xFFFFFFFF) {
                             cnt++;
                         }
@@ -403,10 +403,10 @@ static void record_battle_profit(DWORD pid, long long char_exp, long long pet_ex
             if (monsters <= 0) {
                 uint32_t battle = 0;
                 if (ReadProcessMemory(h, (void*)(base + ga::RVA_BATTLE), &battle, 4, NULL) && battle) {
-                    uint8_t raw[10 * 0x510];
-                    if (ReadProcessMemory(h, (void*)(battle + 0x1DC0), raw, sizeof(raw), NULL)) {
+                    uint8_t raw[10 * ga::FIGHTER_SIZE];
+                    if (ReadProcessMemory(h, (void*)(battle + ga::BATTLE_FIGHTERS), raw, sizeof(raw), NULL)) {
                         for (int s = 0; s < 10; s++) {
-                            uint32_t kind = *(uint32_t*)(raw + s * 0x510);
+                            uint32_t kind = *(uint32_t*)(raw + s * ga::FIGHTER_SIZE);
                             if (kind != 0 && kind != 0xFFFFFFFF) monsters++;
                         }
                     }

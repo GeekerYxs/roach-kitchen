@@ -3,7 +3,7 @@
     python -X utf8 research/shitu/shoe_dagewang.py
 
 The team is left first; each role walks to its own spot (like 01:31 round 1: 45 px apart east of 大个王), stands
-still 1.5 s (the record takes the SERVER position) and the record is read back ([[ui]+0xD84]+0x438 map / +0x43C xy).
+still 1.5 s (the record takes the SERVER position) and the record is read back (world.read_shoe_record: 2.101 [[ui]+0xFB4]+0x678 map / +0x67C xy).
 """
 import math
 import time

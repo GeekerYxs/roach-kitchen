@@ -7,10 +7,11 @@
 #include <string>
 #include <cstring>
 
-// WAATClient.exe builds this tool accepts (SHA256). 2.100 (2026-10-22) moved every address and some struct
-// offsets, so 2.98/2.99 are no longer accepted (their hashes: 500cf8f1..., c33ff869...).
+// WAATClient.exe builds this tool accepts (SHA256). 2.100 (2026-10-22) and 2.101 (2026-10-29) each moved every
+// address and some struct offsets, so older builds are no longer accepted (2.98 500cf8f1..., 2.99 c33ff869...,
+// 2.100 bc7d6c22...).
 static const char* CLIENT_HASHES[]={
-    "bc7d6c22aea54f14d2e4715ac99994bee5158dbb4e8d1a608d632183d377b5ec", // 2.100
+    "ce609262b998d345bedc73b7529c89034f27db9380787278e3fd4226f9fa6100", // 2.101
 };
 static std::wstring own_dir() { wchar_t p[MAX_PATH];GetModuleFileNameW(nullptr,p,MAX_PATH);std::wstring s=p;return s.substr(0,s.find_last_of(L"\\/")); }
 static bool valid_build(const std::wstring& file) {

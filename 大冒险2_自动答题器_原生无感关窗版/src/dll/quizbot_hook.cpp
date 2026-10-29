@@ -9,7 +9,7 @@
 //    - 服务器秒级判定答对（测试通过 + 金币奖励），彻底避免 30 秒超时掉线
 // 2. 进程内虚拟鼠标静默关窗 (MinHook + DirectInput/GetCursorPos)：
 //    - 游戏本地 UI 引擎在收到 0x46F4 后会弹出防外挂答题框
-//    - DLL 读取内存 UI 状态 (*(*(base+RVA_UI)+0x10C4)) 检测答题框是否激活 (+0x1C != 0)
+//    - DLL 读取内存 UI 状态 (*(*(base+RVA_UI)+UI_QUIZ_BATTLE)) 检测答题框是否激活 (+0x1C != 0)
 //    - 获取答题框精确坐标 (+0x20 Left, +0x24 Top)，计算选项位置
 //    - 激活进程内虚拟光标 Hook (GetCursorPos) + DirectInput (GetDeviceState)
 //    - 模拟点击任一选项，触发游戏 UI 关闭流程，实现全后台静默关闭，不抢焦点、不移物理鼠标
@@ -230,7 +230,7 @@ static bool invoke_native_dismiss_internal(int opt) {
     if (!base) return false;
     uint32_t ui = *(uint32_t*)(base + ga::RVA_UI);
     if (!ui) return false;
-    uint32_t q = *(uint32_t*)(ui + 0x10c4);
+    uint32_t q = *(uint32_t*)(ui + ga::UI_QUIZ_BATTLE);
     if (!q) return false;
 
     uint32_t active = *(uint32_t*)(q + 0x1c);
@@ -239,7 +239,7 @@ static bool invoke_native_dismiss_internal(int opt) {
     logline("[NATIVE-DISMISS] Dialog active! q=0x%X active=%u opt=%d", q, active, opt);
 
     // 1. 设置选项索引并触发游戏原生选择逻辑 (OnOptionSelected)
-    *(uint32_t*)(q + 0x1ac) = (uint32_t)opt;
+    *(uint32_t*)(q + ga::QUIZ_CHOSEN) = (uint32_t)opt;
     typedef void (__thiscall *FnSelect)(void*);
     ((FnSelect)(base + ga::RVA_QUIZ_SUBMIT))((void*)q);
     logline("[NATIVE-DISMISS] OnOptionSelected(0x%X) executed", q);
@@ -630,7 +630,7 @@ static int scan_enemy_count() {
 
     int cnt = 0;
     for (int s = 0; s < 10; s++) {
-        uint32_t kind = *(uint32_t*)(battle + 0x1DC0 + s * 0x510);
+        uint32_t kind = *(uint32_t*)(battle + ga::BATTLE_FIGHTERS + s * ga::FIGHTER_SIZE);
         if (kind != 0 && kind != 0xFFFFFFFF) {
             cnt++;
         }

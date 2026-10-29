@@ -11,27 +11,30 @@ import struct
 import time
 from dataclasses import dataclass, field
 
-PLAYER_PTR_RVA = 0x694DC0    # [base+RVA] -> own player object (2.100; 2.98/2.99 0x64A638)
+PLAYER_PTR_RVA = 0x6A9F00    # [base+RVA] -> own player object (2.101; 2.100 0x694DC0, 2.98/2.99 0x64A638)
 PLAYER_CHAR_ID = 0x34C       # +0x34C char_id, +0x350 x, +0x354 y (int32; can lag behind motion)
-SESSION_MGR_RVA = 0x6959F0   # [base+RVA] -> session manager (2.100; 2.98/2.99 0x64B1B4)
+SESSION_MGR_RVA = 0x6AAB3C   # [base+RVA] -> session manager (2.101; 2.100 0x6959F0, 2.98/2.99 0x64B1B4)
 SESSION_MAP_ID = 0x688
 SCENE_INDEX, SCENE_FIRST, SCENE_LAST, SCENE_ROW = 0x24928, 0xE34, 0xE38, 0x2A8   # 2.100 (+0x2B8; was 0x24670)
 ROW_ENTITY, ROW_FLAGS = 0x8, 0x148
 ENTITY_MOTION = 0x18C        # float x, y, ?, ?, target_x, target_y
 FLAG_IN_BATTLE = 0x8
-BUSY_MASK_RVAS = (0x57385C, 0x573874, 0x57387C, 0x5738A4, 0x573894, 0x573884, 0x57388C)  # 2.100; 2.98 0x529734..
+BUSY_MASK_RVAS = (0x58091C, 0x580934, 0x58093C, 0x580964, 0x580954, 0x580944, 0x58094C)  # 2.101 (2.100 +0xD0C0)
 # 2.100 (2026-10-22): every address moved; found by masked byte fingerprints and instruction-by-instruction
 # comparison with 2.98 (globals +0x4A83C, busy masks +0x4A128), struct offsets re-read on a live 2.100 client.
-UI_RVA = 0x6959E8              # 2.100; 2.98/2.99 0x64B1AC
-UI_NAV_MGR, NAV_OBJECT, NAV_ACTIVE, NAV_READY = 0xDA4, 0x8, 0x1D4, 0x1A8
-UI_QUESTION, QUESTION_ACTIVE = 0x10C4, 0x1C
+# 2.101 (2026-10-29): globals +0x1514C again; every UI window class grew 0x230 bytes (fields from +0x174 on), so
+# the UI root's members and the panel / nav / quiz fields moved; battle fields +8; session layout unchanged.
+# provisioner/addrscan.py re-finds all of them by byte signatures (python -m provisioner.addrscan).
+UI_RVA = 0x6AAB34              # 2.101; 2.100 0x6959E8, 2.98/2.99 0x64B1AC
+UI_NAV_MGR, NAV_OBJECT, NAV_ACTIVE, NAV_READY = 0xFD4, 0x8, 0x404, 0x3D8   # 2.100: 0xDA4, 0x8, 0x1D4, 0x1A8
+UI_QUESTION, QUESTION_ACTIVE = 0x12F4, 0x1C     # 2.100: 0x10C4
 # Second panel of the same class:「QuestionOnMap」, the quiz on 「开打」 at a boss (S->C 0x46F5), see
 # research/shitu/BOSS_QUIZ.md; +0x1C = 1 while shown (live 2026-10-27 22:26). verification covers both.
-UI_QUESTION_MAP = 0x10C8
-UI_DIALOG, DIALOG_VISIBLE, DIALOG_CTRL_FIRST, DIALOG_CTRL_LAST = 0xE90, 0x1C, 0xEC, 0xF0
-BATTLE_RVA = 0x6959EC          # 2.100; 2.98/2.99 0x64B1B0
-BATTLE_FIGHTERS, FIGHTER_SIZE, FIGHTER_SP = 0x1DC0, 0x510, 0xF4
-BATTLE_REAL_POS, BATTLE_SIDE = 0x917C, 0x9178
+UI_QUESTION_MAP = 0x12F8                         # 2.100: 0x10C8
+UI_DIALOG, DIALOG_VISIBLE, DIALOG_CTRL_FIRST, DIALOG_CTRL_LAST = 0x10C0, 0x1C, 0xEC, 0xF0   # 2.100: 0xE90
+BATTLE_RVA = 0x6AAB38          # 2.101; 2.100 0x6959EC, 2.98/2.99 0x64B1B0
+BATTLE_FIGHTERS, FIGHTER_SIZE, FIGHTER_SP = 0x1DC8, 0x510, 0xF4   # 2.100: 0x1DC0
+BATTLE_REAL_POS, BATTLE_SIDE = 0x9184, 0x9180      # 2.100: 0x917C, 0x9178
 # Own level: TGamePlayer object at session+0xE90, Lua property 'Grade' at +0x70 (RVA 0xf41e registration;
 # 0x4210 handler writes it). Found offline 2026-10-06; first live check in the meat stage.
 SESSION_LEVEL = 0xF00
@@ -48,7 +51,8 @@ EQUIP_TABLE, EQUIP_ROWS, EQUIP_WEAPON = 0x8828, 13, 2
 # record (also when sent without the UI), on mw01..08.
 # 2.100 moved the panel's fields +0x20 (2.98/2.99: +0x418 / +0x41C). Missed in the first 2.100 update (fb0825d): every
 # new alt failed the shoe stage and got quarantined on 2026-10-22. Re-checked live: +0x438 reads (81, 1780, 1370).
-UI_SHOE_PANEL, SHOE_MAP, SHOE_XY = 0xD84, 0x438, 0x43C
+# 2.101: panel [ui+0xFB4] (CUIEquipDlg), its fields moved +0x240 -> +0x678 / +0x67C (live read (181, 648, 1716)).
+UI_SHOE_PANEL, SHOE_MAP, SHOE_XY = 0xFB4, 0x678, 0x67C
 # Gold: signed i64 at session+0x16B0+0x8800 (2.98/2.99: 0x87F0; CUIDataItem:GetMoney, getters at 2.98 RVA 0x13430 / 0x481a0).
 # Signatures re-checked 2026-10-12 on all clients; values 100 / 0 on alts, 1814300 on 小强杀手一号.
 BAG_GOLD = 0x8800
@@ -56,7 +60,7 @@ BAG_GOLD = 0x8800
 # 2026-10-12: 0 rows and inviter 0 on every client without a team). +0xC -> roster vector {first,last,cap},
 # rows of 72 bytes, +0 char_id, +4 level (first row = the leader, per the old 5-member verification).
 # +0xA8 = char_id of the last team invitation received (the accept function 0x21f590 answers that one).
-UI_TEAM, TEAM_ROSTER, TEAM_INVITER, ROSTER_ROW, ROSTER_MAX = 0xDA0, 0xC, 0xA8, 72, 5
+UI_TEAM, TEAM_ROSTER, TEAM_INVITER, ROSTER_ROW, ROSTER_MAX = 0xFD0, 0xC, 0xA8, 72, 5   # 2.100: ui+0xDA0
 # Byte the client puts into its own team invitation (session+0x135C; 255 on new alts, 50 on a level-44 role).
 SESSION_INVITE_BYTE = 0x135C
 # Remaining talent points u16 (session+0xEFC; 5 on every new level-2 alt, read live 2026-10-12).
@@ -66,7 +70,7 @@ SESSION_TALENT = 0xEFC
 # (official auto-fight and the old pet Lua both scan 0..9). Pet: real pos [battle+0x9180], converted with the
 # OWN real pos as the side test (GetMyPetPos RVA 0x13140).
 FIGHTER_DEAD = 0xCC
-BATTLE_PET_REAL_POS = 0x9180
+BATTLE_PET_REAL_POS = 0x9188   # 2.100: 0x9180
 ENEMY_POSITIONS = range(10)
 # Learned skills and pets (Lua backing functions HasSkill RVA 0x11B30, HasFightPetHasAbility 0x11C90, GetPetMp
 # 0x10270; read live 2026-10-12 on 伏地魔1: 803 lv6, fighting pet index 1 with 1504 lv11 and 919 MP).

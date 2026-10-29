@@ -48,7 +48,7 @@ def read_string(mem, at):
 
 
 def read_question(mem):
-    """Quiz panel ui+0x10C4: active flag +0x1C; text candidates (quizbot notes: +0x1AC, parent +0x104)."""
+    """Quiz panel ui+0x12F4 (2.100: 0x10C4): active flag +0x1C; text candidates (quizbot notes: +0x3DC, 2.100 +0x1AC)."""
     ui = mem.u32(mem.base + w.UI_RVA)
     q = mem.u32(ui + w.UI_QUESTION) if ui else 0
     if not q:
@@ -56,7 +56,7 @@ def read_question(mem):
     out = {'active': mem.u32(q + w.QUESTION_ACTIVE)}
     if out['active']:
         try:
-            s = read_string(mem, q + 0x1AC)
+            s = read_string(mem, q + 0x3DC)
             out['text_1ac'] = s.decode('gbk', 'replace') if s else None
         except Exception as e:      # layout unverified: keep going
             out['text_1ac'] = f'<{e}>'

@@ -104,7 +104,18 @@ def main():
             r.line(OK, f'游戏版本 {version}，代码支持（SHA256 匹配；支持 {"、".join(sorted(set(known.values())))}）')
         else:
             r.line(BAD, f'游戏版本和代码不匹配（SHA256 不在 {"、".join(sorted(set(known.values())))} 里）：游戏更新过的话，'
-                        '要先重新定位基址、在 launcher.cpp 的 CLIENT_HASHES 加上新哈希并重新编译')
+                        '先跑 python -m provisioner.addrscan 按特征码找新地址，改好后在 launcher.cpp 的 CLIENT_HASHES '
+                        '加上新哈希并重新编译')
+    if Path(login.game_exe).is_file():
+        from . import addrscan
+        try:
+            rows, problems = addrscan.compare(addrscan.scan(login.game_exe), addrscan.code_constants())
+            stale = addrscan.missing_in_files({name: value for name, _, value, _ in rows})
+            r.line(BAD if problems or stale else OK,
+                   f'特征码找到的 {len(rows)} 个游戏地址' + ('和代码一致' if not problems and not stale else
+                   f'：{problems} 个对不上、{len(stale)} 处副本要改（python -m provisioner.addrscan 看明细）'))
+        except Exception as e:
+            r.line(BAD, f'特征码扫描失败：{e}')
     names = [a.name for a in login.accounts]
     if any(not a.password for a in login.accounts):
         r.line(BAD, 'local.toml [accounts] 的小号密码还没填')

@@ -1,11 +1,11 @@
-"""Boss「开打」时弹的答题（S->C 0x46F5，面板 QuestionOnMap = [ui+0x10C8]）—— 师徒脚本里静默自动答。
+"""Boss「开打」时弹的答题（S->C 0x46F5，面板 QuestionOnMap = [ui+0x12F8]，2.100 是 ui+0x10C8）—— 师徒脚本里静默自动答。
 
     python -X utf8 boss_quiz.py ROLE ...      只读：打印这些窗口的 boss 题面板和会选哪项（不答）
 
 用法（dts.py / scorpion_king.py）：点「开打」没进战斗时调 solve(client)。
   1. 面板没开 -> 返回 None（不是答题的问题）。
   2. 面板开着：先等 GRACE 秒让 启动答题器（新版，静默）去答；它答了面板就关了。
-  3. 还开着（答题器没开 / 没注入）-> 这里自己答：和手动点选一样，写 面板+0x1AC = 下标，
+  3. 还开着（答题器没开 / 没注入）-> 这里自己答：和手动点选一样，写 面板 QUIZ_CHOSEN = 下标，
      在游戏窗口线程上调 提交函数(面板) 和 CloseDialog(父窗口, 面板, 0)（DLL 命令 106），客户端自己发 0x1F05。
      因为下标写进了面板，答题器 DLL 收到「测试通过！」时照样能读到，自动记进题库。
 选哪项：和答题器 controller/boss_quiz.h 同一套规则、同一份题库文件
@@ -28,12 +28,13 @@ from provisioner.memory import ProcessMemory
 GRACE = 4.0                     # 秒：先让答题器答（它题库命中/静默模式都在 1.5 秒左右答）
 BANK_DIR = ROOT.parent / '大冒险2_自动答题器_原生无感关窗版' / 'data'
 
-UI_QUIZ_MAP = 0x10C8            # QuestionOnMap；ui+0x10C4 是战斗里的 Question（0x46F4）
-QUIZ_VISIBLE, QUIZ_PARENT, QUIZ_TEXT_BOX = 0x1C, 0x104, 0x1CC
-QUIZ_QNO, QUIZ_CHOSEN, QUIZ_MAP_MODE = 0x1A4, 0x1AC, 0x1B4
+# 2.101（2026-10-29）：界面窗口类从 +0x174 起整体变大 0x230，面板指针和面板字段都跟着挪了；括号里是 2.100 的值。
+UI_QUIZ_MAP = w.UI_QUESTION_MAP  # QuestionOnMap = ui+0x12F8（0x10C8）；ui+0x12F4 是战斗里的 Question（0x46F4）
+QUIZ_VISIBLE, QUIZ_PARENT, QUIZ_TEXT_BOX = 0x1C, 0x104, 0x3FC          # （0x1C, 0x104, 0x1CC）
+QUIZ_QNO, QUIZ_CHOSEN, QUIZ_MAP_MODE = 0x3D4, 0x3DC, 0x3E4             # （0x1A4, 0x1AC, 0x1B4）
 TEXT_PTR = 0x108                # QOnlyReadText +0x108 -> char* GBK 富文本
-RVA_QUIZ_SUBMIT = 0x224330      # thiscall(panel)：按 +0x1AC 发答案（+0x1B4==1 时发 0x1F05）
-RVA_CLOSE_DIALOG = 0x3C7E50     # thiscall(parent, panel, 0)
+RVA_QUIZ_SUBMIT = 0x2293A0      # thiscall(panel)：按 QUIZ_CHOSEN 发答案（QUIZ_MAP_MODE==1 时发 0x1F05）（0x224330）
+RVA_CLOSE_DIALOG = 0x3D1B50     # thiscall(parent, panel, 0)（0x3C7E50）
 
 _COLOR = re.compile(r'#[0-9A-Fa-f]{6}#')
 _URL = re.compile(r'\[URL\](.*?)\[/URL\]')
@@ -204,7 +205,7 @@ def solve(c, grace=GRACE, say=print):
             say(f'[{c.name}] {report}')
             return report
     if p.map_mode != 1:
-        raise RuntimeError(f'boss 题面板 +0x1B4={p.map_mode}，不是 0x1F05 模式，不敢答')
+        raise RuntimeError(f'boss 题面板 模式字段={p.map_mode}，不是 0x1F05 模式，不敢答')
     opt, why = decide(load_bank(), qno, p.stem, p.options)
     if opt < 0:
         raise RuntimeError(f'题号 {qno} 没有可选的选项: {p.options}')
