@@ -111,8 +111,13 @@ Evidence: +4 equals the exp monitor's memory gain in 1697 / 1706 battles of 亿�
 (misses = battles the monitor split differently). +20/+28/+32 are Codex's panel-checked offsets
 (`D:\Codes\OpenAiCodex\game_smsm2\EXP_03B_GRASSLAND_TRIAL.md`, older 36+ B layout, same offsets); consistent with
 the status analysis below (exp 1.99x with status 1001, pet 1.02x, potential 1.00x). Items: every id of 1600 drops of
-three roles exists in `factory/data/items.csv`. **Still wanted: one screenshot of the result panel to re-check
-pet exp / potential / training on 2.101.**
+three roles exists in `factory/data/items.csv`.
+2.101 panel check (user screenshot 2026-10-29, 欧皇丨花花乀 lv70 + pet 魔力布老虎 lv44 in 通天塔二区, panel:
+exp 1, potential 0, pet exp 3014, training 3, drop 叉子): that window had no tap, so not byte-aligned, but every
+value has the shape the database gives these offsets — +4 at a +30 gap is 1~2 (12 k lv70 battles on 281), +32 is 0
+whenever +4 <= 2 (12.8 k battles), +28 takes only the discrete values 0/3/7/10/14/20 (3 in 6117 battles,
+independent of +20), and +20 follows the pet's own level, not the owner's (lv70 pets 1~2, the lv36 apprentices'
+pets 2950~3090 in the same map). Byte-exact proof still needs one panel from a window with the DLL.
 
 ### 4.4 0x4210 level up (S->C, 12+ B)
 `<u32 level (low u16 = level, high bits = flags)><u32><u32 char id>` — use the low u16 only (Codex saw 65545).
