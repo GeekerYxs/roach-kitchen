@@ -148,10 +148,56 @@ class Assembly(unittest.TestCase):
         self.assertTrue(b.errors)
 
 
+def status(char_id, sid, seconds, value=2):
+    return struct.pack('<IIqIII', char_id, sid, seconds, value, 0, 1)
+
+
+class EventsAndStatuses(unittest.TestCase):
+    def test_events(self):
+        ps = [P(1, decode.OP_DEAD, bytes([0, 1])), P(2, decode.OP_DEAD, bytes([12, 1])), P(3, 0x4111, b'\x0c\x01'),
+              P(4, decode.OP_CMD, bytes(6) + bytes([(2 << 1) | 0]) + bytes(5), decode.SEND),     # attack
+              P(5, decode.OP_CMD, bytes(6) + bytes([(3 << 1) | 1]) + bytes(5), decode.SEND),     # pet magic
+              P(6, decode.OP_CMD, bytes(6) + bytes([8 << 1]) + bytes(5), decode.SEND),           # escape
+              P(7, decode.OP_SKILL, bytes(16), decode.SEND),
+              P(8, decode.OP_ITEM, bytes(7) + bytes([9]), decode.SEND)]
+        ev = decode.events(ps)
+        self.assertEqual(ev.dead, frozenset({0, 12}))
+        self.assertEqual(ev.player_cmds, {'attack': 1, 'escape': 1, 'skill': 1, 'item': 1})
+        self.assertEqual(ev.pet_cmds, {'magic': 1})
+        self.assertEqual((ev.items, ev.escape_tries), ((9,), 1))
+
+    def test_event_columns_on_the_real_lineup(self):
+        lu = decode.parse_lineup(sample.LINEUP)                 # monsters at 0..4, own 19, own pet 14
+        ps = [P(1, decode.OP_DEAD, bytes([p, 1])) for p in (0, 1, 2, 14, 16)]
+        cols = store.event_columns(lu, ps, 1926)
+        self.assertEqual((cols['kills'], cols['own_dead'], cols['own_pet_dead'], cols['mates_dead'], cols['escaped']),
+                         (3, 0, 1, 1, 0))
+
+    def test_escape_counts_only_when_monsters_stay(self):
+        lu = decode.parse_lineup(lineup(7))                     # two monsters at 0, 1
+        esc = P(1, decode.OP_CMD, bytes(6) + bytes([8 << 1]) + bytes(5), decode.SEND)
+        self.assertEqual(store.event_columns(lu, [esc], 0)['escaped'], 1)
+        self.assertEqual(store.event_columns(lu, [esc, P(2, decode.OP_DEAD, b'\x00\x01'), P(3, decode.OP_DEAD, b'\x01\x01')],
+                                             50)['escaped'], 0)
+
+    def test_statuses_at_battle_start(self):
+        ps = [P(0, decode.OP_STATUS, status(7, decode.ST_EXP, 3600)),
+              P(1000, decode.OP_STATUS, status(7, decode.ST_EXP, 7200)),         # 散福 again: extended
+              P(1000, decode.OP_STATUS, status(7, decode.ST_POTENTIAL, 10)),     # ends 11000
+              P(1000, decode.OP_STATUS, status(8, decode.ST_PET_EXP, 3600)),     # a teammate's
+              P(5000, decode.OP_LINEUP, lineup(7)), P(6000, decode.OP_RESULT, result(7, 1)),
+              P(9000, decode.OP_STATUS, status(7, decode.ST_EXP, 0)),            # ended
+              P(12000, decode.OP_LINEUP, lineup(7)), P(13000, decode.OP_RESULT, result(7, 1))]
+        b1, b2 = decode.assemble(ps)
+        self.assertEqual(b1.statuses, {decode.ST_EXP: (2, 7196), decode.ST_POTENTIAL: (2, 6)})
+        self.assertEqual(b2.statuses, {})
+        cols = store.status_columns(b1.statuses)
+        self.assertEqual((cols['x_exp'], cols['x_potential'], cols['x_pet_exp'], cols['exp_percent']), (2, 2, 1, 0))
+
+
 class Store(unittest.TestCase):
     def db(self):
-        db = sqlite3.connect(':memory:')
-        db.executescript(store.SCHEMA)
+        db = store.connect(':memory:')
         return db
 
     def test_row_and_teammate_fill(self):
@@ -169,6 +215,25 @@ class Store(unittest.TestCase):
         self.assertEqual(db.execute("select role, level from battles where source = 'b'").fetchone(), ('亿万19', 19))
         blob, t0 = db.execute("select packets, start_tick from battles where source = 'a'").fetchone()
         self.assertEqual(decode.unpack_packets(blob, t0)[-1].body, sample.RESULT)
+
+    def test_old_database_gets_new_columns_and_rebuild_fills_events(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / 'b.sqlite'
+            old = sqlite3.connect(path)
+            old.executescript(store.SCHEMA)            # the first schema: no event / status columns yet
+            row = store.to_row(decode.assemble([P(10, decode.OP_LINEUP, sample.LINEUP), P(20, decode.OP_DEAD, b'\x0e\x01'),
+                                                P(30, decode.OP_RESULT, sample.RESULT)])[0], 'a', 1, 0.0)
+            base = [c for c in store.COLUMNS if c not in store.EVENT_COLUMNS]
+            old.execute(f'insert into battles ({",".join(base)}) values ({",".join("?" * len(base))})',
+                        [row[c] for c in base])
+            old.commit()
+            old.close()
+            db = store.connect(path)                    # adds the columns, loads the monster names
+            self.assertEqual(db.execute('select name from npcs where npc_id = 1197').fetchone(), ('猛男鼹鼠',))
+            self.assertEqual(db.execute('select own_pet_dead from battles').fetchone(), (None,))
+            self.assertEqual(store.rebuild_events(db), 1)
+            self.assertEqual(db.execute('select own_pet_dead, kills from battles').fetchone(), (1, 0))
+            db.close()
 
     def test_teammate_too_far_in_time_gives_no_level(self):
         db = self.db()
@@ -189,8 +254,7 @@ class Import(unittest.TestCase):
                      recv(9000, frame(decode.OP_RESULT, sample.RESULT))]
             tap.write_text('\n'.join(first) + '\n')
             os.utime(tap, (5000.0, 5000.0))
-            db = sqlite3.connect(':memory:')
-            db.executescript(store.SCHEMA)
+            db = store.connect(':memory:')
             self.assertEqual(cli.import_file(db, tap, now=1.0), 1)
             self.assertIsNone(cli.import_file(db, tap, now=2.0))
             row = db.execute('select exp, start_time, end_time, map_id from battles').fetchone()

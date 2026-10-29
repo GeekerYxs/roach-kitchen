@@ -1,6 +1,7 @@
 """SQLite store of decoded battles (logs/battlelog/battles.sqlite). One row per battle and tap file, raw packet bodies
 included, so fields decoded later can be recomputed from history. Re-importing a file replaces its rows."""
 import bisect
+import csv
 import json
 import sqlite3
 from collections import Counter
@@ -8,7 +9,7 @@ from pathlib import Path
 
 from . import decode
 
-DECODER = 1         # bump when decode.py reads a field differently; rows keep the version they were made with
+DECODER = 3         # 2: battle events (deaths, commands), 3: statuses / doubles; bump when decode.py reads a field differently; rows keep the version they were made with
 
 SCHEMA = """
 create table if not exists sources (
@@ -31,14 +32,30 @@ create table if not exists battles (
     errors text, decoder integer,
     unique (source, start_tick)
 );
+create table if not exists npcs (npc_id integer primary key, name text, catchable integer, kind integer);
 create index if not exists battles_role on battles (role, start_time);
 create index if not exists battles_map on battles (map_id, level);
 """
 
+# Columns added after the first import (decoder 2): connect() adds them to an older database.
+EVENT_COLUMNS = {
+    'kills': 'integer',         # monsters that went out (0x4112)
+    'own_dead': 'integer', 'own_pet_dead': 'integer', 'mates_dead': 'integer',   # 0/1, 0/1, other players out
+    'escape_tries': 'integer', 'escaped': 'integer',  # escaped = tried and not every monster went out
+    'player_cmds': 'text', 'pet_cmds': 'text',        # json {attack / skill / magic / escape / item ...: count}
+    'items_used': 'text',                             # json [bag slot, ...] used on fighters (0x1003)
+    # statuses at the start (0x42CF, need the whole tap file: not recomputed by rebuild_events)
+    'statuses': 'text',                               # json {status id: [value, seconds left]}
+    'x_exp': 'integer', 'x_potential': 'integer', 'x_pet_exp': 'integer', 'x_pet_training': 'integer',  # 1 or 2
+    'exp_percent': 'integer',                         # status 1019: +N % character exp (0 without)
+}
+STATUS_COLUMNS = ('statuses', 'x_exp', 'x_potential', 'x_pet_exp', 'x_pet_training', 'exp_percent')
+
 COLUMNS = ('source', 'pid', 'char_id', 'role', 'start_tick', 'end_tick', 'start_time', 'end_time', 'fight_s',
            'patrol_s', 'map_id', 'x', 'y', 'level', 'level_after', 'own_pos', 'own_pet_pos', 'exp', 'pet_exp', 'pet_training', 'potential',
            'monster_count', 'monster_levels', 'monsters', 'pets', 'players', 'items', 'packet_count', 'opcodes',
-           'raw_map', 'raw_lineup', 'raw_result', 'packets', 'errors', 'decoder')
+           'raw_map', 'raw_lineup', 'raw_result', 'packets', 'errors', 'decoder') + tuple(EVENT_COLUMNS)
+HERE = Path(__file__).resolve().parent
 
 
 def connect(path):
@@ -46,7 +63,60 @@ def connect(path):
     path.parent.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(path)
     db.executescript(SCHEMA)
+    have = {r[1] for r in db.execute('pragma table_info(battles)')}
+    for name, kind in EVENT_COLUMNS.items():
+        if name not in have:
+            db.execute(f'alter table battles add column {name} {kind}')
+    if not db.execute('select 1 from npcs limit 1').fetchone():
+        # client ResLib/MonsterID.csv: NPC ID, name, 能否补捉 (0 = catchable), 怪物类型 (5 稀有, 6 BOSS)
+        with open(HERE / 'monsters.csv', encoding='utf-8', newline='') as f:
+            db.executemany('insert or ignore into npcs values (?, ?, ?, ?)',
+                           [(int(r['npc_id']), r['name'], int(r['catchable']), int(r['kind'])) for r in csv.DictReader(f)])
+    db.commit()
     return db
+
+
+def event_columns(lineup, packets, exp):
+    """The EVENT_COLUMNS of one battle from its lineup (may be None) and its packets."""
+    ev = decode.events(packets)
+    mons = {m.pos for m in lineup.monsters} if lineup else set()
+    mates = {p.pos for p in lineup.players} if lineup else set()
+    kills = len(mons & ev.dead)
+    return {
+        'kills': kills if lineup else None,
+        'own_dead': int(lineup.own_pos in ev.dead) if lineup else None,
+        'own_pet_dead': int(lineup.own_pet_pos in ev.dead) if lineup else None,
+        'mates_dead': len(mates & ev.dead) if lineup else None,
+        'escape_tries': ev.escape_tries,
+        'escaped': int(bool(ev.escape_tries) and (not lineup or kills < len(mons))),
+        'player_cmds': json.dumps(dict(sorted(ev.player_cmds.items()))),
+        'pet_cmds': json.dumps(dict(sorted(ev.pet_cmds.items()))),
+        'items_used': json.dumps(list(ev.items)),
+    }
+
+
+def rebuild_events(db, progress=None):
+    """Recompute EVENT_COLUMNS of every stored battle from its raw lineup and packets (no tap file needed)."""
+    ids = [r[0] for r in db.execute('select id from battles')]
+    for k in range(0, len(ids), 2000):
+        chunk = ids[k:k + 2000]
+        rows = []
+        for rid, raw, blob, t0, exp in db.execute(
+                f'select id, raw_lineup, packets, start_tick, exp from battles where id in ({",".join("?" * len(chunk))})',
+                chunk):
+            try:
+                lu = decode.parse_lineup(raw) if raw else None
+            except (ValueError, IndexError):
+                lu = None
+            cols = event_columns(lu, decode.unpack_packets(blob, t0) if blob else [], exp)
+            rows.append(tuple(cols.values()) + (rid,))
+        names = [c for c in EVENT_COLUMNS if c not in STATUS_COLUMNS]
+        db.executemany(f'update battles set {", ".join(c + " = ?" for c in names)} where id = ?',
+                       rows)
+        db.commit()
+        if progress:
+            progress(min(k + 2000, len(ids)), len(ids))
+    return len(ids)
 
 
 def _units(units):
@@ -81,6 +151,18 @@ def to_row(b, source, pid, anchor):
         'raw_map': b.raw_map or None, 'raw_lineup': b.raw_lineup or None, 'raw_result': b.raw_result or None,
         'packets': decode.pack_packets(b.packets, b.start_tick) if b.packets else None,
         'errors': '; '.join(b.errors) or None, 'decoder': DECODER,
+        **event_columns(lu, b.packets, r.exp if r else None),
+        **status_columns(b.statuses),
+    }
+
+
+def status_columns(statuses):
+    x = (lambda sid: statuses[sid][0] if sid in statuses else 1)
+    return {
+        'statuses': json.dumps({str(k): list(v) for k, v in sorted(statuses.items())}),
+        'x_exp': x(decode.ST_EXP), 'x_potential': x(decode.ST_POTENTIAL), 'x_pet_exp': x(decode.ST_PET_EXP),
+        'x_pet_training': x(decode.ST_PET_TRAINING),
+        'exp_percent': statuses[decode.ST_EXP_PERCENT][0] if decode.ST_EXP_PERCENT in statuses else 0,
     }
 
 

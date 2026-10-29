@@ -172,6 +172,57 @@ def level_up(body):
     return struct.unpack_from('<I', body, 8)[0], struct.unpack_from('<H', body)[0]
 
 
+# Inside a battle. Server: 0x4112 <u8 pos><u8 1> = that position is out (dead): on 20000 battles every monster got
+# one in 99.97 %. Client commands (disassembled 2026-10-29, 2.101): 0x1004 SendFightCmdPacket 12 B, +5 server target
+# pos, +6 (action << 1) | is_pet, +8 param (magic: id << 16 | level); 0x1005 CastSkillToFighter 16 B (+6 = 8);
+# 0x1003 UseItemToFighter 8 B, +5 target, +7 bag slot (never seen in the 2026-10 history).
+OP_DEAD, OP_CMD, OP_SKILL, OP_ITEM = 0x4112, 0x1004, 0x1005, 0x1003
+ACTIONS = {2: 'attack', 3: 'magic', 4: 'defend', 8: 'escape', 0xB: 'catch'}   # 4 seen 11 times on pets only
+
+
+@dataclass(frozen=True)
+class Events:
+    dead: frozenset         # positions that went out
+    player_cmds: dict       # {'attack' | 'skill' | 'item' | 'escape' | ...: count}
+    pet_cmds: dict
+    items: tuple            # bag slots used on fighters
+    escape_tries: int
+
+
+def events(packets):
+    """What happened inside one battle, from its packets (server deaths + the own client's commands)."""
+    dead, player, pet, items = set(), {}, {}, []
+    for p in packets:
+        b = p.body
+        if p.direction == RECV:
+            if p.opcode == OP_DEAD and len(b) == 2 and b[1] == 1:
+                dead.add(b[0])
+            continue
+        if p.opcode == OP_CMD and len(b) >= 7:
+            name = ACTIONS.get(b[6] >> 1, f'action{b[6] >> 1}')
+            side = pet if b[6] & 1 else player
+            side[name] = side.get(name, 0) + 1
+        elif p.opcode == OP_SKILL:
+            player['skill'] = player.get('skill', 0) + 1
+        elif p.opcode == OP_ITEM and len(b) >= 8:
+            player['item'] = player.get('item', 0) + 1
+            items.append(b[7])
+    return Events(frozenset(dead), player, pet, tuple(items), player.get('escape', 0))
+
+
+# Character statuses (client ResLib/SpecialStatusLib.csv): 0x42CF <u32 char id><u32 status><i64 seconds left><u32 value>
+# <u32 0><u32 1>, sent at login, when a status is added / extended (散福 3600 -> 7200 -> 10800) and with 0 seconds
+# when it ends. value = multiplier for the doubles (2), percent for 1019. Timers run while online, freeze offline.
+OP_STATUS = 0x42CF
+ST_EXP, ST_POTENTIAL, ST_PET_EXP, ST_PET_TRAINING, ST_EXP_PERCENT = 1001, 1002, 1003, 1004, 1019
+
+
+def parse_status(body):
+    """0x42CF -> (char id, status id, seconds left, value)."""
+    char_id, status, seconds, value = struct.unpack_from('<IIqI', body)
+    return char_id, status, seconds, value
+
+
 def pack_packets(packets, t0):
     """Packets -> zlib blob of <i32 ms since t0><u8 direction><u32 opcode><u32 len><body> (kept for later decoding)."""
     raw = b''.join(struct.pack('<iBII', p.tick - t0, p.direction, p.opcode, len(p.body)) + p.body for p in packets)
@@ -203,6 +254,7 @@ class Battle:
     raw_map: bytes = b''
     raw_lineup: bytes = b''
     raw_result: bytes = b''
+    statuses: dict = field(default_factory=dict)    # {status id: (value, seconds left)} active at the start
     packets: list = field(default_factory=list)     # everything between start and result, both directions
     errors: list = field(default_factory=list)
 
@@ -212,7 +264,15 @@ def assemble(packets):
     """Packets of one tap file -> Battles in order. A battle opens at 0x4100 (or a 0x4101 without one), collects every
     packet until the own 0x472A. An open battle without a result is still returned (end_tick None)."""
     out, cur, last_end = [], None, None
+    status = {}         # {char id: {status id: (value, tick it ends)}}
     for p in packets:
+        if p.direction == RECV and p.opcode == OP_STATUS and len(p.body) >= 20:
+            char_id, sid, seconds, value = parse_status(p.body)
+            mine = status.setdefault(char_id, {})
+            if seconds > 0:
+                mine[sid] = (value, p.tick + seconds * 1000)
+            else:
+                mine.pop(sid, None)
         if p.direction == RECV and p.opcode == OP_MAP:
             if cur:
                 out.append(cur)
@@ -236,6 +296,8 @@ def assemble(packets):
             except (ValueError, struct.error) as e:
                 cur.errors.append(f'0x4101: {e}')
                 cur.own_id = struct.unpack_from('<I', p.body)[0] if len(p.body) >= 4 else 0
+            cur.statuses = {sid: (value, (end - cur.start_tick) // 1000)
+                            for sid, (value, end) in status.get(cur.own_id, {}).items() if end > cur.start_tick}
             continue
         if cur is None:
             continue

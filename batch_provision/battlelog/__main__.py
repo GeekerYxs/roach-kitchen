@@ -1,7 +1,10 @@
 """Battle log: decode the DLL tap files into one SQLite table of battles (stage 1: offline import).
 
-    python -X utf8 -m battlelog import [folder ...]   (default: runtime/ and research/shitu/runtime/)
+    python -X utf8 -m battlelog import [--force] [folder ...]   (default: runtime/ and research/shitu/runtime/)
     python -X utf8 -m battlelog summary
+    python -X utf8 -m battlelog rebuild               (recompute the battle events from the stored packets)
+    python -X utf8 -m battlelog report                (stage 4: analysis -> logs/battlelog/report.md)
+    python -X utf8 -m battlelog live battlelog.toml   (stage 2: memory of the listed windows + tap import, until closed)
 
 Reads runtime/tap_<pid>.jsonl + tap_<pid>_codec.json written by provision_native.dll (launcher windows) or by the
 copy research/shitu/attach_tap.py injects. Read-only on the game side. A file whose size and mtime did not change
@@ -20,12 +23,12 @@ DB = ROOT / 'logs' / 'battlelog' / 'battles.sqlite'
 FOLDERS = (ROOT / 'runtime', ROOT / 'research' / 'shitu' / 'runtime')
 
 
-def import_file(db, path, now=None):
+def import_file(db, path, now=None, force=False):
     """-> number of battles stored, or None when skipped (unchanged / no codec file)."""
     pid = int(re.fullmatch(r'tap_(\d+)\.jsonl', path.name).group(1))
     codec = path.with_name(f'tap_{pid}_codec.json')
     st = path.stat()
-    if not codec.is_file() or store.source_unchanged(db, path, st.st_size, st.st_mtime):
+    if not codec.is_file() or (not force and store.source_unchanged(db, path, st.st_size, st.st_mtime)):
         return None
     tables = [bytes.fromhex(x) for x in json.loads(codec.read_text())['decode']]
     lines = path.read_bytes().splitlines()
@@ -42,14 +45,14 @@ def import_file(db, path, now=None):
 
 
 
-def run_import(folders):
+def run_import(folders, force=False, quiet=False):
     db = store.connect(DB)
     files = sorted(p for f in folders if Path(f).is_dir() for p in Path(f).glob('tap_*.jsonl')
                    if re.fullmatch(r'tap_\d+\.jsonl', p.name))
     done = skipped = total = 0
     for i, p in enumerate(files, 1):
         try:
-            n = import_file(db, p)
+            n = import_file(db, p, force=force)
         except (OSError, ValueError) as e:
             print(f'  [{i}/{len(files)}] {p.name}: 读不了 {e}')
             continue
@@ -58,9 +61,13 @@ def run_import(folders):
             continue
         done += 1
         total += n
-        if n:
+        if n and not quiet:
             print(f'  [{i}/{len(files)}] {p.parent.name}/{p.name}: {n} 场')
     store.fill_from_teammates(db)
+    from . import live
+    live.merge(db)              # memory rows of the live recorder (none when it never ran)
+    if quiet:
+        return
     print(f'导入 {done} 个文件 {total} 场，跳过 {skipped} 个（没变化或缺 codec），数据库 {DB}')
     summary(db)
 
@@ -87,9 +94,29 @@ def summary(db=None):
 
 def main(argv):
     if not argv or argv[0] == 'import':
-        run_import([Path(a) for a in argv[1:]] or FOLDERS)
+        args = argv[1:]
+        force = '--force' in args
+        run_import([Path(a) for a in args if a != '--force'] or FOLDERS, force)
     elif argv[0] == 'summary':
         summary()
+    elif argv[0] == 'report':
+        from . import report
+        here = Path(__file__).resolve().parent
+        text = report.build(store.connect(DB), ROOT / 'factory' / 'data' / 'items.csv', report.map_names(here / 'maps.csv'))
+        out = DB.parent / 'report.md'
+        out.write_text(text, encoding='utf-8')
+        print(text)
+        print(f'报表已写到 {out}')
+    elif argv[0] == 'live':
+        from . import live
+        try:
+            live.run(argv[1] if len(argv) > 1 else 'battlelog.toml')
+        except KeyboardInterrupt:
+            pass
+    elif argv[0] == 'rebuild':
+        db = store.connect(DB)
+        n = store.rebuild_events(db, lambda k, total: print(f'  {k}/{total}', flush=True) if k % 20000 == 0 else None)
+        print(f'重算了 {n} 场的战斗事件')
     else:
         print(__doc__)
         return 2

@@ -6,4 +6,5 @@
 - 部署到新电脑（照着做即可：准备哪些大号、16 核 32 GB 怎么配、启动顺序）：`docs/DEPLOY.md`
 - 设计：`docs/FACTORY_DESIGN.md`
 - 师徒产线（1 级新号 → 41 级出师，约 48 万金币/号）：`docs/SHITU_LINE.md`；新架构 v5 一键 `python -X utf8 -m line`（在 `batch_provision/research/shitu/` 下，第 8 节）
+- 战斗记录（每场战斗一行：怪物等级和名字、经验 / 潜能 / 宠物经验、掉落、阵亡逃跑、四种双倍、金币背包答题；6.4 万场历史 + 等级差曲线和最快路线报表）：`docs/BATTLELOG.md`；技术细节 `batch_provision/battlelog/README.md`
 - 答题器（战斗题 + boss 题，顺带解锁游戏自带辅助工具的战斗辅助 / 自动采集页）：`大冒险2_自动答题器_原生无感关窗版/src/README.md`
