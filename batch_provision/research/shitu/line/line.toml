@@ -1,34 +1,43 @@
 # 师徒产线 v5 总控（python -X utf8 -m line）的设置。说明见 line/__main__.py 文件头和 docs/SHITU_LINE.md 第 8 节。
-teams = ["a", "b", "fei", "tian"]   # 这次跑哪几队（队名 = 下面 [team.<名>]）
-batches = [3]                 # 要跑的批次 = 账号 cap21..cap36 的角色槽；1、2 已在 2026-10-28 跑完（logs/line_state.json）
+teams = ["a", "b", "c"]       # 这次跑哪几队（队名 = 下面 [team.<名>]）；第 6 轮（2026-10-28 夜）= 伏地魔1–3
+batches = [4]                 # 要跑的批次 = 账号的角色槽（每账号最多 4 个）；cap21–32 的 1–4 都已用完（logs/line_state.json）
 retries = 3                   # 一步失败后：清场（回城 / 离队）+ 5 秒，再跑，最多几次
-recover_tries = 2             # 还不行：全员回城 + 等 recover_wait 秒，再跑，最多几次
-recover_wait = 300
+recover_tries = 2             # 还不行：徒弟全部关窗重登 + 全员回城 + 等 recover_wait 秒，再跑，最多几次
+recover_wait = 120
 silent = 900                  # 日志这么多秒没变化 = 卡死，杀掉这一步的进程（算一次失败）
 stagger = 60                  # 各队启动间隔（错开建号登录）
+park_retries = 3              # 一队停摆后自动再试几次（等 park_wait 秒，从断点接着跑；师傅 / 徒弟会自动重登）
+park_wait = 600
+# 师傅账号文件（用户自己的，不在仓库里；每行「账号密码密码」）。有了它，师傅掉线 / 窗口没了会自动重登（master_login.py），
+# 不再停摆等人。密码只在登录时读，不写进任何文件或日志。
+master_accounts = "C:/Users/Y/Desktop/伏地魔队账号.txt"
 
-# 每队：master = 师傅角色名（人工登录，脚本没有师傅账号）；slot = 第几组账号和徒弟名（0..3，见 line/plan.py：
+# 每队：master = 师傅角色名（有 master_accounts 就自动登录，否则人工登录）；slot = 第几组账号和徒弟名（0..3，见 line/plan.py：
 # 账号 cap(21+4*slot)..+3，第 N 批徒弟名 亿万(16(N-1)+4*slot+1..+4)）；gold = 师傅给每个徒弟的启动金。
 # 队名同时是 logs/line_state.json 的键和 LOGID（r4<队名>_b<批>），换师傅就换队名，别的师傅的历史和排除名单不会串过来。
 [team.a]
 master = "伏地魔1"
 slot = 0
 gold = 50000
+tower1 = 35                   # 第 6 轮实测：伏地魔在一区 33–34 级每分钟经验高于二区，练到 35 再去二区更快（ROUND6_NOTES.md）
 
 [team.b]
 master = "伏地魔2"
 slot = 1
 gold = 50000
+tower1 = 35
 
-[team.c]                      # 第 4 轮第 1、2 批；2026-10-28 第 3 批起这组账号换给 飞天
+[team.c]                      # 第 4 轮第 1、2 批；第 3 批这组账号给了 飞天（fei），第 4 批回到伏地魔3
 master = "伏地魔3"
 slot = 2
 gold = 50000
+tower1 = 35
 
 [team.d]                      # 第 4 轮第 1、2 批；第 3 批起这组账号换给 舔尊
 master = "伏地魔4"
 slot = 3
 gold = 10000
+tower1 = 35
 
 [team.fei]                    # 2026-10-28 第 3 批：76 级，比较强号是否更快
 master = "飞天把你射成蜂窝"

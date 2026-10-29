@@ -57,19 +57,45 @@ def save_team(team, data):
 
 def load_config(path=CONFIG):
     cfg = {'teams': ['a', 'b', 'c', 'd'], 'batches': [3], 'retries': 3, 'recover_tries': 2, 'recover_wait': 300,
-           'silent': 900, 'stagger': 60, 'stuck': {}}
+           'silent': 900, 'stagger': 60, 'stuck': {}, 'park_retries': 3, 'park_wait': 600}
     if path.exists():
         cfg.update(tomllib.loads(path.read_text(encoding='utf-8')))
     return cfg
+
+
+def process_names():
+    """Every running process's exe name, newline-joined (Toolhelp snapshot, Unicode). Round 6: parsing `tasklist`
+    missed the 答题器 three times in a row while another team was starting game windows."""
+    import ctypes
+    from ctypes import wintypes as W
+
+    class Entry(ctypes.Structure):
+        _fields_ = [('dwSize', W.DWORD), ('cntUsage', W.DWORD), ('th32ProcessID', W.DWORD),
+                    ('th32DefaultHeapID', ctypes.c_void_p), ('th32ModuleID', W.DWORD), ('cntThreads', W.DWORD),
+                    ('th32ParentProcessID', W.DWORD), ('pcPriClassBase', ctypes.c_long), ('dwFlags', W.DWORD),
+                    ('szExeFile', ctypes.c_wchar * 260)]
+    k = ctypes.WinDLL('kernel32', use_last_error=True)
+    k.CreateToolhelp32Snapshot.restype = W.HANDLE
+    snap = k.CreateToolhelp32Snapshot(0x2, 0)                 # TH32CS_SNAPPROCESS
+    if snap in (None, W.HANDLE(-1).value):
+        return ''
+    names, e = [], Entry()
+    e.dwSize = ctypes.sizeof(Entry)
+    try:
+        ok = k.Process32FirstW(snap, ctypes.byref(e))
+        while ok:
+            names.append(e.szExeFile)
+            ok = k.Process32NextW(snap, ctypes.byref(e))
+    finally:
+        k.CloseHandle(snap)
+    return '\n'.join(names)
 
 
 def quizbot_running(tries=3, list_procs=None):
     """启动答题器 answers the boss / battle quizzes and unlocks the 辅助工具 pages; scripts fall back to
     boss_quiz.py without it, but the battle quiz (0x46F4) has no fallback. 2026-10-28 15:00 team b alerted while the
     same 答题器 process ran the whole time (one tasklist read came back without it): only `tries` misses count."""
-    import subprocess
-    list_procs = list_procs or (lambda: subprocess.run(['tasklist', '/FO', 'CSV', '/NH'], capture_output=True,
-                                                       text=True, encoding='gbk', errors='replace').stdout or '')
+    list_procs = list_procs or process_names
     for i in range(tries):
         out = list_procs()
         if any(q.lower() in out.lower() for q in QUIZBOT):
@@ -84,9 +110,10 @@ def next_batch(cfg, data):
 
 
 class Team(threading.Thread):
-    def __init__(self, team, cfg, runner=Runner):
+    def __init__(self, team, cfg, runner=Runner, sleep=time.sleep):
         super().__init__(name=team, daemon=True)
-        self.team, self.cfg, self.Runner = team, cfg, runner
+        self.team, self.cfg, self.Runner, self.sleep = team, cfg, runner, sleep
+        self.parks = 0
         st = load_state().get(team, {})
         self.data = {'done': st.get('done', []), 'stuck': st.get('stuck', list(cfg['stuck'].get(team, []))),
                      'parked': False, 'batch': None, 'reason': ''}
@@ -127,8 +154,18 @@ class Team(threading.Thread):
             res = r.run()
             self.data['stuck'] = list(dict.fromkeys(self.data['stuck'] + list(res.excluded)))
             if not res.ok:
-                alert(self.team, f'第 {batch} 批停摆: {res.reason}' +
-                      ('（师傅窗口没了：人工登录师傅后重启总控，会从断点接着跑）' if res.reason == 'MASTER_DOWN' else ''))
+                self.parks += 1
+                if self.parks <= self.cfg['park_retries'] and res.reason not in ('没有徒弟了（全被排除）',):
+                    # round 6 (unattended): a parked team waits, then resumes from its checkpoint by itself; the
+                    # runner relogs the master / apprentices and goes home on its way back in
+                    alert(self.team, f'第 {batch} 批停摆: {res.reason}；{self.cfg["park_wait"]} 秒后自动从断点再试'
+                                     f'（第 {self.parks}/{self.cfg["park_retries"]} 次）')
+                    self.data.update(parked=True, reason=res.reason)
+                    self.save()
+                    self.sleep(self.cfg['park_wait'])
+                    continue
+                alert(self.team, f'第 {batch} 批停摆: {res.reason}（自动再试 {self.cfg["park_retries"]} 次都没过，'
+                                 f'需要人看；修好后重启总控，会从断点接着跑）')
                 self.data.update(parked=True, reason=res.reason)
                 break
             self.data['done'].append(batch)
@@ -196,6 +233,10 @@ def main(argv):
                    silent=cfg['silent'])
         res = r.run(arg(argv, '--from'), arg(argv, '--until'))
         say(f'结果: {res}')
+        if res.ok and not arg(argv, '--until') and '--apps' not in argv:     # round 5: the state had to be fixed by hand
+            data.update(parked=False, batch=None, reason='', done=sorted(set(data['done']) | {batch}))
+            data['stuck'] = list(dict.fromkeys(data['stuck'] + list(res.excluded)))
+            save_team(team, {k: v for k, v in data.items()})
         return 0 if res.ok else 1
     LOGS.mkdir(exist_ok=True)
     say(f'产线开始: 队 {cfg["teams"]}，批次 {cfg["batches"]}；停下 = 建 {STOP}')

@@ -2,6 +2,7 @@
 
     python -X utf8 research/shitu/make_apprentices.py                 (default: mvp01:十万1 mvp02:十万2 mvp03:十万3)
     python -X utf8 research/shitu/make_apprentices.py mvp01:十万1 ...
+    python -X utf8 research/shitu/make_apprentices.py --anywhere capNN:亿万M ...   relog: in the world anywhere = ok
 
 Restartable per account, every step decided from what the selection screen shows:
   - the role already exists -> no create
@@ -55,7 +56,7 @@ def create(session, account, name, lg):
     raise Stop('15s 内没收到建角回包 0x4003（结果不确定，重跑会先看选角列表）')
 
 
-def one(settings, throttle, account, name):
+def one(settings, throttle, account, name, anywhere=False):
     lg = log.for_account(account.name)
     out = {'account': account.name, 'name': name, 'ok': False}
     session = None
@@ -86,7 +87,9 @@ def one(settings, throttle, account, name):
                 raise Stop(f'新手出村失败: {r.get("error")}')
         with ProcessMemory(session.pid, session.base) as mem:
             st = read_world(mem)
-        out.update(ok=st.map_id == 1, map_id=st.map_id, x=round(st.x), y=round(st.y))
+        # --anywhere (a relog of an existing apprentice): back in the world where it logged out is success
+        # (2026-10-29 亿万60 relogged in map 1000 was reported as a failure)
+        out.update(ok=anywhere or st.map_id == 1, map_id=st.map_id, x=round(st.x), y=round(st.y))
         if not out['ok']:
             out['error'] = f'不在逍遥村西区 (map {st.map_id})，没动它'
     except Exception as e:
@@ -97,7 +100,7 @@ def one(settings, throttle, account, name):
     return out
 
 
-def main(pairs):
+def main(pairs, anywhere=False):
     log.setup(ROOT / 'logs', prefix='apprentices')
     lg = log.for_account('main')
     base = config.load_enter(ROOT / 'enter.toml')
@@ -106,11 +109,12 @@ def main(pairs):
     settings = dataclasses.replace(base, accounts=tuple(a for a, _ in jobs))
     throttle = LaunchThrottle.of(settings)
     with ThreadPoolExecutor(max_workers=len(jobs)) as pool:
-        results = list(pool.map(lambda j: one(settings, throttle, *j), jobs))
+        results = list(pool.map(lambda j: one(settings, throttle, *j, anywhere=anywhere), jobs))
     for r in results:
         lg.info('%s', r)
     return 0 if all(r['ok'] for r in results) else 1
 
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv[1:] or DEFAULT))
+    args = [a for a in sys.argv[1:] if a != '--anywhere']
+    sys.exit(main(args or DEFAULT, anywhere='--anywhere' in sys.argv[1:]))

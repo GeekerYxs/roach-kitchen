@@ -37,7 +37,25 @@ def gather(c, tap, npc, xy, got):
         except t.Stop:
             step_to(c, xy, near=30)
             c.game.click_npc(npc)
-            d = t.wait(lambda: c.dialog(), 5, f'{c.name} 通天花 {npc}（走近后）')
+            try:
+                d = t.wait(lambda: c.dialog(), 5, f'{c.name} 通天花 {npc}（走近后）')
+            except t.Stop:
+                # 2026-10-29 亿万52: no dialog from 954 twice (the server had it elsewhere, like team_npc's NPCs);
+                # walk away and back, click once more, else leave this flower to the next round (6 rounds)
+                t.say(f'[{c.name}] 走近后点通天花 {npc} 还是没对话框，走开再回来重点')
+                c.game.cancel_navigation()
+                c.game.navigate(MAP, xy[0] + 150, xy[1])
+                try:
+                    t.wait(lambda: not c.world().moving and not c.world().nav_active, 20, f'{c.name} 走开')
+                except t.Stop:
+                    pass
+                step_to(c, xy, near=30)
+                c.game.click_npc(npc)
+                try:
+                    d = t.wait(lambda: c.dialog(), 5, f'{c.name} 通天花 {npc}（走开再回来后）')
+                except t.Stop:
+                    t.say(f'[{c.name}] 通天花 {npc} 这一圈点不出对话框，下一圈再来（现在 {got}/5）')
+                    return got
         if not any('采集' in t.plain(l) for _, l in d.options):
             c.game.select_dialog(0)
             break

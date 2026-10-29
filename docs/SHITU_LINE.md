@@ -9,7 +9,9 @@
 > **2026-10-28 新架构 v5**：`python -X utf8 -m line`（`research/shitu/line/`）把总控、批次、监管器、三段 shell 合成
 > 一个 Python 程序，路线是一张数据表。设计、用法、和第 4 轮的对照见 **第 8 节**。**2026-10-28 第 5 轮（第 3 批）v5 首次实跑，
 > 四队全部出师**（师傅 伏地魔1、伏地魔2、飞天把你射成蜂窝、舔尊；强号快约 46–57 分钟/批，见
-> [research/shitu/ROUND5_NOTES.md](../batch_provision/research/shitu/ROUND5_NOTES.md)）。第 4 轮的 `r4_line.py` + shell 原样保留作退路。
+> [research/shitu/ROUND5_NOTES.md](../batch_provision/research/shitu/ROUND5_NOTES.md)）。**第 6 轮（10-28 夜）伏地魔1–3 无人值守一夜
+> 12 人出师、零人工干预**，师傅自动登录 / 掉线自动重登、停摆自动再试等见
+> [ROUND6_NOTES.md](../batch_provision/research/shitu/ROUND6_NOTES.md)。第 4 轮的 `r4_line.py` + shell 原样保留作退路。
 
 ---
 
@@ -230,18 +232,22 @@ line/__main__.py   总控：每队一条线程，按 line.toml 一批接一批�
 （0–3：账号 cap(21+4·slot)…+3，第 N 批徒弟 亿万(16(N−1)+4·slot+1)…+4）、`gold` 启动金。`teams = [...]` 选这次跑哪几队。
 队名同时是 `logs/line_state.json` 的键和 LOGID（`r4<队名>_b<批>`），所以换师傅就起个新队名，旧师傅的历史和排除名单（比如伏地魔4 名下的
 亿万13）不会串过来。同一组账号（同 slot）或同一个师傅不能同时在两队，总控启动时会检查。现有队：a 伏地魔1、b 伏地魔2、c 伏地魔3、
-d 伏地魔4、fei 飞天把你射成蜂窝（slot 2）、tian 舔尊（slot 3）。
+d 伏地魔4、fei 飞天把你射成蜂窝（slot 2）、tian 舔尊（slot 3）。每队还可以写 `tower1 = 35`：通天塔一区练到几级再去二区（默认 33）。
 
 ### 8.4 一步失败以后（runner.py，参数在 line/line.toml）
 
-1. 每次跑一步之前：师傅窗口不在、或窗口在但掉线（读不到世界 / socket=-1）→ 这一队停摆（MASTER_DOWN，人工登录师傅后
-   用 `--team <队> --batch <批>` 单独续跑，从断点接着跑，别的队不受影响）；徒弟窗口不在或掉线 → `r4_util windows` 关窗、自动重新登录
-   （建号段只查师傅）。窗口检查连续 10 次失败也停摆。
+1. 每次跑一步之前：师傅窗口不在、或窗口在但掉线（读不到世界 / socket=-1）→ **自动重登师傅**（`master_login.py`，账号文件
+   = line.toml 的 `master_accounts`，用户自己的文件、不在仓库里；哪个账号是哪个师傅缓存在 `logs/master_accounts.json`，只有名字），
+   全员回城，重跑这一步；每步最多重登 3 次，还不行才停摆（MASTER_DOWN）。没有账号文件时照旧停摆等人工登录。
+   徒弟窗口不在或掉线 → `r4_util windows` 关窗、自动重新登录（建号段只查师傅）。窗口检查连续 10 次失败也停摆。
 2. `unless` 成立（比如已经 25 级）→ 这一步算完成。
 3. 日志 `silent`（900）秒没变化 = 卡死 → 杀掉这一步的进程树，算一次失败。
-4. 失败阶梯：第 1–3 次失败 = 清场（`retry`: home 回城 / leave 原地离队）+ 5 秒再跑；第 4–5 次 = 全员回城 + 等 300 秒再跑；
+4. 失败阶梯：第 1–3 次失败 = 清场（`retry`: home 回城 / leave 原地离队）+ 5 秒再跑；第 4–5 次 = **4 个徒弟全部关窗重登**
+   （`r4_util relog`，治客户端切图卡死）+ 全员回城 + 等 `recover_wait`（120）秒再跑；
    还不行且是后段闸门没过 → 把 `logs/<LOGID>_short.txt` 里的徒弟排除（留在师傅名下不出师，以后每批少建一个），
    其余人从这一步重来；否则这一队停摆、报警，别的队照跑。
+5. **停摆后自动再试**（第 6 轮起）：停摆的队等 `park_wait`（600）秒，从断点接着跑（会先重登师傅 / 徒弟），最多 `park_retries`（3）次；
+   都不行才真正停下等人。人工修好后用 `--team <队> --batch <批>` 单独续跑，成功后自动把这批记进 `logs/line_state.json`。
 
 ### 8.5 加 / 改一步
 

@@ -11,6 +11,7 @@ spawn list, not in NPCDirection.csv (the user pointed at it). Its dialog: 这会
 choice 给你唱段安魂曲吧 / 我再掰 -> (安魂曲) 指节松开，露出一份带血的情报 -> 阿弥托佛，拾取情报 (needs a free bag slot:
 千万1 got「物品栏已满！」). WORD = 勇者|安魂曲|拾取.
 """
+import os
 import sys
 import time
 
@@ -74,6 +75,9 @@ def talk(c, npc, xy, word, qid):
     t.say(f'[{c.name}] 选了 {seen}；{qid} {before.steps} -> {w.read_quest(c.mem, qid).steps}')
 
 
+RETRY_PASSES, RETRY_WAIT = 2, 15
+
+
 def main(map_id, npc, xy, word, qid, master, names, regroup=True):
     d.MAP = map_id
     lead = t.Client(master)
@@ -82,8 +86,31 @@ def main(map_id, npc, xy, word, qid, master, names, regroup=True):
         if c.team():
             c.game.team_leave()
             t.wait(lambda: not c.team(), 5, f'{c.name} 离队')
-    for c in apps:
-        talk(c, npc, xy, word, qid)
+    todo = apps
+    for attempt in range(1 + RETRY_PASSES):
+        failed = []
+        for c in todo:
+            try:
+                talk(c, npc, xy, word, qid)
+            except t.Stop as e:
+                failed.append((c, e))
+        if not failed:
+            break
+        if attempt == RETRY_PASSES:
+            raise failed[0][1]
+        # 2026-10-29: three times in a row (树 亿万52, 水晶 亿万56, 花) the last apprentice got no dialog right after
+        # the others had fled a battle there; the step then went home and passed on the rerun. Wait, retry only them
+        names = [c.name for c, _ in failed]
+        if attempt == RETRY_PASSES - 1 and os.environ.get('PAIRS'):
+            # 2026-10-29 亿万56: three passes in a row ignored by NPC 986, only a trip home helped (state on the
+            # server side). A relog resets that too and puts it back right here: last pass after a relog
+            import r4_util
+            t.say(f'{names} 还是点不出对话框，原地关窗重登后再点最后一轮')
+            r4_util.relog(os.environ['PAIRS'].split(), names)
+        else:
+            t.say(f'{names} 点不出对话框（{failed[0][1]}），{RETRY_WAIT} 秒后只给他们再点一轮')
+            time.sleep(RETRY_WAIT)
+        todo = [t.Client(n) for n in names]
     if regroup:     # --no-regroup: the next command scrolls everybody home, which breaks the team anyway (user 2026-10-28)
         d.regroup(lead, apps)
 

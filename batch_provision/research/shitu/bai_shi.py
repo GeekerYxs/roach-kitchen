@@ -24,15 +24,67 @@ OP_ASK, OP_ANSWER, OP_BOUND, OP_MSG, OP_DIALOG = 0x4338, 0x0197, 0x4337, 0x46ff,
 STATE = HERE / STATE_FILE
 
 
-def load_state():
-    return json.loads(STATE.read_text('utf-8')) if STATE.is_file() else {}
+def load_state(path=None):
+    """The state file; the per-apprentice steps run in parallel processes (2026-10-28 23:42: one read the file while
+    another was rewriting it -> JSONDecodeError on an empty file), so a half-written read is retried."""
+    path = path or STATE
+    for attempt in range(20):
+        try:
+            return json.loads(path.read_text('utf-8')) if path.is_file() else {}
+        except (ValueError, PermissionError):
+            if attempt == 19:
+                raise
+            time.sleep(0.1)
 
 
-def mark(name, step, **info):
-    """state.json: {apprentice: {step: {time, ...}}}"""
-    s = load_state()
-    s.setdefault(name, {})[step] = {'time': time.strftime('%Y-%m-%d %H:%M:%S'), **info}
-    STATE.write_text(json.dumps(s, ensure_ascii=False, indent=2), 'utf-8')
+class _Lock:
+    """Cross-process lock next to the state file (O_EXCL create); a lock older than 30 s is a dead writer's."""
+    def __init__(self, path):
+        self.path = path.with_name(path.name + '.lock')
+
+    def __enter__(self):
+        import os
+        end = time.monotonic() + 30
+        while True:
+            try:
+                os.close(os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+                return self
+            except FileExistsError:
+                try:
+                    if time.time() - self.path.stat().st_mtime > 30:
+                        self.path.unlink()
+                        continue
+                except OSError:
+                    continue
+                if time.monotonic() > end:
+                    raise TimeoutError(f'{self.path} 30 秒拿不到锁')
+                time.sleep(0.05)
+
+    def __exit__(self, *exc):
+        try:
+            self.path.unlink()
+        except OSError:
+            pass
+
+
+def mark(name, step, path=None, **info):
+    """state.json: {apprentice: {step: {time, ...}}}; read-modify-write under a lock, written atomically (tmp +
+    replace), so parallel apprentices neither lose each other's marks nor leave a half file."""
+    import os
+    path = path or STATE
+    with _Lock(path):
+        s = load_state(path)
+        s.setdefault(name, {})[step] = {'time': time.strftime('%Y-%m-%d %H:%M:%S'), **info}
+        tmp = path.with_name(f'{path.name}.{os.getpid()}.tmp')
+        tmp.write_text(json.dumps(s, ensure_ascii=False, indent=2), 'utf-8')
+        for attempt in range(50):
+            try:
+                os.replace(tmp, path)
+                break
+            except PermissionError:          # a reader has it open right now (Windows)
+                if attempt == 49:
+                    raise
+                time.sleep(0.05)
 
 
 def done(name, step):

@@ -25,13 +25,26 @@ from zhuanzhi_finish import walk
 OP_SELECT, OP_OPEN, OP_TAKE = 0x01E5, 0x01E2, 0x01E3
 
 
-def pending(c):
+def tap_pids(c):
+    """The role's current window plus the windows it had before a relog (r4_util marks them tap_<pid>): the server
+    announces a mail (0x4411) once, on whichever window was up then (2026-10-29 亿万60: relogged, 0 of 33 mails)."""
+    from bai_shi import load_state
+    old = [int(k[4:]) for k in load_state().get(getattr(c, 'name', None), {}) if k.startswith('tap_') and k[4:].isdigit()]
+    return [c.pid] + [p for p in old if p != c.pid]
+
+
+def pending(c, pids=None):
     mails, done = {}, set()
-    for _, d, op, b, _ in Tap(c.pid, from_end=False).poll():
-        if op == 0x4411 and len(b) >= 29:
-            mails[struct.unpack_from('<I', b, 9)[0]] = struct.unpack_from('<I', b, 25)[0]
-        elif op == 0x4416 and len(b) >= 8:
-            done.add(struct.unpack_from('<I', b, 4)[0])
+    for pid in pids or tap_pids(c):
+        try:
+            records = list(Tap(pid, from_end=False).poll())
+        except OSError:
+            continue
+        for _, d, op, b, _ in records:
+            if op == 0x4411 and len(b) >= 29:
+                mails[struct.unpack_from('<I', b, 9)[0]] = struct.unpack_from('<I', b, 25)[0]
+            elif op == 0x4416 and len(b) >= 8:
+                done.add(struct.unpack_from('<I', b, 4)[0])
     return [(m, tpl) for m, tpl in mails.items() if m not in done]
 
 

@@ -19,6 +19,7 @@ class Team:
     master: str
     slot: int                    # which 4 accounts / which names (0..3)
     gold: int                    # starting gold the master hands out
+    tower1: int = 33             # 通天塔一区 up to this level, then 二区
 
     @property
     def first_account(self):
@@ -27,7 +28,8 @@ class Team:
 
 def load_teams(path=CONFIG):
     raw = tomllib.loads(path.read_text(encoding='utf-8')).get('team', {})
-    teams = {k: Team(v['master'], int(v['slot']), int(v.get('gold', 50000))) for k, v in raw.items()}
+    teams = {k: Team(v['master'], int(v['slot']), int(v.get('gold', 50000)), int(v.get('tower1', 33)))
+             for k, v in raw.items()}
     for k, t in teams.items():
         if not 0 <= t.slot < 4:
             raise ValueError(f'line.toml [team.{k}] slot {t.slot} 不在 0..3')
@@ -80,6 +82,10 @@ class Batch:
     @property
     def master(self):
         return TEAMS[self.team].master
+
+    @property
+    def tower1(self):
+        return TEAMS[self.team].tower1
 
     @property
     def all_names(self):

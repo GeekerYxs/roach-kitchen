@@ -12,6 +12,7 @@ Cmd tokens:
   {M} master   {APPS} all apprentices (splat)   {A0} first one   {REST} the others (splat)
   {A} one apprentice: the Cmd runs once per apprentice, all at once (par=True)
   {APPS:0} 'name:0' per apprentice (dew_team)   {PAIRS} 'capNN:name' (splat)   {PREV} previous batch's names
+  {T1} the team's tower1 target level (also inside Step.unless)
 Cmd.when = ops condition ('lv_lt 25', 'master_on 1', 'kills5'): the Cmd only runs when it holds.
 Step.unless = ops condition: the whole step is skipped when it holds (leveling already done).
 
@@ -103,8 +104,10 @@ ROUTE = (
         C('take224.py', '{A}', when='master_on 20'),
         C('go_cave.py'), C('dts.py'),
     ), retry='leave'),
-    Step('tower1', 'mid', (HOME, DOUBLE, C('pp_chain.py', '通天塔', '平静海岸2区'), C('tower28.py', '33')),
-         retry='leave', unless='lv_ge 33'),
+    # {T1}: the team's tower1 target (line.toml tower1, default 33); round 6 tries 35 for a 伏地魔 team, whose 二区
+    # battles need two rounds (ROUND5_NOTES.md)
+    Step('tower1', 'mid', (HOME, DOUBLE, C('pp_chain.py', '通天塔', '平静海岸2区'), C('tower28.py', '{T1}')),
+         retry='leave', unless='lv_ge {T1}'),
     Step('end', 'mid', (HOME, C('sell_tradable.py', '--safe', '{APPS}'),
                         C('trial3_run.py', '--master', '{M}', '{APPS}')), retry='leave'),
     Step('packs', 'mid', (
@@ -149,6 +152,7 @@ ROUTE = (
         C('U', 'need', '181', '5'),
     ), env={'SHITU_QID': '181'}),
     Step('crystal', 'late', (
+        C('U', 'space', '4'),                   # 2026-10-29: the apprentices NPC 986 ignored had 0-2 free slots
         C('guji_entrance.py'),
         C('go_goal.py', '650', '650', '2542', '3442'),
         C('team_npc.py', '650', '986', '2542', '3442', '战士|水晶|看', '181', '{M}', '{APPS}', '--no-regroup'),
@@ -162,6 +166,7 @@ ROUTE = (
         C('dew_team.py', '{M}', '{APPS:0}'),
     ), env={'SHITU_QID': '181'}),
     Step('pour', 'late', (
+        C('U', 'space', '4'),                   # 拿起馒头 hands out an item; 亿万56 (40/40) got no dialog 3 passes
         HOME, DOUBLE,
         C('guji_entrance.py'),
         C('go_goal.py', '650', '650', '2542', '3442'),
@@ -234,6 +239,7 @@ def expand(cmd, b, python=('python', '-X', 'utf8')):
         out = list(head)
         for tok in cmd.args[1:]:
             out += {'{M}': [b.master], '{APPS}': apps, '{A0}': apps[:1], '{REST}': apps[1:], '{A}': [a],
-                    '{APPS:0}': [f'{n}:0' for n in apps], '{PAIRS}': b.pairs, '{PREV}': b.prev_names}.get(tok, [tok])
+                    '{APPS:0}': [f'{n}:0' for n in apps], '{PAIRS}': b.pairs, '{PREV}': b.prev_names,
+                    '{T1}': [str(b.tower1)]}.get(tok, [tok])
         return out
     return [one(a) for a in apps] if cmd.par else [one()]

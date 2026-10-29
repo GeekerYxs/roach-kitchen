@@ -13,6 +13,7 @@
     python -X utf8 research/shitu/r4_util.py windows capNN:亿万M ...  master window missing -> exit 2; a missing
                                                                   apprentice window is logged in again
     python -X utf8 research/shitu/r4_util.py space [N]            apprentices: drop 0-quality junk until N free slots
+    python -X utf8 research/shitu/r4_util.py relog capNN:亿万M ...    close every apprentice window, log them in again
 """
 import sys
 import time
@@ -177,6 +178,12 @@ def _short_file():
     return Path(__file__).resolve().parent / 'logs' / f"{os.environ.get('LOGID', 'r4')}_short.txt"
 
 
+def keep_tap(name, pid):
+    """Remember a window about to be closed: mail_sell reads its tap too (mail ids are announced once)."""
+    from bai_shi import mark
+    mark(name, f'tap_{pid}', pid=pid)
+
+
 def offline(name):
     """True when the role's window is up but it is out of the world: connection gone (socket -1, nothing can be
     sent) or no world state any more (back at the login screen)."""
@@ -214,6 +221,7 @@ def windows(accounts):
     dead = [n for n in APPRENTICES if n in found and offline(n)]
     for n in dead:
         c = t.Client(n)
+        keep_tap(n, c.pid)
         st = native.read_status(c.pid)
         t.say(f'[{n}] 掉线了，关窗重登 {native.close(native.Session(c.pid, st["hwnd"], st["game_base"]))}')
     if dead:
@@ -223,12 +231,30 @@ def windows(accounts):
         return
     pairs = [p for p in accounts if p.split(':')[1] in lost]
     t.say(f'徒弟窗口不在: {lost}，重新登录 {pairs}')
-    subprocess.run([sys.executable, '-X', 'utf8', 'make_apprentices.py', *pairs], check=True)
+    subprocess.run([sys.executable, '-X', 'utf8', 'make_apprentices.py', '--anywhere', *pairs], check=True)
     for n in lost:
         c = t.Client(n)
         st = native.read_status(c.pid)
         native.arm(native.Session(c.pid, st['hwnd'], st['game_base']))
     t.say(f'徒弟重新登录好了: {lost}')
+
+
+def relog(accounts, names=None):
+    """Close the apprentices' windows (all, or names) and log them in again (windows()): the runner's recovery, for
+    clients that look fine but are frozen (2026-10-28 亿万34 stuck mid map change for 20 minutes); team_npc uses it
+    for one apprentice an NPC keeps ignoring."""
+    from common import find_roles
+    from provisioner import native
+    names = tuple(names or APPRENTICES)
+    found = find_roles(names)
+    for n in names:
+        if n in found:
+            pid = found[n][0]
+            keep_tap(n, pid)
+            st = native.read_status(pid)
+            t.say(f'[{n}] 关窗重登: {native.close(native.Session(pid, st["hwnd"], st["game_base"]))}')
+    time.sleep(3)
+    windows(accounts)
 
 
 def need(qid, n):
@@ -280,7 +306,7 @@ if __name__ == '__main__':
     a = sys.argv[1:]
     try:
         {'home': lambda: home(), 'leave': lambda: leave(), 'restock_master': lambda: restock_master(int(a[1]) if len(a) > 1 else 100), 'restock': lambda: restock(int(a[1]) if len(a) > 1 else 20),
-         'steps': lambda: steps(int(a[1])), 'need': lambda: need(int(a[1]), int(a[2])), 'windows': lambda: windows(a[1:]), 'double': lambda: double(), 'double_due': lambda: print(int(double_due())), 'supply': lambda: supply(), 'space': lambda: space(int(a[1]) if len(a) > 1 else 3)}[a[0]]()
+         'steps': lambda: steps(int(a[1])), 'need': lambda: need(int(a[1]), int(a[2])), 'windows': lambda: windows(a[1:]), 'relog': lambda: relog(a[1:]), 'double': lambda: double(), 'double_due': lambda: print(int(double_due())), 'supply': lambda: supply(), 'space': lambda: space(int(a[1]) if len(a) > 1 else 3)}[a[0]]()
     except t.Stop as e:
         t.say(f'停止: {e}')
         raise SystemExit(1)

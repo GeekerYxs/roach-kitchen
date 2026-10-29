@@ -26,10 +26,13 @@ def run():
     from provisioner import world as w
     target = m.STAGES[0]['until']
     while True:
-        m.STOP_AT = r4_util.double_due()
+        m.STOP_AT = r4_util.stop_at(r4_util.double_due(), r4_util.yam_due())
         m.main()
         if min(w.read_level(m.t.Client(n).mem) for n in m.APPRENTICES) >= target:
             return
+        if not r4_util.double_due() or r4_util.double_due() > m.time.time() + 60:
+            r4_util.double()           # round 6: only a yam is due -> eat it in place, patrol on (as tower2_patrol)
+            continue
         r4_util.home()
         r4_util.double()
         subprocess.run([sys.executable, '-X', 'utf8', 'pp_chain.py', '通天塔', '平静海岸2区'], check=True)

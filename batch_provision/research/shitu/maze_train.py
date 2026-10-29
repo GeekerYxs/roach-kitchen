@@ -42,6 +42,9 @@ STAGES = (
 )
 PROBE = 350
 NEAR_ENOUGH = 250  # a patrol point we stall this close to counts as reached
+UNSTICK = ((300, 0), (0, 300), (-300, 0), (0, -300))   # side steps out of a wedged spot, tried in turn
+UNSTICK_WAIT = 8.0                                     # seconds the side step runs before pathing to the goal again
+MIN_LEG = 200      # a replacement A point must be at least this far from B (a patrol needs walking to meet monsters)
 CLICK_NEAR = 25     # live 01:09: 10159 ignored 3 clicks from 67 px, answered at once from 0 px; 10164 can only be
                     # reached to ~34 px (stalls there), clicking from there works -> click once stalled within NEAR
 CLICK_WAIT = 8.0
@@ -80,6 +83,14 @@ class Route:
             if st.nav_active:
                 lead.game.cancel_navigation()
             self.progress_at, self.last_nav = now, -1e9
+            if self.wedged % 5 == 0:
+                # 2026-10-29 伏地魔2 at the same 古迹 spot (3840,2944) as round 4: pathing again from there never
+                # works. Step aside first (a different side each time), the next pathing starts somewhere else
+                dx, dy = UNSTICK[(self.wedged // 5 - 1) % len(UNSTICK)]
+                aside = (max(1, round(st.x + dx)), max(1, round(st.y + dy)))
+                self.say(f'同一处卡了 {self.wedged} 次，先往旁边走到 {aside} 再接着去')
+                lead.game.navigate(st.map_id, *aside)
+                self.last_nav = now + UNSTICK_WAIT - NAV_RETRY     # let the side walk run before pathing again
             return
         if st.nav_active or st.moving or now - self.last_nav < NAV_RETRY:
             return
@@ -153,6 +164,17 @@ class Route:
             self.say(f'{xy} 走不到跟前，停在 ({st.x:.0f},{st.y:.0f}) 离 {math.dist((st.x, st.y), xy):.0f} px，算到了，掉头')
             self.target, self.stalls, self.last_nav = 1 - self.target, 0, -1e9
             return
+        if self.stalls >= 2 and self.target == 0:
+            self.a_fails = getattr(self, 'a_fails', 0) + 1           # reset only on reaching A (flips resets at B)
+        if (self.stalls >= 2 and self.target == 0 and self.a_fails >= 3 and self.patrol_b
+                and math.dist((st.x, st.y), self.points[1]) >= MIN_LEG):
+            # 2026-10-29 八阵图 伏地魔3: from B the way back to the landing A never worked (stuck at (912,1984)
+            # 20 times). Where it got stuck is reachable from B: patrol there instead, any walk meets monsters
+            self.points[0] = (round(st.x), round(st.y))
+            self.say(f'{xy} 从 B 点回不去，A 点改成这里 {self.points[0]}，在它和 B 点 {self.points[1]} 之间巡逻')
+            self.target, self.stalls, self.flips, self.a_fails, self.last_nav = 1, 0, 0, 0, -1e9
+            self.wedged = 0
+            return
         if self.stalls >= 2 and (self.patrol_b or self.target == 0) and getattr(self, 'flips', 0) < 4:
             # round 4 通天塔二区 01:36: the path-finder hung twice on the 1700 px walk from the landing to A; walk to
             # the other point instead (the next lap tries this one again); give up after 4 such turns in a row
@@ -169,6 +191,8 @@ class Route:
             return
         if math.dist((st.x, st.y), xy) <= ARRIVE and not st.moving:
             self.flips = 0
+            if self.target == 0:
+                self.a_fails = 0
             if self.target == 1 and self.probes is not None and not self.patrol_b and self.probes != 'fixed':
                 self.say(f'B 点定为 {xy}（实际走到了），以后在 {self.points[0]} <-> {xy} 巡逻')
                 self.probes = 'fixed'

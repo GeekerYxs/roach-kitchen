@@ -12,7 +12,7 @@ SHITU = Path(__file__).resolve().parent.parent / 'research' / 'shitu'
 sys.path.insert(0, str(SHITU))
 
 from line import plan, route as R  # noqa: E402
-from line.runner import Runner  # noqa: E402
+from line.runner import Result, Runner  # noqa: E402
 
 
 class Plan(unittest.TestCase):
@@ -118,9 +118,15 @@ class Route(unittest.TestCase):
 
     def test_quest_item_steps_free_bag_slots_first(self):
         """A full bag loses quest items silently (round 4): space before dew / king / corpse / tree pick-ups."""
-        for name in ('tree', 'dew', 'corpse', 'king'):
+        for name in ('tree', 'dew', 'corpse', 'king', 'crystal', 'pour'):
             cmds = R.step(name).cmds
             self.assertEqual(cmds[0].args[:2], ('U', 'space'), name)
+
+    def test_relogs_accept_any_map_new_roles_do_not(self):
+        """2026-10-29 亿万60 relogged fine in map 1000 but make_apprentices called it a failure (only 逍遥村 = ok)."""
+        self.assertNotIn('--anywhere', R.step('make').cmds[0].args)
+        src = (SHITU / 'r4_util.py').read_text(encoding='utf-8')
+        self.assertIn("'make_apprentices.py', '--anywhere'", src)
 
     def test_expand(self):
         b = plan.Batch('d', 3, ['亿万13', '亿万48'])
@@ -225,6 +231,7 @@ class Ladder(unittest.TestCase):
         self.assertEqual(self.sleeps, [5, 5, 5, 300, 300])
         self.assertEqual(self.steps_run(game, 'r4_util.py leave'), 3)   # snake cleans up with leave
         self.assertEqual(self.steps_run(game, 'r4_util.py home'), 2)    # recoveries always go home
+        self.assertEqual(self.steps_run(game, 'r4_util.py relog cap21:亿万33'), 2)   # ... after relogging everybody
 
     def test_snake_redoes_the_trip_only_when_not_there(self):
         on_20 = FakeGame({'master_off 20 750': [1], 'master_on 20': [0], 'when': [1]})    # normal: at 无尽2路口
@@ -253,11 +260,27 @@ class Ladder(unittest.TestCase):
         r2 = self.runner(FakeGame({'when': [1]}))                      # a restart keeps the exclusion
         self.assertNotIn('亿万34', r2.b.apprentices)
 
-    def test_master_down_parks_at_once(self):
-        game = FakeGame({'when': [1], 'windows': [2]})
+    def test_master_down_parks_when_relog_fails(self):
+        game = FakeGame({'when': [1], 'windows': [2], 'master_login.py': [1]})
         res = self.runner(game).run('snake', 'snake')
         self.assertEqual(res.reason, 'MASTER_DOWN')
         self.assertEqual(self.steps_run(game, 'dts.py'), 0)
+        self.assertEqual(self.steps_run(game, 'master_login.py 伏地魔1'), 1)
+
+    def test_master_down_relogs_then_goes_on(self):
+        """Round 6: the master drops -> master_login.py, everybody home, the step runs (no parking)."""
+        game = FakeGame({'when': [1], 'windows': [2, 0]})
+        res = self.runner(game).run('snake', 'snake')
+        self.assertTrue(res.ok)
+        self.assertEqual(self.steps_run(game, 'master_login.py'), 1)
+        self.assertEqual(self.steps_run(game, 'r4_util.py home'), 1)
+        self.assertEqual(self.steps_run(game, 'dts.py'), 1)
+
+    def test_master_relogs_are_capped(self):
+        game = FakeGame({'when': [1], 'windows': [2]})            # relog "works" but the master never stays up
+        res = self.runner(game, master_relogs=3).run('snake', 'snake')
+        self.assertEqual(res.reason, 'MASTER_DOWN')
+        self.assertEqual(self.steps_run(game, 'master_login.py'), 3)
 
     def test_make_stage_checks_only_the_master(self):
         game = FakeGame({'when': [1]})
@@ -270,6 +293,67 @@ class Ladder(unittest.TestCase):
         res = self.runner(game).run('snake', 'snake')
         self.assertEqual(res.reason, 'WINDOWS')
         self.assertEqual(self.sleeps, [60] * 10)
+
+
+class Tower1Target(unittest.TestCase):
+    def test_team_tower1_in_cmd_and_unless(self):
+        cmd = next(c for c in R.step('tower1').cmds if c.args[0] == 'tower28.py')
+        b = plan.Batch('b', 4)
+        self.assertEqual(R.expand(cmd, b, python=())[0], ['tower28.py', str(plan.TEAMS['b'].tower1)])
+        calls = []
+        r = Runner(b, logs=tempfile.mkdtemp(), execute=lambda a, e: calls.append(' '.join(a[0])) or 0,
+                   sleep=lambda s: None, say=lambda m: None)
+        r.check(R.step('tower1').unless, R.step('tower1'))
+        self.assertTrue(calls[-1].endswith(f'when lv_ge {b.tower1}'))
+        self.assertEqual(plan.Team('m', 0, 1).tower1, 33)
+
+
+class ParkRetry(unittest.TestCase):
+    """Round 6: a parked team waits park_wait and resumes from its checkpoint by itself, park_retries times."""
+    def setUp(self):
+        from line import __main__ as M
+        self.M = M
+        self.dir = tempfile.TemporaryDirectory()
+        logs = Path(self.dir.name)
+        self.patches = [unittest.mock.patch.object(M, 'STATE', logs / 'state.json'),
+                        unittest.mock.patch.object(M, 'ALERT', logs / 'alert.log'),
+                        unittest.mock.patch.object(M, 'STOP', logs / 'STOP'),
+                        unittest.mock.patch.object(M, 'LOGS', logs),
+                        unittest.mock.patch.object(M, 'quizbot_running', lambda: True)]
+        for x in self.patches:
+            x.start()
+
+    def tearDown(self):
+        for x in self.patches:
+            x.stop()
+        self.dir.cleanup()
+
+    def team(self, results):
+        M, it = self.M, iter(results)
+
+        class FakeRunner:
+            def __init__(self, b, **kw):
+                self.b = b
+
+            def run(self):
+                return next(it)
+        cfg = dict(M.load_config(), teams=['a'], batches=[4], park_retries=2, park_wait=600)
+        sleeps = []
+        return M.Team('a', cfg, runner=FakeRunner, sleep=sleeps.append), sleeps
+
+    def test_resumes_after_a_park(self):
+        team, sleeps = self.team([Result(False, 'STEP snake'), Result(True, 'done')])
+        team.line()
+        self.assertEqual(sleeps, [600])
+        self.assertIn(4, team.data['done'])
+        self.assertFalse(team.data['parked'])
+
+    def test_gives_up_after_park_retries(self):
+        team, sleeps = self.team([Result(False, 'STEP snake')] * 5)
+        team.line()
+        self.assertEqual(sleeps, [600, 600])
+        self.assertTrue(team.data['parked'])
+        self.assertNotIn(4, team.data['done'])
 
 
 class Watchdog(unittest.TestCase):
@@ -295,9 +379,9 @@ class Controller(unittest.TestCase):
     def test_next_batch_and_config(self):
         from line.__main__ import load_config, next_batch
         cfg = load_config()
-        self.assertEqual(cfg['batches'], [3])
-        self.assertEqual(next_batch(cfg, {'done': [2]}), 3)
-        self.assertEqual(next_batch(cfg, {'done': [3, 4]}), None)
+        self.assertEqual(next_batch(dict(cfg, batches=[3, 4]), {'done': [2]}), 3)
+        self.assertEqual(next_batch(dict(cfg, batches=[3, 4]), {'done': [3, 4]}), None)
+        self.assertIn('park_retries', cfg)
 
     def test_quizbot_one_bad_read_is_not_an_alert(self):
         from line import __main__ as M

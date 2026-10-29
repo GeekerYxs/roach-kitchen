@@ -4,13 +4,15 @@ Replaces the round-4 stack r4_batch.sh -> r4_sup.sh -> r4_supervise.sh -> r4_run
 recovery): no shell scripts are executed, so editing code while a team runs cannot shift a running script.
 
 Per step (route.ROUTE order, finished steps are checkpointed in logs/<LOGID>_line.json, a restart resumes there):
-  0. health: the master's window must exist (else park: MASTER_DOWN, nobody can log the master in); outside the
-     make stage `r4_util windows` logs lost apprentices in again.
+  0. health: the master's window must exist and be online, else master_login.py logs it in again (accounts file in
+     line.toml, up to master_relogs times per step, then everybody home) and only then park MASTER_DOWN; outside the
+     make stage `r4_util windows` logs lost / offline apprentices in again.
   1. Step.unless holds (leveling already done) -> the step counts as done.
   2. run the Cmds; a silent log for `silent` s = hung -> the process tree is killed (= a failure).
   3. failure ladder (attempt = one full run of the step):
        attempts 1..retries        cleanup (Step.retry: home / leave), 5 s, rerun
-       next recover_tries ones    everybody home, wait recover_wait s, rerun
+       next recover_tries ones    every apprentice window closed + logged in again, everybody home, wait
+                                  recover_wait s, rerun (a client frozen mid map change heals only this way)
        then                       a late gate left names in logs/<LOGID>_short.txt -> those apprentices are excluded
                                   (stay bound to the master, never 出师), the rest rerun the step from attempt 1
        else                       park the team with the reason (alert); other teams go on.
@@ -73,8 +75,9 @@ def run_procs(argvs, env, log, silent, poll=10):
 
 class Runner:
     def __init__(self, batch, retries=3, recover_tries=2, recover_wait=300, silent=900, logs=LOGS,
-                 execute=None, sleep=time.sleep, say=None):
+                 execute=None, sleep=time.sleep, say=None, master_relogs=3):
         self.b, self.logs = batch, Path(logs)
+        self.master_relogs = master_relogs
         self.retries, self.recover_tries, self.recover_wait, self.silent = retries, recover_tries, recover_wait, silent
         self.execute = execute or self._execute
         self.sleep = sleep
@@ -121,6 +124,7 @@ class Runner:
 
     def check(self, cond, step):
         """ops condition -> True / False."""
+        cond = cond.replace('{T1}', str(self.b.tower1))
         return self.execute([[sys.executable, '-X', 'utf8', '-m', 'line.ops', 'when', *cond.split()]], self.env(step)) == 0
 
     def run_step(self, step):
@@ -141,6 +145,10 @@ class Runner:
         if step.stage == 'make':
             return self.execute([ops], self.env(step))
         return self.execute([[sys.executable, '-X', 'utf8', 'r4_util.py', 'windows', *self.b.pairs]], self.env(step))
+
+    def relog_master(self, step):
+        """master_login.py (accounts file in line.toml): 0 = the master is back in the world."""
+        return self.execute([[sys.executable, '-X', 'utf8', 'master_login.py', self.b.master]], self.env(step)) == 0
 
     def cleanup(self, how, step):
         if how != 'none':
@@ -165,12 +173,17 @@ class Runner:
 
     def do_step(self, step):
         self.stage_log = f'line_{step.stage}'
-        attempt, bad_health = 0, 0
+        attempt, bad_health, relogs = 0, 0, 0
         while True:
             if not self.b.apprentices and step.stage != 'make':
                 return Result(False, '没有徒弟了（全被排除）', tuple(self.p['excluded']))
             h = self.health(step)
             if h == 2:
+                relogs += 1
+                if relogs <= self.master_relogs and self.relog_master(step):
+                    self.event(f'{step.name}: 师傅窗口没了 / 掉线，自动重登成功（第 {relogs} 次），全员回城后重跑这一步')
+                    self.cleanup('home', step)
+                    continue
                 self.event(f'{step.name}: 师傅窗口没了 MASTER_DOWN')
                 return Result(False, 'MASTER_DOWN')
             if h:
@@ -202,7 +215,9 @@ class Runner:
                 continue
             if attempt <= self.retries + self.recover_tries:
                 self.event(f'{step.name} 失败（rc={rc}），恢复 {attempt - self.retries}/{self.recover_tries}：'
-                           f'回城，等 {self.recover_wait} 秒')
+                           f'徒弟全部关窗重登，回城，等 {self.recover_wait} 秒')
+                # 2026-10-28 亿万34: its client froze changing maps (same xy for 20 min), every retry failed on it
+                self.execute([[sys.executable, '-X', 'utf8', 'r4_util.py', 'relog', *self.b.pairs]], self.env(step))
                 self.cleanup('home', step)
                 self.sleep(self.recover_wait)
                 continue
