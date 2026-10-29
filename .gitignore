@@ -38,3 +38,6 @@ batch_provision/research/shitu/state*.json
 大冒险2_自动答题器_原生无感关窗版/src/dll/bank_data.h
 大冒险2_自动答题器_原生无感关窗版/backup_*/
 大冒险2_自动答题器_原生无感关窗版/*.old_inuse*
+
+# 禁锢之地研究工具的运行日志各电脑自己一份
+batch_provision/research/jingu/logs/
