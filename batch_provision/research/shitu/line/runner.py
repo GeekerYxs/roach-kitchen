@@ -156,7 +156,9 @@ class Runner:
 
     # ---- the ladder ----------------------------------------------------------------------------------------
     def run(self, frm=None, until=None):
-        names = R.NAMES[R.NAMES.index(frm):] if frm else R.NAMES
+        steps = {s.name: s for s in R.route_of(self.b)}
+        all_names = list(steps)
+        names = all_names[all_names.index(frm):] if frm else all_names
         if until:
             names = names[:names.index(until) + 1]
         if not self.p['done'] and not frm:
@@ -164,7 +166,7 @@ class Runner:
         for name in names:
             if name in self.p['done'] and not frm:
                 continue
-            res = self.do_step(R.step(name))
+            res = self.do_step(steps[name])
             if not res.ok:
                 return res
             frm = None                       # only the first step of a FROM run is forced

@@ -80,7 +80,7 @@ class Route(unittest.TestCase):
         self.assertEqual(stages, sorted(stages, key=['make', 'early', 'mid', 'late'].index))
 
     def test_every_script_exists_and_nothing_runs_from_logs(self):
-        for s in R.ROUTE:
+        for s in R.ROUTE + R.ROUTE_BPLUS:
             for c in s.cmds:
                 head = c.args[0]
                 if head not in SCRIPTS_OK:
@@ -92,8 +92,8 @@ class Route(unittest.TestCase):
         tree = ast.parse(src)
         main = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'main')
         ops = {k.value for d in ast.walk(main) if isinstance(d, ast.Dict) for k in d.keys} | {'when', 'level'}
-        conds = {'lv_lt', 'lv_ge', 'master_on', 'master_off', 'kills5'}
-        for s in R.ROUTE:
+        conds = {'lv_lt', 'lv_ge', 'exp_ge', 'lacks', 'master_on', 'master_off', 'kills5'}
+        for s in R.ROUTE + R.ROUTE_BPLUS:
             if s.unless:
                 self.assertIn(s.unless.split()[0], conds)
             for c in s.cmds:
@@ -104,13 +104,13 @@ class Route(unittest.TestCase):
 
     def test_no_regroup_before_going_home(self):
         """User 2026-10-28: 回城 breaks the team anyway, so a step part followed by home never regroups first."""
-        for s in R.ROUTE:
+        for s in R.ROUTE + R.ROUTE_BPLUS:
             for i, c in enumerate(s.cmds):
                 if c.args[0] == 'team_npc.py' and R.HOME in s.cmds[i + 1:]:
                     self.assertIn('--no-regroup', c.args, s.name)
 
     def test_late_quest_steps_end_with_a_gate(self):
-        for s in R.ROUTE:
+        for s in R.ROUTE + R.ROUTE_BPLUS:
             if s.stage == 'late' and s.env.get('SHITU_QID') and s.name not in ('dew', 'fairy'):
                 last_need = [c for c in s.cmds if c.args[:2] == ('U', 'need')]
                 self.assertTrue(last_need, f'{s.name} has no `U need` gate')
@@ -184,7 +184,7 @@ class Ladder(unittest.TestCase):
         res = self.runner(game).run()
         self.assertTrue(res.ok)
         p = json.loads((self.logs / 'r4a_b3_line.json').read_text(encoding='utf-8'))
-        self.assertEqual(p['done'], R.NAMES)
+        self.assertEqual(p['done'], [s.name for s in R.route_of(plan.Batch('a', 3))])   # B+ since 2026-10-30
         self.assertEqual(self.sleeps, [])
 
     def test_step_marker_and_batch_start_event(self):
@@ -210,7 +210,7 @@ class Ladder(unittest.TestCase):
         self.assertEqual(self.steps_run(game2, 'dts.py'), 1)
 
     def test_unless_skips_leveling(self):
-        game = FakeGame({'when lv_ge 25': [0], 'when': [1]})
+        game = FakeGame({'when lv_ge 24': [0], 'when': [1]})                  # B+: 八阵图 left at 24
         self.assertTrue(self.runner(game).run('bazhen', 'bazhen').ok)
         self.assertEqual(self.steps_run(game, 'bazhen25.py'), 0)
 
@@ -305,7 +305,7 @@ class Tower1Target(unittest.TestCase):
                    sleep=lambda s: None, say=lambda m: None)
         r.check(R.step('tower1').unless, R.step('tower1'))
         self.assertTrue(calls[-1].endswith(f'when lv_ge {b.tower1}'))
-        self.assertEqual(plan.Team('m', 0, 1).tower1, 33)
+        self.assertEqual(plan.Team('m', 0, 1).tower1, 35)             # user 2026-10-30: every team to 35 for now
 
 
 class OwnAccountsAndLevels(unittest.TestCase):
@@ -343,10 +343,14 @@ class OwnAccountsAndLevels(unittest.TestCase):
         with self.assertRaises(ValueError):                                     # cap33-36 vs cap35-38
             plan.check_teams(['old', 'w'], dict(teams, w=T('m5', 0, 1, accounts=35, names='D')))
 
-    def test_levels_default_to_v5_route(self):
-        t = plan.Team('m', 0, 1)
+    def test_levels_default_to_the_route(self):
+        t = plan.Team('m', 0, 1)                                        # B+ is the default since 2026-10-30
+        self.assertEqual([t.level(k) for k in plan.LEVELS], [12, 16, 24, 24, 28])
+        self.assertEqual((t.route, t.tower2), ('bplus', '38+200000'))
+        t = plan.Team('m', 0, 1, route='v5')
         self.assertEqual([t.level(k) for k in plan.LEVELS], [15, 19, 23, 25, 28])
-        t = plan.Team('m', 0, 1, levels=(('cave', 27), ('lunhui', 12)))
+        self.assertEqual(t.tower2, '40')
+        t = plan.Team('m', 0, 1, levels=(('cave', 27), ('lunhui', 12)), route='v5')
         self.assertEqual((t.level('lunhui'), t.level('maze1'), t.level('cave')), (12, 19, 27))
 
     def test_route_tokens_and_conditions(self):
@@ -372,7 +376,7 @@ class OwnAccountsAndLevels(unittest.TestCase):
             self.assertTrue(calls[-1].endswith('when lv_ge 12'))
 
     def test_v5_teams_keep_their_levels(self):
-        b = plan.Batch('a', 4)
+        b = plan.Batch('oa', 1)                                                 # route = "v5", no levels
         self.assertEqual(R.expand(R.step('maze').cmds[0], b, python=())[0], ['maze_train.py', '19', '23'])
         self.assertEqual(R.fill(R.step('bazhen').unless, b), 'lv_ge 25')
 
@@ -491,8 +495,57 @@ class Controller(unittest.TestCase):
     def test_dry_run_prints_every_step(self):
         out = subprocess.run([sys.executable, '-X', 'utf8', '-m', 'line', '--dry-run', '--teams', 'd'], cwd=SHITU,
                              capture_output=True, text=True, encoding='utf-8').stdout
-        for name in R.NAMES:
+        for name in (s.name for s in R.ROUTE_BPLUS):                         # team d: B+ (default)
             self.assertIn(f'/{name}', out)
+
+
+class BPlus(unittest.TestCase):
+    """Route B+ (2026-10-30): no 23 trip home, all three 考验 at the tower1 -> tower2 visit, 二区 to L+E, top-up."""
+    def test_steps(self):
+        names = [s.name for s in R.ROUTE_BPLUS]
+        self.assertNotIn('start', names)
+        self.assertEqual(names[names.index('king') + 1:], ['topup', 'fairy', 'chushi', 'finish'])
+        end = [c.args[0] for c in dict(zip(names, R.ROUTE_BPLUS))['end'].cmds]
+        self.assertLess(end.index('trial_run.py'), end.index('trial3_run.py'))
+        self.assertEqual(R.route_of(plan.Batch('a', 1)), R.ROUTE_BPLUS)    # default since 2026-10-30
+        self.assertEqual(R.route_of(plan.Batch('oa', 1)), R.ROUTE)         # the exp-map trial teams stay on v5
+
+    def test_team_bp(self):
+        t = plan.TEAMS['bp']
+        self.assertEqual((t.master, t.route, t.tower2, t.level('maze2'), t.level('bazhen')),
+                         ('伏地魔2', 'bplus', '38+200000', 24, 24))
+        b = plan.Batch('bp', 1)
+        self.assertEqual(b.pairs[0], 'gm2g01t01u01:Opus55D1')
+        self.assertEqual(R.route_of(b), R.ROUTE_BPLUS)
+        tw = dict((s.name, s) for s in R.ROUTE_BPLUS)['tower2']
+        self.assertEqual(R.fill(tw.unless, b), 'exp_ge 38+200000')
+        self.assertEqual(R.expand(tw.cmds[-1], b, python=()), [['tower2_patrol.py', '38+200000']])
+        plan.check_teams(['bp', 'oa', 'ob', 'oc'])
+
+    def test_bad_values_rejected(self):
+        bad = ('accounts = ["x1", "x2"]\nnames = "N"', 'accounts = 37\nnames = "N"\nroute = "zz"',
+               'accounts = 37\nnames = "N"\ntower2 = "38-1"')
+        for extra in bad:
+            with tempfile.TemporaryDirectory() as d:
+                p = Path(d) / 'l.toml'
+                p.write_text(f'[team.x]\nmaster = "m"\n{extra}\n', encoding='utf-8')
+                with self.assertRaises(ValueError, msg=extra):
+                    plan.load_teams(p)
+
+    def test_team_batches_win(self):
+        from line.__main__ import next_batch
+        cfg = {'batches': [1, 2, 3], 'team': {'bp': {'batches': [1]}}}
+        self.assertEqual(next_batch(cfg, {'done': []}, 'bp'), 1)
+        self.assertIsNone(next_batch(cfg, {'done': [1]}, 'bp'))
+        self.assertEqual(next_batch(cfg, {'done': [1]}, 'oa'), 2)
+
+    def test_reached(self):
+        from line import ops
+        mem = unittest.mock.Mock()
+        for lv, exp, want in ((38, 199999, False), (38, 200000, True), (39, 0, True), (37, 900000, False)):
+            with unittest.mock.patch.object(ops.w, 'read_level', return_value=lv), \
+                    unittest.mock.patch.object(ops, 'read_exp', return_value=exp):
+                self.assertEqual(ops.reached(mem, 38, 200000), want, (lv, exp))
 
 
 if __name__ == '__main__':

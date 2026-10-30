@@ -105,8 +105,10 @@ def quizbot_running(tries=3, list_procs=None):
     return False
 
 
-def next_batch(cfg, data):
-    return next((b for b in cfg['batches'] if b not in data['done']), None)
+def next_batch(cfg, data, team=None):
+    """A team's own line.toml batches (B+ trial 2026-10-30: one batch) win over the global list."""
+    batches = cfg.get('team', {}).get(team, {}).get('batches', cfg['batches'])
+    return next((b for b in batches if b not in data['done']), None)
 
 
 class Team(threading.Thread):
@@ -147,7 +149,7 @@ class Team(threading.Thread):
             say(f'[{self.team}] 读 line.toml 出错，批次照旧 {self.cfg["batches"]}: {e}')
 
     def line(self):
-        while self.fresh_batches() or (batch := next_batch(self.cfg, self.data)) is not None:
+        while self.fresh_batches() or (batch := next_batch(self.cfg, self.data, self.team)) is not None:
             if STOP.exists():
                 say(f'[{self.team}] 有 LINE_STOP，第 {batch} 批不再开始')
                 break
@@ -188,13 +190,13 @@ class Team(threading.Thread):
 def dry_run(cfg):
     for team in cfg['teams']:
         data = Team(team, cfg).data
-        batch = next_batch(cfg, data)
+        batch = next_batch(cfg, data, team)
         if batch is None:
             print(f'== 队 {team}: 配置里的批次都跑完了')
             continue
         b = plan.Batch(team, batch, plan.plan_skip(team, batch, data['stuck']))
         print(f'== 队 {team} 第 {batch} 批 {b.master}: {b.apprentices}  跳过 {b.skip}  {b.pairs}')
-        for s in R.ROUTE:
+        for s in R.route_of(b):
             print(f'-- {s.stage}/{s.name}' + (f'  (跳过条件 {R.fill(s.unless, b)})' if s.unless else '') + f'  重跑前 {s.retry}')
             for c in s.cmds:
                 for a in R.expand(c, b, python=()):

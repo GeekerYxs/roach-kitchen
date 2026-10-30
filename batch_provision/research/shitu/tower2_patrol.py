@@ -2,6 +2,7 @@
 battle stops the run after that battle (maze_train fallen check), as does a member leaving the team.
 
     python -X utf8 research/shitu/tower2_patrol.py [target level]      (user 12:3x: 40; none = until stopped)
+    python -X utf8 research/shitu/tower2_patrol.py 38+200000           (route B+: level 38 and 200000 exp into it)
 
 maze_train's loop: SHITU_MASTERS leader casts 扫射 + 烈焰爆发, talent -> 体质, apprentices send nothing.
 """
@@ -9,9 +10,21 @@ import sys
 
 import maze_train as m
 
+ARG = sys.argv[1] if len(sys.argv) > 1 else ''
+LV, _, EXP = ARG.partition('+')
 m.STAGES = (
-    dict(name='通天塔二区巡逻', maze=281, until=int(sys.argv[1]) if len(sys.argv) > 1 else None, patrol_a=(600, 500), patrol_b=(1200, 400), legs={}),
+    dict(name='通天塔二区巡逻', maze=281, until=int(LV) if LV and not EXP else None, patrol_a=(600, 500), patrol_b=(1200, 400), legs={}),
 )
+
+
+def reached():
+    """Every apprentice at the target (level, or level + exp for 'L+E')."""
+    from line.ops import reached as r
+    return all(r(m.t.Client(n).mem, int(LV), int(EXP or 0)) for n in m.APPRENTICES)
+
+
+if EXP:
+    m.STAGES[0]['done_when'] = reached
 
 def run():
     """Round 4 (user 2026-10-28): when the 地瓜 double runs out, break off, everybody home, 散福老人 3 小时
@@ -24,12 +37,11 @@ def run():
     stages = m.STAGES
     import r4_util                     # imports quanshou, which overwrites maze_train.STAGES at import time
     m.STAGES = stages
-    from provisioner import world as w
-    target = m.STAGES[0]['until']
+    target = LV
     while True:
         m.STOP_AT = r4_util.stop_at(r4_util.double_due(), r4_util.yam_due())
         m.main()
-        if not target or min(w.read_level(m.t.Client(n).mem) for n in m.APPRENTICES) >= target:
+        if not target or reached():
             return
         if not r4_util.double_due() or r4_util.double_due() > m.time.time() + 60:
             r4_util.double()           # only yams are due: eat in place and patrol on

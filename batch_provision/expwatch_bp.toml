@@ -1,0 +1,8 @@
+# B+ 线路整体实测（2026-10-30，伏地魔2 + Opus55D1–4）：只读内存，每场记一行（含怪物等级）。
+# python -m expwatch expwatch_bp.toml
+roles = ["Opus55D1", "Opus55D2", "Opus55D3", "Opus55D4"]
+window = 15
+poll_seconds = 0.5
+summary_minutes = 10
+ranges = [[10, 20], [20, 30], [30, 40]]
+battles_csv = "logs/expwatch/bp_battles.csv"

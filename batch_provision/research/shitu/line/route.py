@@ -13,6 +13,7 @@ Cmd tokens:
   {A} one apprentice: the Cmd runs once per apprentice, all at once (par=True)
   {APPS:0} 'name:0' per apprentice (dew_team)   {PAIRS} 'capNN:name' (splat)   {PREV} previous batch's names
   {T1} the team's tower1 target level (also inside Step.unless)
+  {T2} the team's tower2 target: '40' or 'L+E' (ROUTE_BPLUS; Step.unless 'exp_ge {T2}')
   {LV:key} the team's level for leaving a map (plan.LEVELS: lunhui maze1 maze2 bazhen cave; also in when / unless)
 Cmd.when = ops condition ('lv_lt 25', 'master_on 1', 'kills5'): the Cmd only runs when it holds.
 Step.unless = ops condition: the whole step is skipped when it holds (leveling already done).
@@ -106,7 +107,7 @@ ROUTE = (
         C('take224.py', '{A}', when='master_on 20'),
         C('go_cave.py'), C('dts.py'),
     ), retry='leave'),
-    # {T1}: the team's tower1 target (line.toml tower1, default 33); round 6 tries 35 for a 伏地魔 team, whose 二区
+    # {T1}: the team's tower1 target (line.toml tower1, default 35 since 2026-10-30; round 6 tried 35 for 伏地魔, whose 二区
     # battles need two rounds (ROUND5_NOTES.md)
     Step('tower1', 'mid', (HOME, DOUBLE, C('pp_chain.py', '通天塔', '平静海岸2区'), C('tower28.py', '{T1}')),
          retry='leave', unless='lv_ge {T1}'),
@@ -224,6 +225,56 @@ ROUTE = (
     )),
 )
 
+# ---- B+ (2026-10-30, user: one live batch with 伏地魔2): the v5 route minus the trips the levels don't need.
+#   - no 'start' trip home at 23 (考验一二): 八阵图 goes straight on (team levels maze2 = bazhen = 24, bazhen is skipped);
+#     考验一 + 二 + 三 are handed in together at the tower1 -> tower2 visit home (mm01 did all three at 31, ANALYSIS.md 2)
+#   - 通天塔二区 stops at the team's tower2 'L+E' (38+200000): the late quests' battles + 181/183 + 出师 gave 40-43.5万
+#     exp in rounds 5-6, 38 + 18.4万 + that = 40 (route-reorder notes)
+#   - 181 (table level 35) / 183 (38) are taken at 38-39 (live 2026-10-30: both OK), but the 183 hand-in at 神仙姐姐
+#     (转勇者) needs 40, so 'topup' patrols 二区 to 40 right before 'fairy' when the quests did not get there
+def _bplus():
+    steps = {s.name: s for s in ROUTE}
+    end = Step('end', 'mid', (HOME, C('sell_tradable.py', '--safe', '{APPS}'), C('U', 'space', '4'),
+                              C('trial_run.py', '--armor', '3', '--master', '{M}', '{APPS}'),
+                              C('trial3_run.py', '--master', '{M}', '{APPS}')), retry='leave')
+    tower2 = Step('tower2', 'mid', (HOME, DOUBLE, C('tower2_go.py'), C('tower2_patrol.py', '{T2}')),
+                  retry='leave', unless='exp_ge {T2}')
+    topup = Step('topup', 'late', (HOME, DOUBLE, C('tower2_go.py'), C('tower2_patrol.py', '40')),
+                 retry='leave', unless='lv_ge 40')
+    # 181 / 183 never taken below 40 before: whoever the NPC refuses at 38 makes the whole team patrol 二区 to 40 first
+    def to40(qid):
+        w = f'lacks {qid}'
+        return (C('U', 'home', when=w), C('U', 'double', when=w), C('tower2_go.py', when=w),
+                C('tower2_patrol.py', '40', when=w), C('U', 'home', when=w))
+    q181 = steps['q181'].cmds
+    i = next(k for k, c in enumerate(q181) if c.args[0] == 'talk_chain.py')
+    q181 = Step('q181', 'late', q181[:i] + (Cmd(q181[i].args, soft=True),) + to40(181) + (
+        C('pp_chain.py', '龙之都', '平静海岸2区', when='lacks 181'), C('back_longeer.py', when='lacks 181'),
+        Cmd(q181[i].args, when='lacks 181')) + q181[i + 1:], env=steps['q181'].env)
+    q183 = steps['q183'].cmds
+    i = next(k for k, c in enumerate(q183) if c.args[0] == 'yongzhe_take.py')
+    q183 = Step('q183', 'late', q183[:i] + (Cmd(q183[i].args, soft=True),) + to40(183) + (
+        C('pp_chain.py', '龙之都', '平静海岸2区', when='lacks 183'),
+        Cmd(q183[i].args, when='lacks 183')) + q183[i + 1:], env=steps['q183'].env)
+    out = []
+    for s in ROUTE:
+        if s.name == 'start':
+            continue
+        if s.name == 'fairy':        # 2026-10-30 live: 神仙姐姐「等你40级了再来找我吧…勇者就职礼」at 39
+            out.append(topup)
+        out.append({'end': end, 'tower2': tower2, 'q181': q181, 'q183': q183}.get(s.name, s))
+    return tuple(out)
+
+
+ROUTE_BPLUS = _bplus()
+ROUTES = {'v5': ROUTE, 'bplus': ROUTE_BPLUS}
+
+
+def route_of(b):
+    """The steps a batch runs (its team's line.toml route; B+ unless the team says route = "v5")."""
+    return ROUTES[getattr(b, 'route', 'bplus')]
+
+
 NAMES = [s.name for s in ROUTE]
 
 
@@ -234,6 +285,8 @@ def step(name):
 def fill(text, b):
     """{T1} / {LV:key} in a token or a when / unless condition -> the batch's numbers."""
     text = text.replace('{T1}', str(b.tower1))
+    if '{T2}' in text:
+        text = text.replace('{T2}', getattr(b, 'tower2', '40'))
     return re.sub(r'\{LV:(\w+)\}', lambda m: str(b.level(m.group(1))), text)
 
 
@@ -248,6 +301,6 @@ def expand(cmd, b, python=('python', '-X', 'utf8')):
         for tok in cmd.args[1:]:
             out += {'{M}': [b.master], '{APPS}': apps, '{A0}': apps[:1], '{REST}': apps[1:], '{A}': [a],
                     '{APPS:0}': [f'{n}:0' for n in apps], '{PAIRS}': b.pairs, '{PREV}': b.prev_names,
-                    '{T1}': [str(b.tower1)]}.get(tok, [fill(tok, b)])
+                    '{T1}': [str(b.tower1)], '{T2}': [getattr(b, 'tower2', '40')]}.get(tok, [fill(tok, b)])
         return out
     return [one(a) for a in apps] if cmd.par else [one()]

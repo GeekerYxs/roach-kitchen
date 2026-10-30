@@ -105,7 +105,9 @@ def main():
         # 「开打」被换成了 boss 答题 0x46f5：答题器（静默）或 boss_quiz 自己答掉，然后重新点蛇
         if boss_quiz.solve(lead, say=t.say) is None:
             t.say(f'第 {attempt} 次没开打（没有 boss 答题面板，验证中={st.verification}），等一下再点')
-        t.wait(lambda: not lead.world().verification, 120, '答题结束')
+        t.wait(lambda: not getattr(lead.world(), 'verification', False), 120, '答题结束')
+        if boss_quiz.kicked(lead):       # 答错 = 服务器踢下线：退出，产线重登后整步重跑（再开打、再答）
+            raise t.Stop(f'[{LEADER}] boss 题答错被服务器踢下线，交给产线重登后重跑这一步')
         time.sleep(1)
     else:
         raise t.Stop('点了 4 次地头蛇都没开打')

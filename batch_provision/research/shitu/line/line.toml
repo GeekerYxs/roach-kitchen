@@ -18,7 +18,10 @@ master_accounts = ["C:/Users/Y/Desktop/伏地魔队账号.txt", "C:/Users/Y/Desk
 # 账号 cap(21+4*slot)..+3，第 N 批徒弟名 亿万(16(N-1)+4*slot+1..+4)）；gold = 师傅给每个徒弟的启动金。
 # 队名同时是 logs/line_state.json 的键和 LOGID（r4<队名>_b<批>），换师傅就换队名，别的师傅的历史和排除名单不会串过来。
 # 也可以不用 slot，自己指定账号和名字：accounts = 第一个账号号码（用 capN..capN+3），names = 角色名前缀（第 N 批第 i 个号 =
-# 前缀 + (4(N-1)+i)）。levels = 这一队在哪一级离开各张图（不写 = v5 路线：lunhui 15 / maze1 19 / maze2 23 / bazhen 25 / cave 28）。
+# 前缀 + (4(N-1)+i)）。
+# 2026-10-30 起默认走 B+ 路线（route.ROUTE_BPLUS，用户：B+ 合并进产线）：不写 route 就是 B+，levels 默认 轮回 12 / 迷城 16 /
+# 八阵图 24（不回村）/ 洞穴 28，通天一 tower1 默认 35（师傅强弱不一，先统一到 35），通天二 tower2 默认 38+200000。
+# 要走老 v5 路线写 route = "v5"（levels 默认 lunhui 15 / maze1 19 / maze2 23 / bazhen 25 / cave 28，tower2 = 40）。
 [team.a]
 master = "伏地魔1"
 slot = 0
@@ -57,17 +60,20 @@ gold = 50000
 d = ["亿万13"]                # 伏地魔4 名下：2026-10-28 181 第 4 步日记因背包满丢失，树 NPC 953 不再给对话框
 
 # ---- 2026-10-29 经验地图三队对照（research/shitu/EXP_MAP_TRIAL.md）：新账号 cap37–48，角色名用模型名 Opus 5.5
-[team.oa]                     # 对照基准：满爆小法，走现在的 v5 线路（强号默认通天一区到 33）
+[team.oa]                     # 对照基准：满爆小法，走 v5 线路（当时强号默认通天一区到 33）
 master = "曾经不曾"
 accounts = 37
 names = "Opus55A"
 gold = 50000
+route = "v5"
+tower1 = 33
 
 [team.ob]                     # 同样的满爆小法，进图按 gemini 4 argon 的「大号带队最快区间」（docs/LEVELING_STAGE0.md 第 7 节）；
 master = "波大臀圆"            # 古井照旧练到 10 级（用户 2026-10-29），其余步骤不变
 accounts = 41
 names = "Opus55B"
 gold = 50000
+route = "v5"
 tower1 = 34                   # 通天一区 27–33，34 去二区
 levels = { lunhui = 12, maze1 = 16, maze2 = 23, bazhen = 23, cave = 28 }   # 轮回 10–11，迷城 12–15，八阵图 16–22，洞穴 23–27
                               # gemini 是洞穴 23–26、27 进通天一区；但任务 224（洞穴后的地头蛇）28 级才能接，第 1 批 27 级接不到 -> 28
@@ -78,3 +84,18 @@ accounts = 45
 names = "Opus55C"
 gold = 50000
 tower1 = 35
+route = "v5"
+
+# ---- 2026-10-30 B+ 线路整体实测（用户：伏地魔2，小号 gm2g01t01u01–04，只跑 1 批）：route.ROUTE_BPLUS
+# 轮回 10–12、迷城 12–16、八阵图 16–24 不回村、洞穴 24–28 + 采花 + 地头蛇、通天一 28–35、回村一次交考验一二三、
+# 通天二练到 38 级 + 20 万经验就走，181 → 183 → 出师补到 40（不够再回二区补）
+[team.bp]
+master = "伏地魔2"
+accounts = ["gm2g01t01u01", "gm2g01t01u02", "gm2g01t01u03", "gm2g01t01u04"]
+names = "Opus55D"
+gold = 50000
+tower1 = 35
+levels = { lunhui = 12, maze1 = 16, maze2 = 24, bazhen = 24, cave = 28 }
+route = "bplus"
+tower2 = "38+200000"
+batches = [1]

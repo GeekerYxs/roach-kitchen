@@ -263,6 +263,12 @@ d 伏地魔4、fei 飞天把你射成蜂窝（slot 2）、tian 舔尊（slot 3�
 （战斗 +0x5F570、采集 +0x5F2BF，exe 里各只出现一次，`tools/native_unlock_test.cpp` 每次编译都会核对）。
 启动参数 `--no-unlock` 关掉。**新答题器只编译到 `src/build/`，还没换上线**（换法见 src/README.md「上线」）。
 
+### 8.6.1 B+ 是默认路线（2026-10-30）
+
+`line.toml` 里不写 `route` 的队走 B+（`route.ROUTE_BPLUS`：八阵图不回村、三个考验一起交、通天一到 35、通天二到
+38 级 + 20 万、补到 40 再去神仙姐姐），老路线写 `route = "v5"`。实测和说明见 `research/shitu/BPLUS_NOTES.md`。
+boss 开打弹的答题（0x46f5）由答题器静默答，产线 `boss_quiz.py` 兜底；答错被服务器踢下线时，产线自动关窗重登、整步重跑。
+
 ### 8.7 给接手的 AI（v5）
 
 1. 流程定义只看 `line/route.py`；第 4 轮 shell 是历史版本，改流程别再改它们。

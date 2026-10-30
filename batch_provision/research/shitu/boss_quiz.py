@@ -222,6 +222,16 @@ def solve(c, grace=GRACE, say=print):
     return f'自己答了题号 {qno}：第 {opt + 1} 项（{why}）'
 
 
+def kicked(c, wait=3.0):
+    """Right after a boss quiz was answered (by the quizbot or solve): True when the server threw the role out.
+    User 2026-10-30: a wrong answer = the server closes the connection. The caller then exits non-zero; the line runner's
+    health check finds the window offline, closes it and logs it in again (master_login.py / r4_util windows), sends
+    everybody home and reruns the step = walk back + 「开打」 again + a new quiz (a guess is right ~1 in 4)."""
+    import r4_util
+    time.sleep(wait)
+    return r4_util.offline(c.name)
+
+
 def main(roles):
     bank = load_bank()
     print(f'题库 {len(bank[0])} 道，干扰项 {len(bank[1])} 个（{BANK_DIR}）')

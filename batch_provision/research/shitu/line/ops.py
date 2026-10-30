@@ -10,7 +10,7 @@ ops: close NAME..        close these roles' windows (previous batch, same accoun
      take224_master      the master takes task 224 at the boss (he gathers the 9 花 + 3 石 in the cave)
      gather              the master gathers 9 遗忘之花, then 暗·遗忘之花 until 3 遗忘之石 (up to 5 rounds)
      fairy               apprentices with 183 open: 梦幻岛 神仙姐姐 finishes it (转勇者), back to 逍遥村西区
-     when COND..         exit 0 when COND holds, 1 when not: lv_lt N | lv_ge N | master_on MAP |
+     when COND..         exit 0 when COND holds, 1 when not: lv_lt N | lv_ge N | exp_ge L+E | lacks QID | master_on MAP |
                          master_off MAP.. | kills5
      level               print the lowest apprentice level
 Exit: 0 ok, 1 failed (trial_run.Stop), 2 master window missing.
@@ -30,12 +30,33 @@ def level():
     return min(w.read_level(t.Client(n).mem) for n in APPRENTICES)
 
 
+SESSION_EXP = 0xEF0          # own exp i64 into the current level (expwatch, live-checked 2026-10-18)
+
+
+def read_exp(mem):
+    import struct
+    session = mem.u32(mem.base + w.SESSION_MGR_RVA)
+    return struct.unpack('<q', mem.read(session + SESSION_EXP, 8))[0] if session else None
+
+
+def reached(mem, lv, e):
+    """Level above lv, or lv with >= e exp into it."""
+    level = w.read_level(mem)
+    return level > lv or (level == lv and (read_exp(mem) or 0) >= e)
+
+
 def cond(name, *args):
     """Route conditions (Cmd.when / Step.unless)."""
     if name == 'lv_lt':
         return level() < int(args[0])
     if name == 'lv_ge':
         return level() >= int(args[0])
+    if name == 'exp_ge':      # 'L+E' or 'L': every apprentice above L, or at L with >= E exp into it (route B+)
+        lv, _, e = args[0].partition('+')
+        return all(reached(t.Client(n).mem, int(lv), int(e or 0)) for n in APPRENTICES)
+    if name == 'lacks':       # somebody has quest N neither active nor done (B+: 181 / 183 refused below 40?)
+        qs = [w.read_quest(t.Client(n).mem, int(args[0])) for n in APPRENTICES]
+        return any(not q.active and not q.done for q in qs)
     if name == 'master_on':
         return t.Client(M).world().map_id == int(args[0])
     if name == 'master_off':  # on none of these maps

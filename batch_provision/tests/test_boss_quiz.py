@@ -145,5 +145,16 @@ class Solve(unittest.TestCase):
         self.assertIn('自己答了', report)
 
 
+class Kicked(unittest.TestCase):
+    """User 2026-10-30: a wrong answer = the server closes the connection; the boss scripts must notice and exit."""
+    def test_uses_the_runners_offline_check(self):
+        c = SimpleNamespace(name='伏地魔2')
+        for state in (True, False):
+            fake = SimpleNamespace(offline=mock.Mock(return_value=state))
+            with mock.patch.dict(sys.modules, {'r4_util': fake}):
+                self.assertIs(bq.kicked(c, wait=0), state)
+            fake.offline.assert_called_once_with('伏地魔2')
+
+
 if __name__ == '__main__':
     unittest.main()
