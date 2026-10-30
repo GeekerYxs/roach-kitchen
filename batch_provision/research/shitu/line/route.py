@@ -232,8 +232,33 @@ ROUTE = (
 #     蝎子王 count toward 40 (live: ~19.2万), only the 183 reward + 出师 come after it
 #   - 181 (table level 35) / 183 (38) are taken at 38-39 (live 2026-10-30: both OK), but the 183 hand-in at 神仙姐姐
 #     (转勇者) needs 40, so 'topup' patrols 二区 to 40 right before 'fairy' when the quests did not get there
+#   - 飞鞋 (user 2026-10-30: once an hour, not recordable in mazes): recorded where the team walks past anyway, used the
+#     next time over the same field: 遗忘洞穴 entrance (cave records, snake flies, ~30 min apart) and 遗址 entrance
+#     (corpse records, king flies, ~2 h 20 after snake). A fly that can't happen (record / cooldown) walks as before.
+CAVE_DOOR = ('141', '3410', '252')          # 无尽平原2区, 遗忘洞穴 entrance NPC 10166 (go_cave.py)
+RUIN_DOOR = ('170', '3068', '192')          # 苦无沙漠1区, 遗址 entrance NPC 10176 (ruin_go.py)
+
+
+def shoe(op, door, **kw):
+    return C('shoe_point.py', op, *door, '{M}', '{APPS}', soft=True, **kw)
+
+
 def _bplus():
     steps = {s.name: s for s in ROUTE}
+
+    def before(name, script, *new):          # the step's cmds with `new` inserted before its first `script` cmd
+        cmds = steps[name].cmds
+        i = next(k for k, c in enumerate(cmds) if c.args[0] == script)
+        return Step(name, steps[name].stage, cmds[:i] + new + cmds[i:], steps[name].retry, steps[name].unless,
+                    steps[name].env)
+    cave = before('cave', 'go_cave.py', C('go_goal.py', '20', *CAVE_DOOR), shoe('record', CAVE_DOOR))
+    snake = before('snake', 'go_cave.py', shoe('fly', CAVE_DOOR, when='master_on 20'),
+                   C('pp_chain.py', '龙之都', '平静海岸2区', when='master_on 1'))   # a half fly scrolled everybody home
+    corpse = before('corpse', 'ruin_go.py', C('desert_go.py', *RUIN_DOOR[1:]), shoe('record', RUIN_DOOR))
+    king = steps['king'].cmds
+    i = next(k for k, c in enumerate(king) if c.args[0] == 'pp_chain.py')
+    king = Step('king', 'late', king[:i] + (shoe('fly', RUIN_DOOR), Cmd(king[i].args, when='master_off 170'))
+                + king[i + 1:], steps['king'].retry, steps['king'].unless, steps['king'].env)
     end = Step('end', 'mid', (HOME, C('sell_tradable.py', '--safe', '{APPS}'), C('U', 'space', '4'),
                               C('trial_run.py', '--armor', '3', '--master', '{M}', '{APPS}'),
                               C('trial3_run.py', '--master', '{M}', '{APPS}')), retry='leave')
@@ -262,7 +287,8 @@ def _bplus():
             continue
         if s.name == 'fairy':        # 2026-10-30 live: 神仙姐姐「等你40级了再来找我吧…勇者就职礼」at 39
             out.append(topup)
-        out.append({'end': end, 'tower2': tower2, 'q181': q181, 'q183': q183}.get(s.name, s))
+        out.append({'end': end, 'tower2': tower2, 'q181': q181, 'q183': q183, 'cave': cave, 'snake': snake,
+                    'corpse': corpse, 'king': king}.get(s.name, s))
     return tuple(out)
 
 
