@@ -20,7 +20,8 @@ master_accounts = ["C:/Users/Y/Desktop/伏地魔队账号.txt", "C:/Users/Y/Desk
 # 也可以不用 slot，自己指定账号和名字：accounts = 第一个账号号码（用 capN..capN+3），names = 角色名前缀（第 N 批第 i 个号 =
 # 前缀 + (4(N-1)+i)）。
 # 2026-10-30 起默认走 B+ 路线（route.ROUTE_BPLUS，用户：B+ 合并进产线）：不写 route 就是 B+，levels 默认 轮回 12 / 迷城 16 /
-# 八阵图 24（不回村）/ 洞穴 28，通天一 tower1 默认 35（师傅强弱不一，先统一到 35），通天二 tower2 默认 38+200000。
+# 八阵图 23（不回村，经验地图试验：24 级洞穴比八阵图快 52%）/ 洞穴 28，通天一 tower1 默认 35（师傅强弱不一，先统一到 35），
+# 通天二 tower2 默认 39+125000（打完蝎子王正好 40 级，神仙姐姐就职要 40；2026-10-30 bp 队用的是 38+200000，要回二区补 9 分钟）。
 # 要走老 v5 路线写 route = "v5"（levels 默认 lunhui 15 / maze1 19 / maze2 23 / bazhen 25 / cave 28，tower2 = 40）。
 [team.a]
 master = "伏地魔1"

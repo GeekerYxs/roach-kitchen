@@ -22,11 +22,14 @@ SCROLLS = 20                     # 回城卷 each apprentice gets from the maste
 CONFIG = Path(__file__).with_name('line.toml')
 # the v5 route leaves 轮回之城 at 15, 暗影迷城 at 19, 八阵图 at 23 (maze_train) and 25 (bazhen25), 遗忘洞穴 at 28
 LEVELS = {'lunhui': 15, 'maze1': 19, 'maze2': 23, 'bazhen': 25, 'cave': 28}
-# route B+ (the default since 2026-10-30): 轮回 10-12, 迷城 12-16, 八阵图 16-24 without the trip home, 洞穴 24-28
-BPLUS_LEVELS = {'lunhui': 12, 'maze1': 16, 'maze2': 24, 'bazhen': 24, 'cave': 28}
+# route B+ (the default since 2026-10-30): 轮回 10-12, 迷城 12-16, 八阵图 16-23 without the trip home, 洞穴 23-28
+# (exp-map trial EXP_MAP_TRIAL.md: at 24 洞穴 10,639/min vs 八阵图 6,984; the bp live run used 24)
+BPLUS_LEVELS = {'lunhui': 12, 'maze1': 16, 'maze2': 23, 'bazhen': 23, 'cave': 28}
 ROUTE_NAMES = ('bplus', 'v5')    # route.ROUTES keys; bplus = default
 TOWER1 = 35                      # user 2026-10-30: masters differ in strength, every team does 通天一 to 35 for now
-TOWER2 = {'bplus': '38+200000', 'v5': '40'}   # 通天塔二区 target per route (B+ live 2026-10-30: 40 after 出师)
+# 通天塔二区 target per route. B+ live 2026-10-30 (BPLUS_NOTES.md): left 二区 at 38+19.9万, the 181 reward + quest
+# battles up to 蝎子王 gave ~19.2万 -> 39+11.9万, short of the 40 that 神仙姐姐 wants; 39+125000 gets there without topup
+TOWER2 = {'bplus': '39+125000', 'v5': '40'}
 # 任务 224 遗忘洞穴的恐慌 (the q224 / snake steps right after the cave) is taken at 28 only: below it 大个王 answers
 #「好吧」 and nothing else (2026-10-29 ob team left the cave at 27 and q224 failed)
 MIN_LEVELS = {'cave': 28}

@@ -226,10 +226,10 @@ ROUTE = (
 )
 
 # ---- B+ (2026-10-30, user: one live batch with 伏地魔2): the v5 route minus the trips the levels don't need.
-#   - no 'start' trip home at 23 (考验一二): 八阵图 goes straight on (team levels maze2 = bazhen = 24, bazhen is skipped);
+#   - no 'start' trip home at 23 (考验一二): 八阵图 goes straight on (B+ levels maze2 = bazhen = 23, bazhen is skipped);
 #     考验一 + 二 + 三 are handed in together at the tower1 -> tower2 visit home (mm01 did all three at 31, ANALYSIS.md 2)
-#   - 通天塔二区 stops at the team's tower2 'L+E' (38+200000): the late quests' battles + 181/183 + 出师 gave 40-43.5万
-#     exp in rounds 5-6, 38 + 18.4万 + that = 40 (route-reorder notes)
+#   - 通天塔二区 stops at the team's tower2 'L+E' (default 39+125000): the 181 reward + the late quests' battles up to
+#     蝎子王 count toward 40 (live: ~19.2万), only the 183 reward + 出师 come after it
 #   - 181 (table level 35) / 183 (38) are taken at 38-39 (live 2026-10-30: both OK), but the 183 hand-in at 神仙姐姐
 #     (转勇者) needs 40, so 'topup' patrols 二区 to 40 right before 'fairy' when the quests did not get there
 def _bplus():

@@ -210,7 +210,7 @@ class Ladder(unittest.TestCase):
         self.assertEqual(self.steps_run(game2, 'dts.py'), 1)
 
     def test_unless_skips_leveling(self):
-        game = FakeGame({'when lv_ge 24': [0], 'when': [1]})                  # B+: 八阵图 left at 24
+        game = FakeGame({'when lv_ge 23': [0], 'when': [1]})                  # B+: 八阵图 left at 23
         self.assertTrue(self.runner(game).run('bazhen', 'bazhen').ok)
         self.assertEqual(self.steps_run(game, 'bazhen25.py'), 0)
 
@@ -345,8 +345,8 @@ class OwnAccountsAndLevels(unittest.TestCase):
 
     def test_levels_default_to_the_route(self):
         t = plan.Team('m', 0, 1)                                        # B+ is the default since 2026-10-30
-        self.assertEqual([t.level(k) for k in plan.LEVELS], [12, 16, 24, 24, 28])
-        self.assertEqual((t.route, t.tower2), ('bplus', '38+200000'))
+        self.assertEqual([t.level(k) for k in plan.LEVELS], [12, 16, 23, 23, 28])
+        self.assertEqual((t.route, t.tower2), ('bplus', '39+125000'))
         t = plan.Team('m', 0, 1, route='v5')
         self.assertEqual([t.level(k) for k in plan.LEVELS], [15, 19, 23, 25, 28])
         self.assertEqual(t.tower2, '40')
