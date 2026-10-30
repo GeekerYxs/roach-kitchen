@@ -308,6 +308,79 @@ class Tower1Target(unittest.TestCase):
         self.assertEqual(plan.Team('m', 0, 1).tower1, 33)
 
 
+class OwnAccountsAndLevels(unittest.TestCase):
+    """2026-10-29 exp-map trial: teams with their own accounts / name prefix and their own map-leaving levels."""
+    def load(self, text):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / 'l.toml'
+            p.write_text(text, encoding='utf-8')
+            return plan.load_teams(p)
+
+    def test_accounts_and_names(self):
+        teams = self.load('[team.x]\nmaster = "m"\naccounts = 37\nnames = "Opus55A"\n')
+        with unittest.mock.patch.object(plan, 'TEAMS', teams):
+            b = plan.Batch('x', 1)
+            self.assertEqual(b.pairs, ['cap37:Opus55A1', 'cap38:Opus55A2', 'cap39:Opus55A3', 'cap40:Opus55A4'])
+            self.assertEqual(plan.Batch('x', 2).all_names[0], 'Opus55A5')
+            self.assertEqual(b.logid, 'r4x')
+
+    def test_bad_names_and_half_config_rejected(self):
+        for text in ('[team.x]\nmaster = "m"\naccounts = 37\nnames = "Opus5.5"\n',        # '.' is not alnum
+                     '[team.x]\nmaster = "m"\naccounts = 37\nnames = "一二三四五六七"\n',  # 14 bytes + '16' > 15
+                     '[team.x]\nmaster = "m"\naccounts = 37\n',
+                     '[team.x]\nmaster = "m"\nslot = 1\nlevels = { tower = 30 }\n',
+                     '[team.x]\nmaster = "m"\nslot = 1\nlevels = { cave = 27 }\n'):     # 任务 224 needs 28
+            with self.assertRaises(ValueError, msg=text):
+                self.load(text)
+
+    def test_overlapping_accounts_rejected(self):
+        T = plan.Team
+        teams = {'x': T('m1', 0, 1, accounts=37, names='A'), 'y': T('m2', 0, 1, accounts=39, names='B'),
+                 'z': T('m3', 0, 1, accounts=41, names='C'), 'old': T('m4', 3, 1)}
+        plan.check_teams(['x', 'z', 'old'], teams)
+        with self.assertRaises(ValueError):
+            plan.check_teams(['x', 'y'], teams)
+        with self.assertRaises(ValueError):                                     # cap33-36 vs cap35-38
+            plan.check_teams(['old', 'w'], dict(teams, w=T('m5', 0, 1, accounts=35, names='D')))
+
+    def test_levels_default_to_v5_route(self):
+        t = plan.Team('m', 0, 1)
+        self.assertEqual([t.level(k) for k in plan.LEVELS], [15, 19, 23, 25, 28])
+        t = plan.Team('m', 0, 1, levels=(('cave', 27), ('lunhui', 12)))
+        self.assertEqual((t.level('lunhui'), t.level('maze1'), t.level('cave')), (12, 19, 27))
+
+    def test_route_tokens_and_conditions(self):
+        teams = {'g': plan.Team('m', 0, 1, 34, 41, 'Opus55B', (('bazhen', 23), ('cave', 27), ('lunhui', 12),
+                                                               ('maze1', 16), ('maze2', 23)))}
+        with unittest.mock.patch.object(plan, 'TEAMS', teams):
+            b = plan.Batch('g', 1)
+
+            def argv(name, script):
+                return next(R.expand(c, b, python=()) for c in R.step(name).cmds if c.args[0] == script)[0]
+            self.assertEqual(argv('lunhui', 'lunhui15.py'), ['lunhui15.py', '12'])
+            self.assertEqual(argv('maze', 'maze_train.py'), ['maze_train.py', '16', '23'])
+            self.assertEqual(argv('bazhen', 'bazhen25.py'), ['bazhen25.py', '23'])
+            self.assertEqual(argv('cave', 'cave_train.py'), ['cave_train.py', '27'])
+            self.assertEqual(argv('tower1', 'tower28.py'), ['tower28.py', '34'])
+            self.assertEqual(R.fill(R.step('bazhen').unless, b), 'lv_ge 23')
+            cave = next(c for c in R.step('cave').cmds if c.args[0] == 'cave_train.py')
+            self.assertEqual(R.fill(cave.when, b), 'lv_lt 27')
+            calls = []
+            r = Runner(b, logs=tempfile.mkdtemp(), execute=lambda a, e: calls.append(' '.join(a[0])) or 0,
+                       sleep=lambda s: None, say=lambda m: None)
+            r.check(R.step('lunhui').unless, R.step('lunhui'))
+            self.assertTrue(calls[-1].endswith('when lv_ge 12'))
+
+    def test_v5_teams_keep_their_levels(self):
+        b = plan.Batch('a', 4)
+        self.assertEqual(R.expand(R.step('maze').cmds[0], b, python=())[0], ['maze_train.py', '19', '23'])
+        self.assertEqual(R.fill(R.step('bazhen').unless, b), 'lv_ge 25')
+
+    def test_trial_teams_in_config(self):
+        plan.check_teams(['oa', 'ob', 'oc'])
+        self.assertEqual(plan.Batch('ob', 1).pairs[0], 'cap41:Opus55B1')
+
+
 class ParkRetry(unittest.TestCase):
     """Round 6: a parked team waits park_wait and resumes from its checkpoint by itself, park_retries times."""
     def setUp(self):
@@ -354,6 +427,31 @@ class ParkRetry(unittest.TestCase):
         self.assertEqual(sleeps, [600, 600])
         self.assertTrue(team.data['parked'])
         self.assertNotIn(4, team.data['done'])
+
+
+class ReloadBatches(unittest.TestCase):
+    def test_batches_added_while_running_are_picked_up(self):
+        import line.__main__ as M
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / 'l.toml'
+            p.write_text('batches = [1]\n', encoding='utf-8')
+            cfg = dict(M.load_config(), teams=['a'], batches=[1], reload=p)
+            ran = []
+
+            class FakeRunner:
+                def __init__(self, b, **kw):
+                    self.b = b
+
+                def run(self):
+                    ran.append(self.b.batch)
+                    if self.b.batch == 1:               # the user extends the line while batch 1 runs
+                        p.write_text('batches = [1, 2]\n', encoding='utf-8')
+                    return Result(True)
+            patch = unittest.mock.patch.object
+            with patch(M, 'load_state', lambda: {}), patch(M, 'save_team', lambda *a: None), \
+                    patch(M, 'quizbot_running', lambda: True), patch(M, 'say', lambda m: None):
+                M.Team('a', cfg, runner=FakeRunner).line()
+            self.assertEqual(ran, [1, 2])
 
 
 class Watchdog(unittest.TestCase):

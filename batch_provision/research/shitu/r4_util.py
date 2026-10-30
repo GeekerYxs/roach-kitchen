@@ -39,8 +39,10 @@ def home():
         t.wait(lambda: not c.team(), 5, f'{c.name} 离队')
         if c.world().map_id != 1:
             scroll(c)
-    if buy_scroll.count(cs[0]) < 10:       # the master pays one per home(); 2026-10-28 伏地魔2 ran dry in the 古迹
-        restock_master(60)
+    # the master pays one 回城卷 per home() (2026-10-28 伏地魔2 ran dry in the 古迹); and its pet's mp drinks: user
+    # 2026-10-30「蓝低于50个就回城去补」, every home() checks (1980 胡萝卜汁 at 50 mp each lasted 伏地魔1 ~2.5 h)
+    if buy_scroll.count(cs[0]) < 10 or buy_scroll.juice_needed(cs[0]):
+        restock_master(max(60, buy_scroll.count(cs[0])))
 
 
 def leave():
@@ -65,14 +67,18 @@ def restock(n):
 
 
 def restock_master(n):
-    """The master: 回城卷 up to n at 铁公鸡 (free portal 逍遥村 <-> 自由市场), for the next batch's supply."""
+    """The master: 回城卷 up to n at 铁公鸡 (free portal 逍遥村 <-> 自由市场), for the next batch's supply; and the pet's
+    胡萝卜汁 up to 20 x 99 when below 50 (user 2026-10-30)."""
     c = t.Client(MASTERS[0])
-    if buy_scroll.count(c) >= n:
+    juice = buy_scroll.juice_needed(c)          # 2026-10-30: the pet's mp drinks (胡萝卜汁) too, < 50 -> 20 x 99
+    if buy_scroll.count(c) >= n and not juice:
         return
     if c.world().map_id != 1:
         scroll(c)
     gate(c, 10213, (1338, 1053), 1, '自由市场', MARKET)
     buy_scroll.buy(c, n)
+    if juice:
+        buy_scroll.buy(c, juice, buy_scroll.JUICE, buy_scroll.JUICE_SHELF, '胡萝卜汁')
     gate(c, 24, (1781, 1268), MARKET, '逍遥村西区', 1)
 
 
@@ -81,6 +87,9 @@ def supply():
     import supply_go
     m = t.Client(MASTERS[0])
     from bai_shi import done
+    need = sum(supply_go.SCROLLS for n in APPRENTICES if not done(n, 'supply_scroll'))
+    if buy_scroll.count(m) < need + 5:        # 2026-10-30 曾经不曾 ran dry handing out the 3rd apprentice's 20
+        restock_master(max(100, need + 5))
     for name in APPRENTICES:
         if done(name, 'supply_scroll') and done(name, 'supply_gold'):
             continue

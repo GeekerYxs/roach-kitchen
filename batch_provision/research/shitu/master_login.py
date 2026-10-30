@@ -2,8 +2,8 @@
 
     python -X utf8 research/shitu/master_login.py 伏地魔1 [伏地魔2 ...]
 
-Accounts: the file named by line/line.toml `master_accounts` (the user's own file, outside the repo; one account per
-line written `<account>密码<password>`). The passwords are only read here, never written anywhere or logged.
+Accounts: the file(s) named by line/line.toml `master_accounts` (a path or a list of paths: the user's own files,
+outside the repo; one account per line written `<account>密码<password>`). The passwords are only read here, never written anywhere or logged.
 Which account holds which master is not in the file: accounts are tried one by one (login -> role list -> the master's
 row? enter it : close the window); the answer is cached in logs/master_accounts.json (names only) so the next
 relog goes straight to the right one.
@@ -37,12 +37,27 @@ def parse_accounts(text):
     return out
 
 
-def accounts_file(config=CONFIG):
+def accounts_files(config=CONFIG):
+    """The existing files of line.toml master_accounts (one path or a list, 2026-10-29: 伏地魔 + 满爆小法 files)."""
     try:
         p = tomllib.loads(config.read_text(encoding='utf-8')).get('master_accounts', '')
     except OSError:
-        return None
-    return Path(p) if p and Path(p).exists() else None
+        return []
+    return [Path(x) for x in ([p] if isinstance(p, str) else p) if x and Path(x).exists()]
+
+
+def accounts_file(config=CONFIG):
+    files = accounts_files(config)
+    return files[0] if files else None
+
+
+def read_accounts(paths):
+    """All accounts of the files, first one wins on a repeated account name."""
+    out = {}
+    for path in paths:
+        for name, pw in parse_accounts(path.read_text(encoding='utf-8-sig', errors='replace')):
+            out.setdefault(name, pw)
+    return list(out.items())
 
 
 def load_cache(path=CACHE):
@@ -58,11 +73,11 @@ def save_cache(cache, path=CACHE):
 
 
 def order(accounts, master, cache):
-    """Accounts to try for master: the cached one first, then those not known to hold other roles only."""
-    known = cache.get(master)
+    """Accounts to try for master: the cached one first, then unknown ones, last those known to hold other roles only."""
+    known, roles = cache.get(master), cache.get('_roles', {})
     first = [a for a in accounts if a[0] == known]
     rest = [a for a in accounts if a[0] != known]
-    return first + rest
+    return first + sorted(rest, key=lambda a: a[0] in roles and master not in roles[a[0]])
 
 
 def close_offline(master):
@@ -107,11 +122,11 @@ def login_one(master, accounts, cache, lg):
 
 def main(masters):
     from provisioner import log
-    path = accounts_file()
-    if not path:
+    paths = accounts_files()
+    if not paths:
         print('line.toml 的 master_accounts 没设或文件不在，不能自动登录师傅')
         return 2
-    accounts = parse_accounts(path.read_text(encoding='utf-8-sig', errors='replace'))
+    accounts = read_accounts(paths)
     log.setup(ROOT / 'logs', prefix='master_login')
     lg = log.for_account('master')
     cache = load_cache()

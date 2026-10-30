@@ -8,8 +8,9 @@ level; stop (in the well) once every apprentice is at the target level and wait 
 Every tick decides from what is read, so a restart continues:
   team     十万1 invites whoever is not in its team yet (0x30), they accept
   route    factory.welltrain.decide_route: village -> 夕阳草原 entrance -> NPC 10152 -> 651 -> patrol A <-> B
-  battle   every member normal-attacks the first live enemy whenever its SP changes (welltrain.decide_fighter);
-           pets are left alone
+  battle   every apprentice normal-attacks the first live enemy whenever its SP changes (welltrain.decide_fighter);
+           the masters cast like lunhui15 (pet 烈焰爆发, 2026-10-30: the client's 战斗辅助 is off after a relog);
+           the apprentices' pets are left alone
   talent   welltrain.decide_talent -> 0x0070 all points on 体质 (apprentices only)
   eat      in 651, out of battle, one item at a time; done items go to state.json (the bag count is the proof)
 No UI clicks (game functions via DLL command 106).
@@ -145,6 +146,11 @@ def main(target):
         t.say(f'[{n}] pid {c.pid} char {c.char_id} 等级 {w.read_level(c.mem)} 天赋 {w.read_talent_points(c.mem)}')
     form_team(lead, [cs[n] for n in APPRENTICES + HELPERS if n != LEADER])
     route, fights = Route(), {n: Fight() for n in cs}
+    # 2026-10-30 user: in the well the masters' pets did not cast 烈焰爆发 unless the client's own 战斗辅助 was ticked
+    # (a relogged client has it off). The masters now fight like in every other leveling step: lunhui15.Caster
+    # (pet 1504, skill 803 if learned, else normal attack); the apprentices keep the plain attack.
+    from lunhui15 import Caster                # lazy: lunhui15 imports this module
+    casters = {n: Caster(cs[n]) for n in HELPERS}
     talents, eaters = {n: Talent() for n in APPRENTICES}, {n: Eater(cs[n]) for n in APPRENTICES}
     battles, in_battle, last_reason, last_levels = 0, False, None, None
     while True:
@@ -189,6 +195,11 @@ def main(target):
         for n, c in cs.items():
             if not sts[n].in_battle:
                 fights[n] = Fight()
+                if n in casters:
+                    casters[n].reset()
+                continue
+            if n in casters:
+                casters[n].tick(now)
                 continue
             b = w.read_battle(c.mem)
             if not b or not b.enemies:

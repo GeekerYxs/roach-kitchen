@@ -13,6 +13,7 @@ Cmd tokens:
   {A} one apprentice: the Cmd runs once per apprentice, all at once (par=True)
   {APPS:0} 'name:0' per apprentice (dew_team)   {PAIRS} 'capNN:name' (splat)   {PREV} previous batch's names
   {T1} the team's tower1 target level (also inside Step.unless)
+  {LV:key} the team's level for leaving a map (plan.LEVELS: lunhui maze1 maze2 bazhen cave; also in when / unless)
 Cmd.when = ops condition ('lv_lt 25', 'master_on 1', 'kills5'): the Cmd only runs when it holds.
 Step.unless = ops condition: the whole step is skipped when it holds (leveling already done).
 
@@ -22,6 +23,7 @@ Lessons from rounds 1-4 that are rules here (tests/test_line.py checks them):
   - nothing runs from logs/ (gitignored: round 4's cave step ran logs/gather_all.sh, absent from a fresh clone)
   - before steps that pick up quest items the bag gets free slots (U space; a full bag loses them silently)
 """
+import re
 from dataclasses import dataclass, field
 
 
@@ -78,20 +80,20 @@ ROUTE = (
     Step('double3h', 'early', (C('double_exp.py', '{A}'),), retry='leave'),     # user: 3 小时 right after 转职
     # the master talks too: 飞天 / 舔尊 (2026-10-28 batch 3) never ran this line, their PP鸡 permission is unknown
     Step('pp', 'early', (C('supply_go.py'), C('pp_unlock.py', '{M}', '{APPS}')), retry='leave'),
-    Step('lunhui', 'early', (C('lunhui15.py'),), retry='leave', unless='lv_ge 15'),
-    Step('maze', 'early', (C('maze_train.py'),), retry='leave'),
+    Step('lunhui', 'early', (C('lunhui15.py', '{LV:lunhui}'),), retry='leave', unless='lv_ge {LV:lunhui}'),
+    Step('maze', 'early', (C('maze_train.py', '{LV:maze1}', '{LV:maze2}'),), retry='leave'),
 
     # ---- mid: 考验一二 -> 八阵图 25 -> 遗忘洞穴 25->28 (+采集) -> 224 -> 地头蛇 -> 通天一 28->33 -> 考验三 -> 二区 ->40
     Step('start', 'mid', (HOME, C('sell_tradable.py', '--safe', '{APPS}'),
                           C('trial_run.py', '--armor', '3', '--master', '{M}', '{APPS}')), retry='leave'),
-    Step('bazhen', 'mid', (HOME, C('pp_chain.py', '平静海岸2区'), C('bazhen25.py', '25')),
-         retry='leave', unless='lv_ge 25'),
+    Step('bazhen', 'mid', (HOME, C('pp_chain.py', '平静海岸2区'), C('bazhen25.py', '{LV:bazhen}')),
+         retry='leave', unless='lv_ge {LV:bazhen}'),
     Step('cave', 'mid', (
         HOME, C('pp_chain.py', '龙之都', '平静海岸2区'), C('U', 'leave'),
         C('ops', 'take224_master'),
         C('go_cave.py'),
         C('ops', 'gather'),                                  # the master: 9 花 + 3 遗忘之石 (was logs/gather_all.sh)
-        C('cave_train.py', '28', when='lv_lt 28'),
+        C('cave_train.py', '{LV:cave}', when='lv_lt {LV:cave}'),
     ), retry='leave'),
     Step('q224', 'mid', (HOME, C('pp_chain.py', '龙之都', '平静海岸2区'), C('U', 'leave'),
                          C('take224.py', '{A}')), retry='leave'),
@@ -229,6 +231,12 @@ def step(name):
     return ROUTE[NAMES.index(name)]
 
 
+def fill(text, b):
+    """{T1} / {LV:key} in a token or a when / unless condition -> the batch's numbers."""
+    text = text.replace('{T1}', str(b.tower1))
+    return re.sub(r'\{LV:(\w+)\}', lambda m: str(b.level(m.group(1))), text)
+
+
 def expand(cmd, b, python=('python', '-X', 'utf8')):
     """Cmd + plan.Batch -> list of argv lists (one per apprentice for a par Cmd)."""
     apps = b.apprentices
@@ -240,6 +248,6 @@ def expand(cmd, b, python=('python', '-X', 'utf8')):
         for tok in cmd.args[1:]:
             out += {'{M}': [b.master], '{APPS}': apps, '{A0}': apps[:1], '{REST}': apps[1:], '{A}': [a],
                     '{APPS:0}': [f'{n}:0' for n in apps], '{PAIRS}': b.pairs, '{PREV}': b.prev_names,
-                    '{T1}': [str(b.tower1)]}.get(tok, [tok])
+                    '{T1}': [str(b.tower1)]}.get(tok, [fill(tok, b)])
         return out
     return [one(a) for a in apps] if cmd.par else [one()]

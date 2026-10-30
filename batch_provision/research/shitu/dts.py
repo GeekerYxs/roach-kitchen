@@ -29,6 +29,21 @@ SNAKE = 1172
 FLOWER, STONE = 11150, 11151
 
 
+
+def enter_room(lead, tries=3):
+    """Click the 蛇王卧室 door until the leader is inside. 2026-10-29/30: one click missed three times in 11 batches
+    (「8s 内没等到: 传进蛇王卧室」, each passed on the step's rerun) -> click again in place instead of failing the step."""
+    for attempt in range(1, tries + 1):
+        lead.game.click_npc(DOOR)
+        try:
+            return t.wait(lambda: math.dist(((s := lead.world()).x, s.y), ROOM_XY) <= 300, 8, '传进蛇王卧室')
+        except t.Stop:
+            if attempt == tries:
+                raise
+            if (d := lead.dialog()) is not None:
+                lead.game.select_dialog(next((o for o, l in d.options if o), 0))
+            t.say(f'[{lead.name}] 第 {attempt} 次点门没进蛇王卧室，再点')
+
 def main():
     lead = t.Client(LEADER)
     st = lead.world()
@@ -58,8 +73,7 @@ def main():
             time.sleep(1.5)
         m.STAGES = (dict(name='蛇王卧室入口', goal=(750, DOOR_XY), maze=None, until=None, patrol_b=None, legs={}),)
         m.main()
-        lead.game.click_npc(DOOR)
-        t.wait(lambda: math.dist(((s := lead.world()).x, s.y), ROOM_XY) <= 300, 8, '传进蛇王卧室')
+        enter_room(lead)
         time.sleep(1.5)
     cs = [t.Client(n) for n in (LEADER,) + MEMBERS]
     for c in cs:

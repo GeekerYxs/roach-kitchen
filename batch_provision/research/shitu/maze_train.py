@@ -1,6 +1,6 @@
 """师徒 leveling in a maze, generic version of lunhui15.py: walk there leg by leg, patrol, stop at the target level.
 
-    python -X utf8 research/shitu/maze_train.py
+    python -X utf8 research/shitu/maze_train.py [迷城 level 八阵图 level]    (default 19 23 = line.toml levels maze1 maze2)
 
 Current plan (user, 2026-10-27): from 轮回之城 (555) walk to 平静海岸3区 (82), 暗影迷城 (600) until every apprentice
 is 19, then walk to 无尽平原1区 (140), 八阵图 (700) until 23, then walk to 大个王 in 龙之都外城 (20) and stop.
@@ -316,6 +316,8 @@ def main():
 
 
 if __name__ == '__main__':
+    for st, lv in zip(STAGES, sys.argv[1:3]):      # only when run itself: bazhen25 / cave_train import this module
+        st['until'] = int(lv)
     try:
         main()
     except t.Stop as e:

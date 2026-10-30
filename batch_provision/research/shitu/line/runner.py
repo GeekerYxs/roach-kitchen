@@ -124,7 +124,7 @@ class Runner:
 
     def check(self, cond, step):
         """ops condition -> True / False."""
-        cond = cond.replace('{T1}', str(self.b.tower1))
+        cond = R.fill(cond, self.b)
         return self.execute([[sys.executable, '-X', 'utf8', '-m', 'line.ops', 'when', *cond.split()]], self.env(step)) == 0
 
     def run_step(self, step):

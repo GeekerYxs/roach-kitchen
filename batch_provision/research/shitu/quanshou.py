@@ -49,16 +49,24 @@ class Kills:
         return all(v >= 5 for v in self.count.values())
 
 
+def lenders(name, masters, apprentices):
+    """Who may lend c 回城卷: a master asks its apprentices (2026-10-28), an apprentice asks the masters (2026-10-30
+    Opus55A5-8: a well rerun had them scroll to the master in 逍遥村, the novices' only scrolls, so 转职's trip home
+    stopped on「没有回城卷」five times; the master stood next to them with 98)."""
+    if name in masters:
+        return list(apprentices)
+    if name in apprentices:
+        return list(masters)
+    return []
+
+
 def borrow(c, k=5):
-    """c (a master) has no 回城卷: take k from an apprentice of its team on the same map (2026-10-28 伏地魔2 ran out in
-    the 古迹; every home() costs each member one). -> True when it got them."""
+    """c has no 回城卷: take k from a lender (see lenders) on the same map within 600 px. -> True when it got them."""
     import math
     import supply_go
     from common import APPRENTICES, MASTERS
-    if c.name not in MASTERS:
-        return False
     st = c.world()
-    for n in APPRENTICES:
+    for n in lenders(c.name, MASTERS, APPRENTICES):
         a = t.Client(n)
         s = a.world()
         bag = [x for x in w.read_bag(a.mem) if x.item_id == SCROLL_ITEM]

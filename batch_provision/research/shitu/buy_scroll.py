@@ -19,27 +19,46 @@ from quanshou import SCROLL_ITEM
 NPC, XY, SHELF, MAX_ONE = 25, (1650, 1071), 2, 50
 
 
-def count(c):
-    return w.item_count(w.read_bag(c.mem), SCROLL_ITEM)
+# 2026-10-30 user: the masters' pets drink 胡萝卜汁 (AutoUseItemID: 宠物补魔法 = 63954 胡萝卜汁 / 8456 劲爆汽水); when
+# they have fewer than JUICE_LOW, buy JUICE_FULL (20 x 99) here. 伏地魔1 had run dry: pet mp 68, 烈焰爆发 stopped.
+# 胡萝卜汁 gives 50 mp, 劲爆汽水 590 (ItemProp PropValue): 1980 juice lasted 伏地魔1 about 2.5 h of 烈焰爆发, so
+# every home() checks too (r4_util.home).
+JUICE, JUICE_SHELF, PET_MP_ITEMS, JUICE_LOW, JUICE_FULL = 63954, 1, (63954, 8456), 50, 20 * 99
 
 
-def buy(c, n):
+def count(c, item=SCROLL_ITEM):
+    return w.item_count(w.read_bag(c.mem), item)
+
+
+def pet_mp_items(c):
+    bag = w.read_bag(c.mem)
+    return sum(w.item_count(bag, i) for i in PET_MP_ITEMS)
+
+
+def buy(c, n, item=SCROLL_ITEM, shelf=SHELF, label='回城卷'):
+    """Buy `item` (shelf index at 铁公鸡) until the bag holds n of it."""
     walk(c, 300, XY, '铁公鸡 25')
     if c.dialog():
         c.game.select_dialog(0)
         time.sleep(0.5)
     gold = w.read_gold(c.mem)
-    while (have := count(c)) < n:
+    while (have := count(c, item)) < n:
         k = min(MAX_ONE, n - have)
         c.game.click_npc(NPC)
         d = t.wait(lambda: c.dialog(), 5, f'{c.name} 铁公鸡菜单')
         c.game.select_dialog(next(o for o, l in d.options if '购买' in t.plain(l)))
         time.sleep(0.6)
-        c.game.send(0x55, struct.pack('<IIBBHBH', 0, NPC, 1, 0, 0, SHELF, k))
-        t.wait(lambda: count(c) >= have + k, 5, f'{c.name} 回城卷 +{k}')
+        c.game.send(0x55, struct.pack('<IIBBHBH', 0, NPC, 1, 0, 0, shelf, k))
+        t.wait(lambda: count(c, item) >= have + k, 5, f'{c.name} {label} +{k}')
         c.game.select_dialog(0)
         time.sleep(0.5)
-    t.say(f'[{c.name}] 回城卷 {count(c)}，金币 {gold} -> {w.read_gold(c.mem)}')
+    t.say(f'[{c.name}] {label} {count(c, item)}，金币 {gold} -> {w.read_gold(c.mem)}')
+
+
+def juice_needed(c):
+    """How many 胡萝卜汁 to buy: up to JUICE_FULL once the pet's mp drinks are below JUICE_LOW, else 0."""
+    have = pet_mp_items(c)
+    return JUICE_FULL if have < JUICE_LOW else 0
 
 
 if __name__ == '__main__':

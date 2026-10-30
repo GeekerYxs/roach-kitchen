@@ -136,8 +136,18 @@ class Team(threading.Thread):
             self.save()
             raise
 
+    def fresh_batches(self):
+        """line.toml batches read again before each batch: extending a running line needs no restart (2026-10-29:
+        the user asked for 3 more batches while batch 1 ran; the controllers had read [1] at start and just ended)."""
+        if not self.cfg.get('reload'):               # set by main() (the real line), not by tests
+            return
+        try:
+            self.cfg['batches'] = load_config(self.cfg['reload'])['batches']
+        except (OSError, ValueError) as e:            # a half-saved / broken file: keep the list we have
+            say(f'[{self.team}] 读 line.toml 出错，批次照旧 {self.cfg["batches"]}: {e}')
+
     def line(self):
-        while (batch := next_batch(self.cfg, self.data)) is not None:
+        while self.fresh_batches() or (batch := next_batch(self.cfg, self.data)) is not None:
             if STOP.exists():
                 say(f'[{self.team}] 有 LINE_STOP，第 {batch} 批不再开始')
                 break
@@ -185,10 +195,10 @@ def dry_run(cfg):
         b = plan.Batch(team, batch, plan.plan_skip(team, batch, data['stuck']))
         print(f'== 队 {team} 第 {batch} 批 {b.master}: {b.apprentices}  跳过 {b.skip}  {b.pairs}')
         for s in R.ROUTE:
-            print(f'-- {s.stage}/{s.name}' + (f'  (跳过条件 {s.unless})' if s.unless else '') + f'  重跑前 {s.retry}')
+            print(f'-- {s.stage}/{s.name}' + (f'  (跳过条件 {R.fill(s.unless, b)})' if s.unless else '') + f'  重跑前 {s.retry}')
             for c in s.cmds:
                 for a in R.expand(c, b, python=()):
-                    print('    ' + (f'[{c.when}] ' if c.when else '') + ' '.join(a) + ('  || 失败不算' if c.soft else ''))
+                    print('    ' + (f'[{R.fill(c.when, b)}] ' if c.when else '') + ' '.join(a) + ('  || 失败不算' if c.soft else ''))
 
 
 def status(cfg):
@@ -240,6 +250,7 @@ def main(argv):
         return 0 if res.ok else 1
     LOGS.mkdir(exist_ok=True)
     say(f'产线开始: 队 {cfg["teams"]}，批次 {cfg["batches"]}；停下 = 建 {STOP}')
+    cfg['reload'] = CONFIG
     threads = [Team(t, cfg) for t in cfg['teams']]
     for th in threads:
         th.start()

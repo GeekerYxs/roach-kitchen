@@ -1,6 +1,7 @@
 # 师徒产线 v5 总控（python -X utf8 -m line）的设置。说明见 line/__main__.py 文件头和 docs/SHITU_LINE.md 第 8 节。
-teams = ["a", "b", "c"]       # 这次跑哪几队（队名 = 下面 [team.<名>]）；第 6 轮（2026-10-28 夜）= 伏地魔1–3
-batches = [4]                 # 要跑的批次 = 账号的角色槽（每账号最多 4 个）；cap21–32 的 1–4 都已用完（logs/line_state.json）
+teams = ["oa", "ob", "oc"]    # 这次跑哪几队（队名 = 下面 [team.<名>]）；2026-10-29 经验地图三队对照（EXP_MAP_TRIAL.md）
+                              # 第 6 轮（2026-10-28 夜）是 ["a", "b", "c"] + batches = [4]
+batches = [1, 2, 3]           # 2026-10-30 用户：当前批跑完就停（oa/ob 在跑第 4 批，oc 跑完第 3 批不再开第 4 批）
 retries = 3                   # 一步失败后：清场（回城 / 离队）+ 5 秒，再跑，最多几次
 recover_tries = 2             # 还不行：徒弟全部关窗重登 + 全员回城 + 等 recover_wait 秒，再跑，最多几次
 recover_wait = 120
@@ -10,11 +11,14 @@ park_retries = 3              # 一队停摆后自动再试几次（等 park_wai
 park_wait = 600
 # 师傅账号文件（用户自己的，不在仓库里；每行「账号密码密码」）。有了它，师傅掉线 / 窗口没了会自动重登（master_login.py），
 # 不再停摆等人。密码只在登录时读，不写进任何文件或日志。
-master_accounts = "C:/Users/Y/Desktop/伏地魔队账号.txt"
+# 可以写一个文件或一个列表；2026-10-29 起两个：伏地魔1–3 + 满爆小法（曾经不曾、波大臀圆）
+master_accounts = ["C:/Users/Y/Desktop/伏地魔队账号.txt", "C:/Users/Y/Desktop/满爆小法宠物号.txt"]
 
 # 每队：master = 师傅角色名（有 master_accounts 就自动登录，否则人工登录）；slot = 第几组账号和徒弟名（0..3，见 line/plan.py：
 # 账号 cap(21+4*slot)..+3，第 N 批徒弟名 亿万(16(N-1)+4*slot+1..+4)）；gold = 师傅给每个徒弟的启动金。
 # 队名同时是 logs/line_state.json 的键和 LOGID（r4<队名>_b<批>），换师傅就换队名，别的师傅的历史和排除名单不会串过来。
+# 也可以不用 slot，自己指定账号和名字：accounts = 第一个账号号码（用 capN..capN+3），names = 角色名前缀（第 N 批第 i 个号 =
+# 前缀 + (4(N-1)+i)）。levels = 这一队在哪一级离开各张图（不写 = v5 路线：lunhui 15 / maze1 19 / maze2 23 / bazhen 25 / cave 28）。
 [team.a]
 master = "伏地魔1"
 slot = 0
@@ -51,3 +55,26 @@ gold = 50000
 
 [stuck]                       # 已知排除、仍占着师傅名额的徒弟（logs/line_state.json 里有了就以它为准）
 d = ["亿万13"]                # 伏地魔4 名下：2026-10-28 181 第 4 步日记因背包满丢失，树 NPC 953 不再给对话框
+
+# ---- 2026-10-29 经验地图三队对照（research/shitu/EXP_MAP_TRIAL.md）：新账号 cap37–48，角色名用模型名 Opus 5.5
+[team.oa]                     # 对照基准：满爆小法，走现在的 v5 线路（强号默认通天一区到 33）
+master = "曾经不曾"
+accounts = 37
+names = "Opus55A"
+gold = 50000
+
+[team.ob]                     # 同样的满爆小法，进图按 gemini 4 argon 的「大号带队最快区间」（docs/LEVELING_STAGE0.md 第 7 节）；
+master = "波大臀圆"            # 古井照旧练到 10 级（用户 2026-10-29），其余步骤不变
+accounts = 41
+names = "Opus55B"
+gold = 50000
+tower1 = 34                   # 通天一区 27–33，34 去二区
+levels = { lunhui = 12, maze1 = 16, maze2 = 23, bazhen = 23, cave = 28 }   # 轮回 10–11，迷城 12–15，八阵图 16–22，洞穴 23–27
+                              # gemini 是洞穴 23–26、27 进通天一区；但任务 224（洞穴后的地头蛇）28 级才能接，第 1 批 27 级接不到 -> 28
+
+[team.oc]                     # 第二对照：伏地魔1（伤害比满爆小法低），常规线路
+master = "伏地魔1"
+accounts = 45
+names = "Opus55C"
+gold = 50000
+tower1 = 35

@@ -1,0 +1,10 @@
+# 经验地图三队对照（2026-10-29，research/shitu/EXP_MAP_TRIAL.md）：只读内存，每场记一行（含怪物等级）。
+# python -m expwatch expwatch_trial.toml
+
+roles = ["Opus55A1", "Opus55A2", "Opus55A3", "Opus55A4", "Opus55A5", "Opus55A6", "Opus55A7", "Opus55A8", "Opus55A9", "Opus55A10", "Opus55A11", "Opus55A12", "Opus55A13", "Opus55A14", "Opus55A15", "Opus55A16", "Opus55B1", "Opus55B2", "Opus55B3", "Opus55B4", "Opus55B5", "Opus55B6", "Opus55B7", "Opus55B8", "Opus55B9", "Opus55B10", "Opus55B11", "Opus55B12", "Opus55B13", "Opus55B14", "Opus55B15", "Opus55B16", "Opus55C1", "Opus55C2", "Opus55C3", "Opus55C4", "Opus55C5", "Opus55C6", "Opus55C7", "Opus55C8", "Opus55C9", "Opus55C10", "Opus55C11", "Opus55C12", "Opus55C13", "Opus55C14", "Opus55C15", "Opus55C16"]   # 4 批 x 3 队（2026-10-30 起；之前只写了第 1 批）
+
+window = 15
+poll_seconds = 0.5
+summary_minutes = 10
+ranges = [[10, 20], [20, 30], [30, 40]]
+battles_csv = "logs/expwatch/shitu_battles.csv"      # 和以前几轮同一个文件：r4_stats.py / r5_compare.py 直接能读
