@@ -1,5 +1,5 @@
 // boss_quiz_test.cpp — controller/boss_quiz.h 的离线测试。
-// 样本：2026-10-26/27 录到的 9 道 boss 题（0x46F5），题目、选项原样（含「1、」前缀），正确下标是实测答对的。
+// 样本：2026-10-26/27 录到的 boss 题（0x46F5），题目、选项原样（含「1、」前缀），正确下标是实测答对的。
 #include <cstdio>
 #include <sstream>
 #include <string>
@@ -29,10 +29,10 @@ static const std::vector<Sample> SAMPLES = {
     {2916, u8"太阳系中距离太阳最近的行星是什么？", {u8"1、关汉卿", u8"2、王实甫", u8"3、马致远", u8"4、水星"}, 3},
     {2927, u8"经常洗澡的好处是什么？", {u8"1、《南华经》", u8"2、《道德经》", u8"3、《黄庭经》", u8"4、清洁皮肤，预防皮肤病"}, 3},
     {2934, u8"15 以内的质数有哪些？", {u8"1、《孙子兵法》", u8"2、《孙膑兵法》", u8"3、《吴子》", u8"4、2、3、5、7、14、13"}, 3},
-    // 2026-10-27 22:26-22:28 新版答题器上线实测（弹窗确认后按建议答，全部测试通过）
     {2851, u8"冰雹多发生在什么季节？", {u8"1、《咏史》", u8"2、《丹青引赠曹将军霸》", u8"3、夏季", u8"4、《焚书坑》"}, 2},
     {2962, u8"什么是电路？", {u8"1、《尔雅》", u8"2、《说文解字》", u8"3、《切韵》", u8"4、电流通过的路径"}, 3},
     {2983, u8"粽子是用什么做的？", {u8"1、风", u8"2、雷", u8"3、火", u8"4、糯米、粽叶、馅料（肉、枣等）"}, 3},
+    {2711, u8"我国的国歌是什么？", {u8"1、前燕和东晋", u8"2、《义勇军进行曲》", u8"3、前秦和东晋", u8"4、后赵和东晋"}, 1},
 };
 
 int main() {
@@ -43,142 +43,77 @@ int main() {
     CHECK(bq::strip_option(u8"4 个") == u8"4 个", "没有编号时原样");
     CHECK(bq::strip_option("") == "", "空选项");
 
-    printf("[2] 题库为空、干扰项为空：只靠书名号和共有字\n");
-    {
-        bq::Bank empty;
-        int right = 0, wrong = 0, none = 0;
-        for (auto& s : SAMPLES) {
-            auto d = bq::decide(empty, s.qno, s.stem, s.options);
-            CHECK(d.opt == -1, std::to_string(s.qno) + " 题库为空时不直接答");
-            if (d.suggest == s.right) right++;
-            else if (d.suggest < 0) none++;
-            else { wrong++; printf("        wrong suggest %u -> %d (%s)\n", s.qno, d.suggest, d.why.c_str()); }
-        }
-        printf("        建议对 %d / 没建议 %d / 建议错 %d\n", right, none, wrong);
-        CHECK(wrong == 0, "空题库时一个都不建议错");
+    printf("[2] 仓库题库 data/boss_bank.tsv + boss_decoys.txt\n");
+    bq::Bank repo;
+    CHECK(bq::load_files(repo, "../data/boss_bank.tsv", "../data/boss_decoys.txt"), "读得到题库文件");
+    CHECK(repo.entries.size() >= 400 && repo.entries.begin()->first == 2601 && repo.decoys.size() > 800,
+          "2601 起至少 400 道，干扰项 800+");
+    int rule_ok = 0, verified = 0;
+    for (auto& kv : repo.entries) {
+        if (kv.first >= 2601 && kv.first <= 3000 && kv.second.opt == (int)(kv.first - 2601) / 100) rule_ok++;
+        verified += kv.second.verified;
+    }
+    CHECK(rule_ok == 400, "2601～3000 的下标全部 = (题号-2601)/100（" + std::to_string(rule_ok) + "）");
+    CHECK(verified >= 37, "至少 37 道实测（" + std::to_string(verified) + "）");
+    for (auto& s : SAMPLES) {
+        auto d = bq::decide(repo, s.qno, s.stem, s.options);
+        CHECK(d.opt == s.right && d.guess == s.right, std::to_string(s.qno) + " 命中 " + d.why);
     }
 
-    printf("[3] 留一法：用其余 8 道的干扰项，猜第 9 道\n");
-    for (size_t k = 0; k < SAMPLES.size(); k++) {
-        bq::Bank bank;
-        for (size_t j = 0; j < SAMPLES.size(); j++)
-            if (j != k) bq::record_pass(bank, SAMPLES[j].qno, SAMPLES[j].stem, SAMPLES[j].options, SAMPLES[j].right);
-        auto& s = SAMPLES[k];
-        auto d = bq::decide(bank, s.qno, s.stem, s.options);
-        CHECK(d.opt == -1 && (d.suggest == s.right || d.suggest == -1),
-              std::to_string(s.qno) + " 建议=" + std::to_string(d.suggest) + "（对的是 " + std::to_string(s.right) + "）" + d.why);
-    }
-
-    printf("[4] 题库命中：按答案文字找，不怕选项换位置\n");
+    printf("[3] 题库命中：按答案文字找，不怕选项换位置；文字对不上不用旧下标\n");
     {
-        bq::Bank bank;
-        auto s = SAMPLES[5];   // 2866
-        bq::record_pass(bank, s.qno, s.stem, s.options, s.right);
-        auto d = bq::decide(bank, s.qno, s.stem, s.options);
-        CHECK(d.opt == 2, "原顺序 -> 2");
+        auto& s = SAMPLES[5];   // 2866
         std::vector<std::string> shuffled = {u8"1、阿拉伯半岛", u8"2、《诗经》", u8"3、《诗品》", u8"4、《全唐诗》"};
-        d = bq::decide(bank, s.qno, s.stem, shuffled);
-        CHECK(d.opt == 0, "换位置 -> 0");
+        CHECK(bq::decide(repo, s.qno, s.stem, shuffled).opt == 0, "换位置 -> 0");
         std::vector<std::string> other = {u8"1、甲", u8"2、乙", u8"3、丙", u8"4、丁"};
-        d = bq::decide(bank, s.qno, s.stem, other);
-        CHECK(d.opt == -1, "题号一样但答案不在选项里 -> 不直接答，要人确认");
+        auto d = bq::decide(repo, s.qno, s.stem, other);
+        CHECK(d.opt == -1 && d.guess >= 0, "题号一样但答案不在选项里 -> 不按旧下标，退到排除法");
     }
 
-    printf("[5] 只有下标的条目（2932：题目没录到）\n");
-    {
-        bq::Bank bank;
-        std::istringstream in("\xEF\xBB\xBF题号\t答案\t下标(0开始)\t题目\n2932\t\t3\t\n");
-        bq::parse_bank_tsv(bank, in);
-        auto d = bq::decide(bank, 2932, u8"随便", {u8"1、a", u8"2、b", u8"3、c", u8"4、d"});
-        CHECK(d.opt == 3, "按下标 3");
+    printf("[4] 题库没有的题号：全量干扰项排除后只剩正确项\n");
+    for (auto& s : SAMPLES) {
+        bq::Bank bank = repo;
+        bank.entries.erase(s.qno);
+        auto d = bq::decide(bank, s.qno, s.stem, s.options);
+        if (s.qno == 2711) CHECK(d.suggest != 1, "2711 答案带书名号，排除法认不出（所以要靠题库）");
+        else CHECK(d.opt == -1 && d.suggest == s.right, std::to_string(s.qno) + " 排除法 -> " + std::to_string(d.suggest));
     }
-
-    printf("[6] 记表 + 文件来回\n");
-    {
-        bq::Bank bank;
-        for (auto& s : SAMPLES) bq::record_pass(bank, s.qno, s.stem, s.options, s.right);
-        CHECK(!bq::record_pass(bank, SAMPLES[0].qno, SAMPLES[0].stem, SAMPLES[0].options, SAMPLES[0].right), "重复记同一题 -> 没变化");
-        CHECK(bank.entries.size() == SAMPLES.size(), "每道样本一条");
-        CHECK(bank.decoys.count(u8"《诗经》") && bank.decoys.count(u8"王安石"), "干扰项进了集合");
-        CHECK(!bank.decoys.count(u8"阿拉伯半岛"), "正确答案没进干扰项");
-        std::ostringstream a, b;
-        bq::write_bank_tsv(bank, a);
-        bq::write_decoys(bank, b);
-        bq::Bank back;
-        std::istringstream ia(a.str()), ib(b.str());
-        bq::parse_bank_tsv(back, ia);
-        bq::parse_decoys(back, ib);
-        CHECK(back.entries.size() == bank.entries.size() && back.decoys == bank.decoys, "写出再读回一样");
-        CHECK(back.entries[2934].answer == u8"2、3、5、7、14、13" && back.entries[2771].answer == u8"4 个", "带「、」和空格的答案原样保存");
-        for (auto& s : SAMPLES) {
-            auto d = bq::decide(back, s.qno, s.stem, s.options);
-            CHECK(d.opt == s.right, std::to_string(s.qno) + " 读回后命中");
-        }
-    }
-
-    printf("[7] 仓库自带的种子文件 data/boss_bank.tsv + boss_decoys.txt\n");
-    {
-        bq::Bank seed;
-        bool ok = bq::load_files(seed, "../data/boss_bank.tsv", "../data/boss_decoys.txt");
-        CHECK(ok, "读得到种子文件");
-        CHECK(seed.entries.size() >= 9 && !seed.entries.count(2916), "至少 9 条，2916 不在表里（没录到作答）");
-        for (auto& s : SAMPLES) {
-            auto d = bq::decide(seed, s.qno, s.stem, s.options);
-            if (s.qno == 2916) CHECK(d.opt == -1 && d.suggest == 3, "2916 不在表里，靠干扰项建议 水星");
-            else if (seed.entries.count(s.qno)) CHECK(d.opt == s.right, std::to_string(s.qno) + " 种子命中");
-        }
-    }
-
-    printf("[8] 静默模式的 guess：每道题都给出一个下标，且不比 opt / suggest 差\n");
     {
         bq::Bank empty;
-        for (auto& s : SAMPLES) {
-            auto d = bq::decide(empty, s.qno, s.stem, s.options);
-            CHECK(d.guess >= 0 && d.guess < (int)s.options.size(), std::to_string(s.qno) + " 有 guess");
-            if (d.suggest >= 0) CHECK(d.guess == d.suggest, std::to_string(s.qno) + " guess = suggest");
-        }
-        bq::Bank bank;
-        for (auto& s : SAMPLES) bq::record_pass(bank, s.qno, s.stem, s.options, s.right);
-        for (auto& s : SAMPLES) {
-            auto d = bq::decide(bank, s.qno, s.stem, s.options);
-            CHECK(d.guess == s.right, std::to_string(s.qno) + " 题库命中时 guess = 正确答案");
-        }
         std::vector<std::string> only_books = {u8"1、《诗经》", u8"2、《全唐诗》", u8"3、《诗品》", u8"4、《吴子》", u8""};
-        auto d = bq::decide(bank, 1, u8"随便", only_books);
-        CHECK(d.guess == 0, "全是干扰项时退回第一个非空选项");
+        CHECK(bq::decide(empty, 1, u8"随便", only_books).guess == 0, "全是干扰项时退回第一个非空选项");
     }
 
-    printf("[9] 推算题库 data/boss_bank_seed.tsv：实测优先，按答案文字找，文字对不上不用它的下标\n");
+    printf("[5] 只有下标的旧条目\n");
     {
         bq::Bank bank;
-        CHECK(bq::load_files(bank, "../data/boss_bank.tsv", "../data/boss_decoys.txt", "../data/boss_bank_seed.tsv"), "读得到三个文件");
-        CHECK(bank.seed.size() == 400 && bank.seed.begin()->first == 2601 && bank.seed.rbegin()->first == 3000, "推算 400 道，2601～3000");
-        int agree = 0;
-        for (auto& kv : bank.entries) {
-            auto it = bank.seed.find(kv.first);
-            if (it != bank.seed.end() && it->second.opt == kv.second.opt &&
-                (kv.second.answer.empty() || kv.second.answer == it->second.answer)) agree++;
-        }
-        CHECK(agree == (int)bank.entries.size(), "实测 " + std::to_string(bank.entries.size()) + " 道全部和推算一致（" + std::to_string(agree) + "）");
-        auto s = SAMPLES[6];   // 2916 水星：不在实测题库，推算命中
+        std::istringstream in("\xEF\xBB\xBF题号\t答案\t下标(0开始)\t题目\n9999\t\t3\t\n");
+        bq::parse_bank_tsv(bank, in);
+        auto d = bq::decide(bank, 9999, u8"随便", {u8"1、a", u8"2、b", u8"3、c", u8"4、d"});
+        CHECK(d.opt == 3 && d.verified, "没有第 5 列 = 实测，按下标 3");
+    }
+
+    printf("[6] 答对记表：推算 -> 实测；文件来回\n");
+    {
+        bq::Bank bank = repo;
+        auto& s = SAMPLES[6];   // 2916 推算
+        bank.entries[s.qno].verified = false;
         auto d = bq::decide(bank, s.qno, s.stem, s.options);
-        CHECK(!bank.entries.count(2916) && d.opt == 3 && d.inferred, "2916 推算命中 水星");
-        std::vector<std::string> shuffled = {u8"1、水星", u8"2、关汉卿", u8"3、王实甫", u8"4、马致远"};
-        d = bq::decide(bank, s.qno, s.stem, shuffled);
-        CHECK(d.opt == 0 && d.inferred, "换位置照样按文字找到");
-        std::vector<std::string> other = {u8"1、甲", u8"2、乙", u8"3、丙", u8"4、丁"};
-        d = bq::decide(bank, s.qno, s.stem, other);
-        CHECK(d.opt == -1 && !d.inferred, "题目改过、答案不在选项里 -> 不按推算下标答");
-        d = bq::decide(bank, 2866, SAMPLES[5].stem, SAMPLES[5].options);
-        CHECK(d.opt == 2 && !d.inferred, "2866 实测题库优先");
-        bq::Bank seed_only;
-        std::istringstream in("\xEF\xBB\xBF题号\t答案\t下标(0开始)\t题目\n2711\t《义勇军进行曲》\t1\t我国的国歌是什么？\n");
-        bq::parse_bank_tsv(seed_only, in, true);
-        d = bq::decide(seed_only, 2711, u8"我国的国歌是什么？", {u8"1、前燕和东晋", u8"2、《义勇军进行曲》", u8"3、前秦和东晋", u8"4、后赵和东晋"});
-        CHECK(seed_only.entries.empty() && d.opt == 1, "带书名号的答案（排除法会当干扰项）也能推算命中");
-        std::ostringstream out;
-        bq::write_bank_tsv(bank, out);
-        CHECK(out.str().find(u8"\t水星\t") == std::string::npos, "存盘只写实测题库，推算的不进 boss_bank.tsv");
+        CHECK(d.opt == 3 && !d.verified, "2916 推算命中");
+        CHECK(bq::record_pass(bank, s.qno, s.stem, s.options, 3) && bank.entries[s.qno].verified, "答对后改成实测");
+        CHECK(!bq::record_pass(bank, s.qno, s.stem, s.options, 3), "再记一次没变化");
+        std::ostringstream a;
+        bq::write_bank_tsv(bank, a);
+        bq::Bank back;
+        std::istringstream ia(a.str());
+        bq::parse_bank_tsv(back, ia);
+        bool same = back.entries.size() == bank.entries.size();
+        for (auto& kv : bank.entries) {
+            auto& b = back.entries[kv.first];
+            same = same && b.answer == kv.second.answer && b.opt == kv.second.opt && b.verified == kv.second.verified;
+        }
+        CHECK(same, "写出再读回一样（含来源）");
+        CHECK(back.entries[2934].answer == u8"2、3、5、7、14、13" && back.entries[2771].answer == u8"4 个", "带「、」和空格的答案原样保存");
     }
 
     printf("\n%s (%d failures)\n", fails == 0 ? "ALL TESTS PASSED" : "TESTS FAILED", fails);

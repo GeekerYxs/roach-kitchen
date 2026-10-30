@@ -1,5 +1,5 @@
 """Unit tests for research/shitu/boss_quiz.py (no game needed): panel text parsing, the answer choice (same rules as
-the quizbot's controller/boss_quiz.h) on the 12 boss questions recorded 2026-10-26/27, and solve()'s
+the quizbot's controller/boss_quiz.h) on the repo bank, the 400 questions collected 2026-10-30, and solve()'s
 「let the quizbot answer first, otherwise answer here」 flow with a fake panel."""
 import json
 import sys
@@ -36,12 +36,14 @@ PANEL_TEXT = ('#FFFFFF#世界上最大的半岛是什么？\n\n#ABB5FC#[URL]1、
 
 
 def learned(samples):
-    """What the quizbot's bank holds after these were answered right: answers + the other options as decoys."""
-    entries, decoys = {}, set()
-    for qno, _stem, opts, right in samples:
-        entries[qno] = (bq.strip_option(opts[right]), right)
-        decoys |= {bq.strip_option(o) for i, o in enumerate(opts) if i != right}
-    return entries, decoys
+    """A bank holding just these answers, no decoys."""
+    return {qno: (bq.strip_option(opts[right]), right) for qno, _stem, opts, right in samples}, set()
+
+
+def observed():
+    """The 400 questions collected 2026-10-30 (data/boss_questions_0x46f5_20261030.json)."""
+    data = json.loads((bq.BANK_DIR / 'boss_questions_0x46f5_20261030.json').read_text(encoding='utf-8'))
+    return [(q['qno'], q['variants'][0]['stem'], q['variants'][0]['options']) for q in data]
 
 
 class Parsing(unittest.TestCase):
@@ -57,65 +59,51 @@ class Parsing(unittest.TestCase):
 
     def test_load_bank_files(self):
         with tempfile.TemporaryDirectory() as d:
-            Path(d, 'boss_bank.tsv').write_text('题号\t答案\t下标(0开始)\t题目\n2866\t阿拉伯半岛\t2\t世界上最大的半岛是什么？\n'
-                                                '2932\t\t3\t\n', encoding='utf-8-sig')
+            Path(d, 'boss_bank.tsv').write_text('题号\t答案\t下标(0开始)\t题目\t来源\n2866\t阿拉伯半岛\t2\t世界上最大的半岛是什么？\t实测\n'
+                                                '2916\t水星\t3\t?\t推算\n2932\t\t3\t\n', encoding='utf-8-sig')
             Path(d, 'boss_decoys.txt').write_text('# 注释\n《诗经》\n王安石\n', encoding='utf-8-sig')
-            Path(d, 'boss_bank_seed.tsv').write_text('题号\t答案\t下标(0开始)\t题目\n2916\t水星\t3\t?\n', encoding='utf-8-sig')
-            entries, decoys, seed = bq.load_bank(d)
-        self.assertEqual(entries, {2866: ('阿拉伯半岛', 2), 2932: ('', 3)})
+            entries, decoys = bq.load_bank(d)
+        self.assertEqual(entries, {2866: ('阿拉伯半岛', 2), 2916: ('水星', 3), 2932: ('', 3)})
         self.assertEqual(decoys, {'《诗经》', '王安石'})
-        self.assertEqual(seed, {2916: ('水星', 3)})
 
     def test_missing_bank_is_empty(self):
         with tempfile.TemporaryDirectory() as d:
-            self.assertEqual(bq.load_bank(d), ({}, set(), {}))
-
-    def test_seed_by_text_and_verified_first(self):
-        seed = {2916: ('水星', 3), 2866: ('错的', 0)}
-        opts = ['1、水星', '2、关汉卿', '3、王实甫', '4、马致远']
-        opt, why = bq.decide(({}, set(), seed), 2916, '?', opts)
-        self.assertEqual(opt, 0)
-        self.assertIn('推算', why)
-        opt, why = bq.decide(({}, set(), seed), 2916, '?', ['1、甲', '2、乙', '3、丙', '4、丁'])
-        self.assertNotIn('推算题库命中', why)                     # 文字对不上：不用推算下标
-        opt, why = bq.decide(({2866: ('阿拉伯半岛', 2)}, set(), seed), 2866, '?',
-                             ['1、《诗经》', '2、《全唐诗》', '3、阿拉伯半岛', '4、《诗品》'])
-        self.assertEqual((opt, '推算' in why), (2, False))
-
-    def test_repo_seed_covers_all_400_and_agrees_with_verified(self):
-        entries, decoys, seed = bq.load_bank()
-        self.assertEqual(sorted(seed), list(range(2601, 3001)))
-        for qno, (answer, opt) in entries.items():
-            if qno in seed:
-                self.assertEqual(seed[qno][1], opt, qno)
-                if answer:
-                    self.assertEqual(seed[qno][0], answer, qno)
-        data = json.loads((bq.BANK_DIR / 'boss_questions_0x46f5_20261030.json').read_text(encoding='utf-8'))
-        for q in data:
-            v = q['variants'][0]
-            opt, why = bq.decide((entries, decoys, seed), q['qno'], v['stem'], v['options'])
-            self.assertEqual(opt, (q['qno'] - 2601) // 100, (q['qno'], why))
+            self.assertEqual(bq.load_bank(d), ({}, set()))
 
 
 class Decide(unittest.TestCase):
-    def test_empty_bank_never_confidently_wrong(self):
-        for qno, stem, opts, right in SAMPLES:
-            opt, why = bq.decide(({}, set()), qno, stem, opts)
-            if '猜' not in why:
-                self.assertEqual(opt, right, f'{qno} {why}')
-
-    def test_leave_one_out(self):
-        for k, (qno, stem, opts, right) in enumerate(SAMPLES):
-            bank = learned(SAMPLES[:k] + SAMPLES[k + 1:])
+    def test_repo_bank_answers_all_400(self):
+        bank = bq.load_bank()
+        self.assertEqual(sorted(q for q in bank[0] if 2601 <= q <= 3000), list(range(2601, 3001)))
+        for qno, stem, opts in observed():
             opt, why = bq.decide(bank, qno, stem, opts)
-            if '猜' not in why:          # 2792 钟表：干扰项只在它自己那道题里出现过，又没有共有字 -> 只能猜
-                self.assertEqual(opt, right, f'{qno} {why}')
+            self.assertEqual(opt, (qno - 2601) // 100, (qno, why))
+            self.assertIn('题库命中', why)
+        for qno, stem, opts, right in SAMPLES:
+            self.assertEqual(bq.decide(bank, qno, stem, opts)[0], right, qno)
+
+    def test_new_qno_falls_back_to_decoys(self):
+        """Pretend each observed question is unknown: the full decoy list leaves only the right option for 395/400.
+        The rest: 2711 (answer in 《》, which counts as a decoy), 2736 / 2878 / 2666 (a wrong option like 北京 is
+        another question's answer, so it is not in the decoy list) - only a guess, never a confident wrong pick."""
+        entries, decoys = bq.load_bank()
+        sure = 0
+        for qno, stem, opts in observed():
+            opt, why = bq.decide(({}, decoys), qno, stem, opts)
+            if '猜' not in why:
+                self.assertEqual(opt, (qno - 2601) // 100, (qno, why))
+                sure += 1
+        self.assertGreaterEqual(sure, 395)
 
     def test_bank_hit_survives_shuffle(self):
         bank = learned(SAMPLES)
         opt, why = bq.decide(bank, 2866, '世界上最大的半岛是什么？', ['1、阿拉伯半岛', '2、《诗经》', '3、《诗品》', '4、《全唐诗》'])
         self.assertEqual(opt, 0)
         self.assertIn('题库命中', why)
+
+    def test_changed_question_does_not_reuse_index(self):
+        opt, why = bq.decide(learned(SAMPLES), 2866, '?', ['1、甲', '2、乙', '3、丙', '4、丁'])
+        self.assertIn('不在选项里', why)
 
     def test_index_only_entry(self):
         self.assertEqual(bq.decide(({2932: ('', 3)}, set()), 2932, '?', ['1、a', '2、b', '3、c', '4、d'])[0], 3)
@@ -124,12 +112,6 @@ class Decide(unittest.TestCase):
         opt, why = bq.decide(({}, set()), 1, '随便', ['1、《诗经》', '2、《全唐诗》', '3、《诗品》', '4、《吴子》'])
         self.assertEqual(opt, 0)
         self.assertIn('猜', why)
-
-    def test_repo_bank_files_cover_their_questions(self):
-        bank = bq.load_bank()
-        for qno, stem, opts, right in SAMPLES:
-            if qno in bank[0]:
-                self.assertEqual(bq.decide(bank, qno, stem, opts)[0], right, qno)
 
 
 class Solve(unittest.TestCase):

@@ -272,7 +272,7 @@ static uint32_t map_panel() {
     uint32_t ui = *(uint32_t*)(base + ga::RVA_UI);
     if (!ui || IsBadReadPtr((void*)(ui + ga::UI_QUIZ_MAP), 4)) return 0;
     uint32_t q = *(uint32_t*)(ui + ga::UI_QUIZ_MAP);
-    if (!q || IsBadReadPtr((void*)q, 0x1C0)) return 0;
+    if (!q || IsBadReadPtr((void*)q, ga::QUIZ_MAP_MODE + 4)) return 0;   // 2.101 的字段到 +0x3E4
     return q;
 }
 
@@ -814,9 +814,11 @@ static void report_map_result(const std::string& utf8) {
     if (opt < 0) {
         who = "manual";
         uint32_t q = map_panel();
-        // 手动点选时面板在服务器回话之前就关了；面板还开着说明这条提示不是 boss 题的（比如战斗题通过）
-        if (q && *(uint32_t*)(q + ga::QUIZ_VISIBLE) != 0) return;
-        if (q && *(uint32_t*)(q + ga::QUIZ_QNO) == qno) opt = *(int32_t*)(q + ga::QUIZ_CHOSEN);
+        // 只有面板确实显示过这道题、现在已经关了，才算用户手动答了 boss 题。面板还开着，或者还没装上这道题
+        // （登录时战斗题和 boss 题同时来，战斗题的「测试通过」比 boss 面板打开还早），就是别的题的提示。
+        // 2026-10-30 实测：31 个窗口里 15 个这样把战斗题的通过记到了 boss 题上，boss 题就一直没人答。
+        if (!q || *(uint32_t*)(q + ga::QUIZ_VISIBLE) != 0 || *(uint32_t*)(q + ga::QUIZ_QNO) != qno) return;
+        opt = *(int32_t*)(q + ga::QUIZ_CHOSEN);
     }
     logline("[MAP-RESULT] qno=%u opt=%d by=%s pass=%d text=%s", qno, opt, who, pass ? 1 : 0, utf8.c_str());
     push_event("{\"type\":\"map_result\",\"qno\":" + std::to_string(qno) + ",\"opt\":" + std::to_string(opt) +

@@ -1,13 +1,11 @@
 // boss_quiz.h — boss「开打」时弹的题（0x46F5）的决策：纯函数，无 Windows 依赖，tools/boss_quiz_test.cpp 离线测试。
 // 所有字符串都是 UTF-8（DLL 推上来的事件已经转成 UTF-8）。
 //
-// 题库两个文本文件（放在 启动答题器.exe 旁边的 data\ 里，记事本就能改）：
-//   boss_bank.tsv    每行：题号<TAB>答案文字<TAB>下标(0 开始)<TAB>题目    （第一行是表头）
-//   boss_decoys.txt  每行一个「干扰项」文字（以 # 开头的行是注释）
-//   boss_bank_seed.tsv 同 boss_bank.tsv 格式：题号 2601～3000 按规律推算的答案（tools/gen_boss_seed.py 生成，只读）
-// 查找顺序：boss_bank.tsv（实测）> boss_bank_seed.tsv（推算，按答案文字）> 排除干扰项。
-// 规律（BOSS_QUIZ.md 第 5 节，10/10 符合）：题号是固定题库编号；3 个错误选项来自另一类
-// （古书、古人、诸子、名句），正确项是唯一和题目沾边的那个。
+// 题库两个文本文件（放在 启动答题器.exe 旁边的 data\ 里，tools/gen_boss_bank.py 从 400 题观察数据生成）：
+//   boss_bank.tsv    每行：题号<TAB>答案文字<TAB>下标(0 开始)<TAB>题目<TAB>来源（实测 / 推算）   （第一行是表头）
+//                    题号 2601～3000 全齐；推算的答对后自动改成「实测」。没有第 5 列的旧行当「实测」。
+//   boss_decoys.txt  每行一个干扰项（400 题的全部错误选项），只给题库里没有的新题号用
+// 决策：按题号查题库，按答案文字找选项（选项换位置也不怕）> 排除干扰项 / 书名号后剩下的。
 #pragma once
 #include <cstdint>
 #include <cstdlib>
@@ -25,12 +23,12 @@ struct Entry {
     std::string answer;   // 选项文字（去掉「1、」前缀），空 = 只知道下标
     int opt = -1;         // 答对时的下标（0 开始）
     std::string stem;
+    bool verified = true; // false = 推算（gen_boss_bank.py 按规律推的，还没在游戏里答对过）
 };
 
 struct Bank {
-    std::map<uint32_t, Entry> entries;   // boss_bank.tsv：实测答对过的，答对后自动追加
+    std::map<uint32_t, Entry> entries;
     std::set<std::string> decoys;
-    std::map<uint32_t, Entry> seed;      // boss_bank_seed.tsv：400 题按规律推算的（tools/gen_boss_seed.py），只读不写
 };
 
 // 去掉首尾空白。
@@ -68,139 +66,73 @@ inline bool is_decoy(const Bank& bank, const std::string& option_text) {
     return bank.decoys.count(t) > 0 || bank.decoys.count(bare) > 0;
 }
 
-// UTF-8 拆成字符（每个汉字一个元素）。
-inline std::vector<std::string> utf8_chars(const std::string& s) {
-    std::vector<std::string> out;
-    for (size_t i = 0; i < s.size();) {
-        unsigned char c = (unsigned char)s[i];
-        size_t n = c < 0x80 ? 1 : (c >> 5) == 6 ? 2 : (c >> 4) == 14 ? 3 : 4;
-        out.push_back(s.substr(i, n));
-        i += n;
-    }
-    return out;
-}
-
-// 选项和题目共有几个字（只数汉字和数字，标点不算）。
-inline int shared_chars(const std::string& stem, const std::string& option_text) {
-    std::set<std::string> in_stem;
-    for (auto& ch : utf8_chars(stem)) in_stem.insert(ch);
-    std::set<std::string> counted;
-    int n = 0;
-    for (auto& ch : utf8_chars(strip_option(option_text))) {
-        bool cjk = ch.size() == 3 && (unsigned char)ch[0] >= 0xE4 && (unsigned char)ch[0] <= 0xE9;
-        bool digit = ch.size() == 1 && ch[0] >= '0' && ch[0] <= '9';
-        if ((cjk || digit) && in_stem.count(ch) && counted.insert(ch).second) n++;
-    }
-    return n;
-}
-
 struct Decision {
     int opt = -1;          // 题库命中时直接答的下标；-1 = 题库里没有
-    bool inferred = false; // opt 来自推算题库（boss_bank_seed.tsv），不是实测
-    int suggest = -1;      // 题库没有时的建议下标；-1 = 没把握
-    int guess = -1;        // 静默模式最后用的下标：opt，否则 suggest，否则「排除干扰项后第一个」，再不行就 0
+    bool verified = false; // opt 来自实测条目（false = 推算条目）
+    int suggest = -1;      // 题库没有时：排除干扰项后只剩一个，就是它；-1 = 没把握
+    int guess = -1;        // 最后用的下标：opt，否则 suggest，否则「排除干扰项后第一个」，再不行就第一个非空
     std::string why;
 };
 
-inline Decision decide_core(const Bank& bank, uint32_t qno, const std::string& stem,
-                            const std::vector<std::string>& options) {
+inline Decision decide(const Bank& bank, uint32_t qno, const std::string& stem,
+                       const std::vector<std::string>& options) {
     Decision d;
     auto it = bank.entries.find(qno);
     if (it != bank.entries.end()) {
         const Entry& e = it->second;
+        const char* src = e.verified ? "实测" : "推算";
         if (!e.answer.empty()) {
             for (size_t i = 0; i < options.size(); i++) {
                 if (strip_option(options[i]) == e.answer) {
-                    d.opt = (int)i;
-                    d.why = "题库命中（题号 " + std::to_string(qno) + "，按答案文字找到）";
+                    d.opt = d.guess = (int)i;
+                    d.verified = e.verified;
+                    d.why = std::string("题库命中（题号 ") + std::to_string(qno) + "，" + src + "）";
                     return d;
                 }
             }
-            d.why = "题库里有这个题号，但答案「" + e.answer + "」不在选项里";
-        } else if (e.opt >= 0 && e.opt < (int)options.size()) {
-            d.opt = e.opt;
+            d.why = "题库里有这个题号，但答案「" + e.answer + "」不在选项里；";   // 题目改过：不用旧下标
+        } else if (e.verified && e.opt >= 0 && e.opt < (int)options.size()) {
+            d.opt = d.guess = e.opt;
+            d.verified = true;
             d.why = "题库命中（题号 " + std::to_string(qno) + "，只记了下标）";
             return d;
         }
-    }
-    // 推算题库：只按答案文字找（题目若改过，文字对不上就不用它的下标）
-    auto sit = bank.seed.find(qno);
-    if (sit != bank.seed.end() && !sit->second.answer.empty()) {
-        for (size_t i = 0; i < options.size(); i++) {
-            if (strip_option(options[i]) == sit->second.answer) {
-                d.opt = (int)i;
-                d.inferred = true;
-                d.why = "推算题库命中（题号 " + std::to_string(qno) + "，未实测）";
-                return d;
-            }
-        }
-        if (d.why.empty()) d.why = "推算题库的答案「" + sit->second.answer + "」不在选项里";
     }
 
     std::vector<int> left;
     for (size_t i = 0; i < options.size(); i++)
         if (!is_decoy(bank, options[i])) left.push_back((int)i);
     if (left.size() == 1) {
-        d.suggest = left[0];
-        if (d.why.empty()) d.why = "题库没有；排除了 " + std::to_string(options.size() - 1) + " 个干扰项（书名/人名/名句），只剩这一个";
+        d.suggest = d.guess = left[0];
+        d.why += "题库没有；排除了 " + std::to_string(options.size() - 1) + " 个干扰项，只剩这一个";
         return d;
     }
-    // 排除后还剩几个：挑和题目共有字最多的，并列就不建议
-    int best = -1, best_score = 0;
-    bool tie = false;
-    for (int i : left) {
-        int sc = shared_chars(stem, options[i]);
-        if (sc > best_score) { best = i; best_score = sc; tie = false; }
-        else if (sc == best_score && sc > 0) tie = true;
-    }
-    if (best >= 0 && !tie) {
-        d.suggest = best;
-        if (d.why.empty()) d.why = "题库没有；排除后剩 " + std::to_string(left.size()) + " 个，这个和题目共有 " +
-                                   std::to_string(best_score) + " 个字";
-    } else if (d.why.empty()) {
-        d.why = "题库没有，也看不出哪个对";
-    }
-    return d;
-}
-
-// decide_core 再加上静默模式要用的 guess：题库命中 > 建议 > 排除干扰项后第一个 > 第一个非空选项。
-inline Decision decide(const Bank& bank, uint32_t qno, const std::string& stem,
-                       const std::vector<std::string>& options) {
-    Decision d = decide_core(bank, qno, stem, options);
-    if (d.opt >= 0) d.guess = d.opt;
-    else if (d.suggest >= 0) d.guess = d.suggest;
-    else {
-        for (size_t i = 0; i < options.size() && d.guess < 0; i++)
-            if (!is_decoy(bank, options[i])) d.guess = (int)i;
+    if (!left.empty()) {
+        d.guess = left[0];
+        d.why += "题库没有；排除后还剩 " + std::to_string(left.size()) + " 个，选第一个";
+    } else {
         for (size_t i = 0; i < options.size() && d.guess < 0; i++)
             if (!strip_option(options[i]).empty()) d.guess = (int)i;
-        if (d.guess < 0 && !options.empty()) d.guess = 0;
+        d.why += "题库没有，选项全像干扰项，选第一个非空的";
     }
     return d;
 }
 
-// 答对后记表：题号 -> 答案；其余非空选项进干扰项集合。返回 true = 有变化，需要存盘。
+// 答对后记表：题号 -> 答案，标成「实测」。返回 true = 有变化，需要存盘。干扰项不再在线学（生成时已经全了）。
 inline bool record_pass(Bank& bank, uint32_t qno, const std::string& stem,
                         const std::vector<std::string>& options, int opt) {
     if (opt < 0 || opt >= (int)options.size()) return false;
-    bool changed = false;
     Entry e;
     e.qno = qno;
     e.answer = strip_option(options[opt]);
     e.opt = opt;
     e.stem = stem;
     auto it = bank.entries.find(qno);
-    if (it == bank.entries.end() || it->second.answer != e.answer || it->second.opt != e.opt ||
-        (it->second.stem.empty() && !stem.empty())) {
-        bank.entries[qno] = e;
-        changed = true;
-    }
-    for (size_t i = 0; i < options.size(); i++) {
-        std::string t = strip_option(options[i]);
-        if ((int)i == opt || t.empty()) continue;
-        if (bank.decoys.insert(t).second) changed = true;
-    }
-    return changed;
+    if (it != bank.entries.end() && it->second.verified && it->second.answer == e.answer && it->second.opt == e.opt &&
+        !(it->second.stem.empty() && !stem.empty()))
+        return false;
+    bank.entries[qno] = e;
+    return true;
 }
 
 // ---- 文件读写 ----
@@ -219,8 +151,9 @@ inline std::string strip_bom(const std::string& s) {
     return s.compare(0, 3, "\xEF\xBB\xBF") == 0 ? s.substr(3) : s;
 }
 
-// into_seed = true：读进 bank.seed（boss_bank_seed.tsv），否则读进 bank.entries。
-inline void parse_bank_tsv(Bank& bank, std::istream& in, bool into_seed = false) {
+static const char* const UNVERIFIED = "\xE6\x8E\xA8\xE7\xAE\x97";   // 推算
+
+inline void parse_bank_tsv(Bank& bank, std::istream& in) {
     std::string line;
     bool first = true;
     while (std::getline(in, line)) {
@@ -233,7 +166,8 @@ inline void parse_bank_tsv(Bank& bank, std::istream& in, bool into_seed = false)
         if (f.size() > 1) e.answer = f[1];
         if (f.size() > 2 && !f[2].empty()) e.opt = atoi(f[2].c_str());
         if (f.size() > 3) e.stem = f[3];
-        (into_seed ? bank.seed : bank.entries)[e.qno] = e;
+        if (f.size() > 4) e.verified = trim(f[4]) != UNVERIFIED;
+        bank.entries[e.qno] = e;
     }
 }
 
@@ -249,28 +183,20 @@ inline void parse_decoys(Bank& bank, std::istream& in) {
 }
 
 inline void write_bank_tsv(const Bank& bank, std::ostream& out) {
-    out << "\xEF\xBB\xBF" << "题号\t答案\t下标(0开始)\t题目\n";
+    out << "\xEF\xBB\xBF" << "题号\t答案\t下标(0开始)\t题目\t来源\n";
     for (auto& kv : bank.entries) {
         const Entry& e = kv.second;
-        out << e.qno << '\t' << e.answer << '\t' << (e.opt >= 0 ? std::to_string(e.opt) : "") << '\t' << e.stem << '\n';
+        out << e.qno << '\t' << e.answer << '\t' << (e.opt >= 0 ? std::to_string(e.opt) : "") << '\t' << e.stem << '\t'
+            << (e.verified ? "实测" : UNVERIFIED) << '\n';
     }
 }
 
-inline void write_decoys(const Bank& bank, std::ostream& out) {
-    out << "\xEF\xBB\xBF" << "# boss 题的干扰项（错误选项），一行一个；答对后会自动追加\n";
-    for (auto& t : bank.decoys) out << t << '\n';
-}
-
 // 路径是 std::string（窄字符），控制器里用 _wfopen 时自己转换；这里给测试用。
-inline bool load_files(Bank& bank, const std::string& tsv, const std::string& decoys, const std::string& seed = "") {
+inline bool load_files(Bank& bank, const std::string& tsv, const std::string& decoys) {
     std::ifstream a(tsv, std::ios::binary), b(decoys, std::ios::binary);
     bool opened = a.is_open();
     if (opened) parse_bank_tsv(bank, a);
     if (b.is_open()) parse_decoys(bank, b);
-    if (!seed.empty()) {
-        std::ifstream c(seed, std::ios::binary);
-        if (c.is_open()) parse_bank_tsv(bank, c, true);
-    }
     return opened;
 }
 

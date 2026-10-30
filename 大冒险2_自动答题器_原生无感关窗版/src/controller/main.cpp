@@ -673,8 +673,8 @@ static int solve_question(const std::string& raw_stem, const std::vector<std::st
     return 0;
 }
 
-// ---------------- boss 题（0x46F5）：查题号表 -> 排除干扰项 -> 表里没有就弹窗问人；答对自动记表 ----------------
-// 题库文件：data\boss_bank.tsv、data\boss_decoys.txt、data\boss_bank_seed.tsv（只读；格式见 boss_quiz.h）。
+// ---------------- boss 题（0x46F5）：查题号表 -> 表里没有就排除干扰项；静默自动答；答对自动记成「实测」 ----------------
+// 题库文件：data\boss_bank.tsv、data\boss_decoys.txt（格式见 boss_quiz.h；tools/gen_boss_bank.py 生成）。
 static const DWORD MAP_ANSWER_DELAY_MS = 1500;   // 题库命中后等多久再答（人手答大约 4~10 秒）
 
 struct MapPending {
@@ -720,20 +720,16 @@ static void load_boss_bank() {
         std::istringstream in(b);
         bq::parse_decoys(g_boss, in);
     }
-    std::string c;
-    if (read_file_w(boss_file(L"boss_bank_seed.tsv"), c)) {
-        std::istringstream in(c);
-        bq::parse_bank_tsv(g_boss, in, true);
-    }
-    log_info_w(L"系统", 10, L"已加载 boss 题库: 实测 %zu 道 + 推算 %zu 道（干扰项 %zu 个），都没有的题按排除法自动答",
-               g_boss.entries.size(), g_boss.seed.size(), g_boss.decoys.size());
+    size_t verified = 0;
+    for (auto& kv : g_boss.entries) verified += kv.second.verified;
+    log_info_w(L"系统", 10, L"已加载 boss 题库: %zu 道（实测 %zu、推算 %zu；干扰项 %zu 个），题库没有的题按排除法自动答",
+               g_boss.entries.size(), verified, g_boss.entries.size() - verified, g_boss.decoys.size());
 }
 
 static void save_boss_bank_locked() {
-    std::ostringstream a, b;
+    std::ostringstream a;
     bq::write_bank_tsv(g_boss, a);
-    bq::write_decoys(g_boss, b);
-    if (!write_file_w(boss_file(L"boss_bank.tsv"), a.str()) || !write_file_w(boss_file(L"boss_decoys.txt"), b.str()))
+    if (!write_file_w(boss_file(L"boss_bank.tsv"), a.str()))
         log_info_w(L"boss答题", 12, L"[警告] 题库文件写不进去：%ls", boss_file(L"boss_bank.tsv").c_str());
 }
 
@@ -779,7 +775,7 @@ static void handle_map_question(DWORD pid, uint32_t qno, const std::string& stem
         log_info_w(L"boss决策", 12, L"%ls 题号 %u 没有选项可选，请手动答", tag.c_str(), qno);
         return;
     }
-    const wchar_t* kind = d.inferred ? L"推算题库" : d.opt >= 0 ? L"题库" : d.suggest >= 0 ? L"排除法" : L"[猜的]";
+    const wchar_t* kind = d.opt >= 0 ? (d.verified ? L"题库" : L"题库(推算)") : d.suggest >= 0 ? L"排除法" : L"[猜的]";
     log_info_w(L"boss决策", d.opt >= 0 ? 11 : d.suggest >= 0 ? 14 : 12, L"%ls %ls 选第 %d 项（%ls）-> %ls", tag.c_str(),
                kind, opt + 1, u8_to_ws(options[opt]).c_str(), u8_to_ws(d.why).c_str());
     std::thread([pid, qno, opt] {
@@ -814,7 +810,7 @@ static void handle_map_result(DWORD pid, const std::string& line) {
     if (opt >= 0 && opt < (int)m.options.size()) {
         if (bq::record_pass(g_boss, qno, m.stem, m.options, opt)) {
             save_boss_bank_locked();
-            log_info_w(L"boss答题", 10, L"%ls 题号 %u 测试通过（%ls答的：%ls），已记进题库，现在共 %zu 道",
+            log_info_w(L"boss答题", 10, L"%ls 题号 %u 测试通过（%ls答的：%ls），已记成实测，题库共 %zu 道",
                        tag.c_str(), qno, manual ? L"你手动" : L"自动", u8_to_ws(m.options[opt]).c_str(), g_boss.entries.size());
         } else {
             log_info_w(L"boss答题", 10, L"%ls 题号 %u 测试通过（%ls答的）", tag.c_str(), qno, manual ? L"你手动" : L"自动");
