@@ -15,10 +15,15 @@
 | 步骤 | 在哪 | 做什么 |
 |---|---|---|
 | 收题 | `dll/quizbot_hook.cpp` handle_frame | 收到 0x46F5，跳过 4 字节 char_id，按 0x46F4 的格式解析，丢掉空的第 5 项，推 `{"type":"question","kind":"map",...}` |
-| 决策 | `controller/boss_quiz.h` decide | ① 按题号查 `data\boss_bank.tsv`，按答案文字找选项，选项换了位置也能找到；② 查不到就排除干扰项（书名号、`data\boss_decoys.txt` 里的字），剩一个就建议它，剩几个就挑和题目共有字最多的 |
+| 决策 | `controller/boss_quiz.h` decide | ① 按题号查 `data\boss_bank.tsv`（实测），按答案文字找选项，选项换了位置也能找到；② 再查 `data\boss_bank_seed.tsv`（推算，2601～3000 共 400 题，只按答案文字，控制台标「推算题库」）；③ 都查不到就排除干扰项（书名号、`data\boss_decoys.txt` 里的字），剩一个就建议它，剩几个就挑和题目共有字最多的 |
 | 作答决定 | `controller/main.cpp` handle_map_question | **静默，不弹窗**：一律等 1.5 秒后自动答 `bq::decide` 的 guess（题库命中 > 排除法建议 > 排除干扰项后第一个）。控制台里「[猜的]」标红 |
 | 作答 | `dll/quizbot_hook.cpp` answer_map_quiz | 走游戏自己的提交函数：面板 `[ui+0x10C8]` 开着、题号对得上、+0x1B4==1 时，写 +0x1AC，调 0x224330，再 CloseDialog。只发一次 0x1F05，和手动点完全一样。3 秒内面板没就绪就直接发 0x1F05 包（答题框可能留在屏幕上） |
 | 记表 | `report_map_result` → `handle_map_result` | 收到「测试通过！」后报出题号和下标，自动答的、你手动答的都会报，控制器记进 `boss_bank.tsv`，其余选项进 `boss_decoys.txt` |
+
+推算题库（2026-10-30）：`tools/gen_boss_seed.py` 从 `data/boss_questions_0x46f5_20261030.json`（400 题观察数据）生成 `data/boss_bank_seed.tsv`。
+规律：**正确下标 = (题号 − 2601) ÷ 100 取整**（2601～2700 第 1 项，2701～2800 第 2 项，2801～2900 第 3 项，2901～3000 第 4 项）。
+实测题库 37 道全部符合；400 题里这个位置都是唯一和题目沾边的现代常识选项，另 3 个是古书 / 古人 / 名句。
+和实测冲突时脚本报错不写文件。种子文件只读：答对后照常记进 `boss_bank.tsv`，所以实测题库会慢慢把推算的覆盖成实测。
 
 战斗里的题（0x46F4）流程完全没动。
 

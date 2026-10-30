@@ -4,6 +4,8 @@
 // 题库两个文本文件（放在 启动答题器.exe 旁边的 data\ 里，记事本就能改）：
 //   boss_bank.tsv    每行：题号<TAB>答案文字<TAB>下标(0 开始)<TAB>题目    （第一行是表头）
 //   boss_decoys.txt  每行一个「干扰项」文字（以 # 开头的行是注释）
+//   boss_bank_seed.tsv 同 boss_bank.tsv 格式：题号 2601～3000 按规律推算的答案（tools/gen_boss_seed.py 生成，只读）
+// 查找顺序：boss_bank.tsv（实测）> boss_bank_seed.tsv（推算，按答案文字）> 排除干扰项。
 // 规律（BOSS_QUIZ.md 第 5 节，10/10 符合）：题号是固定题库编号；3 个错误选项来自另一类
 // （古书、古人、诸子、名句），正确项是唯一和题目沾边的那个。
 #pragma once
@@ -26,8 +28,9 @@ struct Entry {
 };
 
 struct Bank {
-    std::map<uint32_t, Entry> entries;
+    std::map<uint32_t, Entry> entries;   // boss_bank.tsv：实测答对过的，答对后自动追加
     std::set<std::string> decoys;
+    std::map<uint32_t, Entry> seed;      // boss_bank_seed.tsv：400 题按规律推算的（tools/gen_boss_seed.py），只读不写
 };
 
 // 去掉首尾空白。
@@ -93,6 +96,7 @@ inline int shared_chars(const std::string& stem, const std::string& option_text)
 
 struct Decision {
     int opt = -1;          // 题库命中时直接答的下标；-1 = 题库里没有
+    bool inferred = false; // opt 来自推算题库（boss_bank_seed.tsv），不是实测
     int suggest = -1;      // 题库没有时的建议下标；-1 = 没把握
     int guess = -1;        // 静默模式最后用的下标：opt，否则 suggest，否则「排除干扰项后第一个」，再不行就 0
     std::string why;
@@ -118,6 +122,19 @@ inline Decision decide_core(const Bank& bank, uint32_t qno, const std::string& s
             d.why = "题库命中（题号 " + std::to_string(qno) + "，只记了下标）";
             return d;
         }
+    }
+    // 推算题库：只按答案文字找（题目若改过，文字对不上就不用它的下标）
+    auto sit = bank.seed.find(qno);
+    if (sit != bank.seed.end() && !sit->second.answer.empty()) {
+        for (size_t i = 0; i < options.size(); i++) {
+            if (strip_option(options[i]) == sit->second.answer) {
+                d.opt = (int)i;
+                d.inferred = true;
+                d.why = "推算题库命中（题号 " + std::to_string(qno) + "，未实测）";
+                return d;
+            }
+        }
+        if (d.why.empty()) d.why = "推算题库的答案「" + sit->second.answer + "」不在选项里";
     }
 
     std::vector<int> left;
@@ -202,7 +219,8 @@ inline std::string strip_bom(const std::string& s) {
     return s.compare(0, 3, "\xEF\xBB\xBF") == 0 ? s.substr(3) : s;
 }
 
-inline void parse_bank_tsv(Bank& bank, std::istream& in) {
+// into_seed = true：读进 bank.seed（boss_bank_seed.tsv），否则读进 bank.entries。
+inline void parse_bank_tsv(Bank& bank, std::istream& in, bool into_seed = false) {
     std::string line;
     bool first = true;
     while (std::getline(in, line)) {
@@ -215,7 +233,7 @@ inline void parse_bank_tsv(Bank& bank, std::istream& in) {
         if (f.size() > 1) e.answer = f[1];
         if (f.size() > 2 && !f[2].empty()) e.opt = atoi(f[2].c_str());
         if (f.size() > 3) e.stem = f[3];
-        bank.entries[e.qno] = e;
+        (into_seed ? bank.seed : bank.entries)[e.qno] = e;
     }
 }
 
@@ -244,11 +262,15 @@ inline void write_decoys(const Bank& bank, std::ostream& out) {
 }
 
 // 路径是 std::string（窄字符），控制器里用 _wfopen 时自己转换；这里给测试用。
-inline bool load_files(Bank& bank, const std::string& tsv, const std::string& decoys) {
+inline bool load_files(Bank& bank, const std::string& tsv, const std::string& decoys, const std::string& seed = "") {
     std::ifstream a(tsv, std::ios::binary), b(decoys, std::ios::binary);
     bool opened = a.is_open();
     if (opened) parse_bank_tsv(bank, a);
     if (b.is_open()) parse_decoys(bank, b);
+    if (!seed.empty()) {
+        std::ifstream c(seed, std::ios::binary);
+        if (c.is_open()) parse_bank_tsv(bank, c, true);
+    }
     return opened;
 }
 

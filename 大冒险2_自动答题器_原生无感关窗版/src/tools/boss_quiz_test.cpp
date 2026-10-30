@@ -148,6 +148,39 @@ int main() {
         CHECK(d.guess == 0, "全是干扰项时退回第一个非空选项");
     }
 
+    printf("[9] 推算题库 data/boss_bank_seed.tsv：实测优先，按答案文字找，文字对不上不用它的下标\n");
+    {
+        bq::Bank bank;
+        CHECK(bq::load_files(bank, "../data/boss_bank.tsv", "../data/boss_decoys.txt", "../data/boss_bank_seed.tsv"), "读得到三个文件");
+        CHECK(bank.seed.size() == 400 && bank.seed.begin()->first == 2601 && bank.seed.rbegin()->first == 3000, "推算 400 道，2601～3000");
+        int agree = 0;
+        for (auto& kv : bank.entries) {
+            auto it = bank.seed.find(kv.first);
+            if (it != bank.seed.end() && it->second.opt == kv.second.opt &&
+                (kv.second.answer.empty() || kv.second.answer == it->second.answer)) agree++;
+        }
+        CHECK(agree == (int)bank.entries.size(), "实测 " + std::to_string(bank.entries.size()) + " 道全部和推算一致（" + std::to_string(agree) + "）");
+        auto s = SAMPLES[6];   // 2916 水星：不在实测题库，推算命中
+        auto d = bq::decide(bank, s.qno, s.stem, s.options);
+        CHECK(!bank.entries.count(2916) && d.opt == 3 && d.inferred, "2916 推算命中 水星");
+        std::vector<std::string> shuffled = {u8"1、水星", u8"2、关汉卿", u8"3、王实甫", u8"4、马致远"};
+        d = bq::decide(bank, s.qno, s.stem, shuffled);
+        CHECK(d.opt == 0 && d.inferred, "换位置照样按文字找到");
+        std::vector<std::string> other = {u8"1、甲", u8"2、乙", u8"3、丙", u8"4、丁"};
+        d = bq::decide(bank, s.qno, s.stem, other);
+        CHECK(d.opt == -1 && !d.inferred, "题目改过、答案不在选项里 -> 不按推算下标答");
+        d = bq::decide(bank, 2866, SAMPLES[5].stem, SAMPLES[5].options);
+        CHECK(d.opt == 2 && !d.inferred, "2866 实测题库优先");
+        bq::Bank seed_only;
+        std::istringstream in("\xEF\xBB\xBF题号\t答案\t下标(0开始)\t题目\n2711\t《义勇军进行曲》\t1\t我国的国歌是什么？\n");
+        bq::parse_bank_tsv(seed_only, in, true);
+        d = bq::decide(seed_only, 2711, u8"我国的国歌是什么？", {u8"1、前燕和东晋", u8"2、《义勇军进行曲》", u8"3、前秦和东晋", u8"4、后赵和东晋"});
+        CHECK(seed_only.entries.empty() && d.opt == 1, "带书名号的答案（排除法会当干扰项）也能推算命中");
+        std::ostringstream out;
+        bq::write_bank_tsv(bank, out);
+        CHECK(out.str().find(u8"\t水星\t") == std::string::npos, "存盘只写实测题库，推算的不进 boss_bank.tsv");
+    }
+
     printf("\n%s (%d failures)\n", fails == 0 ? "ALL TESTS PASSED" : "TESTS FAILED", fails);
     return fails == 0 ? 0 : 1;
 }

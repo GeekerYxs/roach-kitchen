@@ -674,7 +674,7 @@ static int solve_question(const std::string& raw_stem, const std::vector<std::st
 }
 
 // ---------------- boss 题（0x46F5）：查题号表 -> 排除干扰项 -> 表里没有就弹窗问人；答对自动记表 ----------------
-// 题库文件：data\boss_bank.tsv、data\boss_decoys.txt（格式见 boss_quiz.h）。
+// 题库文件：data\boss_bank.tsv、data\boss_decoys.txt、data\boss_bank_seed.tsv（只读；格式见 boss_quiz.h）。
 static const DWORD MAP_ANSWER_DELAY_MS = 1500;   // 题库命中后等多久再答（人手答大约 4~10 秒）
 
 struct MapPending {
@@ -720,8 +720,13 @@ static void load_boss_bank() {
         std::istringstream in(b);
         bq::parse_decoys(g_boss, in);
     }
-    log_info_w(L"系统", 10, L"已加载 boss 题库: %zu 道（干扰项 %zu 个），表里没有的题会弹窗问你",
-               g_boss.entries.size(), g_boss.decoys.size());
+    std::string c;
+    if (read_file_w(boss_file(L"boss_bank_seed.tsv"), c)) {
+        std::istringstream in(c);
+        bq::parse_bank_tsv(g_boss, in, true);
+    }
+    log_info_w(L"系统", 10, L"已加载 boss 题库: 实测 %zu 道 + 推算 %zu 道（干扰项 %zu 个），都没有的题按排除法自动答",
+               g_boss.entries.size(), g_boss.seed.size(), g_boss.decoys.size());
 }
 
 static void save_boss_bank_locked() {
@@ -774,7 +779,7 @@ static void handle_map_question(DWORD pid, uint32_t qno, const std::string& stem
         log_info_w(L"boss决策", 12, L"%ls 题号 %u 没有选项可选，请手动答", tag.c_str(), qno);
         return;
     }
-    const wchar_t* kind = d.opt >= 0 ? L"题库" : d.suggest >= 0 ? L"排除法" : L"[猜的]";
+    const wchar_t* kind = d.inferred ? L"推算题库" : d.opt >= 0 ? L"题库" : d.suggest >= 0 ? L"排除法" : L"[猜的]";
     log_info_w(L"boss决策", d.opt >= 0 ? 11 : d.suggest >= 0 ? 14 : 12, L"%ls %ls 选第 %d 项（%ls）-> %ls", tag.c_str(),
                kind, opt + 1, u8_to_ws(options[opt]).c_str(), u8_to_ws(d.why).c_str());
     std::thread([pid, qno, opt] {

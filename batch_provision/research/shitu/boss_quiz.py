@@ -9,8 +9,8 @@
      在游戏窗口线程上调 提交函数(面板) 和 CloseDialog(父窗口, 面板, 0)（DLL 命令 106），客户端自己发 0x1F05。
      因为下标写进了面板，答题器 DLL 收到「测试通过！」时照样能读到，自动记进题库。
 选哪项：和答题器 controller/boss_quiz.h 同一套规则、同一份题库文件
-  （大冒险2_自动答题器_原生无感关窗版/data/boss_bank.tsv + boss_decoys.txt）：
-  题库按题号命中 > 排除干扰项（书名号 / 记录过的错误选项）后只剩一个或共有字最多 > 猜第一个非干扰项。
+  （大冒险2_自动答题器_原生无感关窗版/data/boss_bank.tsv + boss_decoys.txt + boss_bank_seed.tsv）：
+  实测题库按题号命中 > 推算题库（2601～3000 共 400 题，按答案文字）命中 > 排除干扰项（书名号 / 记录过的错误选项）后只剩一个或共有字最多 > 猜第一个非干扰项。
 协议和内存见 BOSS_QUIZ.md；离线测试 tests/test_boss_quiz.py（batch_provision/tests）。
 """
 import ctypes
@@ -111,28 +111,34 @@ def shared_chars(stem, option):
                 if ch in in_stem and ('一' <= ch <= '鿿' or ch.isdigit())})
 
 
-def load_bank(directory=BANK_DIR):
-    """-> ({题号: (答案文字, 下标)}, {干扰项})。文件不在就是空的。"""
-    entries, decoys = {}, set()
-    tsv, dec = Path(directory) / 'boss_bank.tsv', Path(directory) / 'boss_decoys.txt'
-    if tsv.is_file():
-        for line in tsv.read_text(encoding='utf-8-sig').splitlines():
+def _read_tsv(path):
+    entries = {}
+    if path.is_file():
+        for line in path.read_text(encoding='utf-8-sig').splitlines():
             f = line.split('\t')
             if not f or not f[0].strip().isdigit():
                 continue
             opt = int(f[2]) if len(f) > 2 and f[2].strip().lstrip('-').isdigit() else -1
             entries[int(f[0])] = ((f[1] if len(f) > 1 else '').strip(), opt)
+    return entries
+
+
+def load_bank(directory=BANK_DIR):
+    """-> ({题号: (答案文字, 下标)} 实测, {干扰项}, {题号: (答案文字, 下标)} 推算)。文件不在就是空的。"""
+    decoys = set()
+    dec = Path(directory) / 'boss_decoys.txt'
     if dec.is_file():
         for line in dec.read_text(encoding='utf-8-sig').splitlines():
             t = line.strip()
             if t and not t.startswith('#'):
                 decoys.add(t)
-    return entries, decoys
+    return _read_tsv(Path(directory) / 'boss_bank.tsv'), decoys, _read_tsv(Path(directory) / 'boss_bank_seed.tsv')
 
 
 def decide(bank, qno, stem, options):
-    """-> (下标, 依据)。下标总是有效（静默模式一定要选一个）；没有选项时 (-1, ...)。"""
-    entries, decoys = bank
+    """-> (下标, 依据)。下标总是有效（静默模式一定要选一个）；没有选项时 (-1, ...)。
+    bank = (实测, 干扰项) 或 (实测, 干扰项, 推算)。"""
+    entries, decoys, seed = (tuple(bank) + ({},))[:3]
     note = ''
     if qno in entries:
         answer, opt = entries[qno]
@@ -143,7 +149,13 @@ def decide(bank, qno, stem, options):
             note = f'题库答案「{answer}」不在选项里；'
         elif 0 <= opt < len(options):
             return opt, f'题库命中（题号 {qno}，只记了下标）'
-    left = [i for i, o in enumerate(options) if not is_decoy(decoys, o)]
+    answer = seed.get(qno, ('', -1))[0]
+    if answer:                               # 推算的只按答案文字找：题目改过就不用它的下标
+        for i, o in enumerate(options):
+            if strip_option(o) == answer:
+                return i, note + f'推算题库命中（题号 {qno}，未实测）'
+        note += f'推算答案「{answer}」不在选项里；'
+    left =[i for i, o in enumerate(options) if not is_decoy(decoys, o)]
     if len(left) == 1:
         return left[0], note + f'排除了 {len(options) - 1} 个干扰项'
     scores = sorted(((shared_chars(stem, options[i]), i) for i in left), reverse=True)

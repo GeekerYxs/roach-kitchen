@@ -1,6 +1,7 @@
 """Unit tests for research/shitu/boss_quiz.py (no game needed): panel text parsing, the answer choice (same rules as
 the quizbot's controller/boss_quiz.h) on the 12 boss questions recorded 2026-10-26/27, and solve()'s
 「let the quizbot answer first, otherwise answer here」 flow with a fake panel."""
+import json
 import sys
 import tempfile
 import unittest
@@ -59,13 +60,41 @@ class Parsing(unittest.TestCase):
             Path(d, 'boss_bank.tsv').write_text('题号\t答案\t下标(0开始)\t题目\n2866\t阿拉伯半岛\t2\t世界上最大的半岛是什么？\n'
                                                 '2932\t\t3\t\n', encoding='utf-8-sig')
             Path(d, 'boss_decoys.txt').write_text('# 注释\n《诗经》\n王安石\n', encoding='utf-8-sig')
-            entries, decoys = bq.load_bank(d)
+            Path(d, 'boss_bank_seed.tsv').write_text('题号\t答案\t下标(0开始)\t题目\n2916\t水星\t3\t?\n', encoding='utf-8-sig')
+            entries, decoys, seed = bq.load_bank(d)
         self.assertEqual(entries, {2866: ('阿拉伯半岛', 2), 2932: ('', 3)})
         self.assertEqual(decoys, {'《诗经》', '王安石'})
+        self.assertEqual(seed, {2916: ('水星', 3)})
 
     def test_missing_bank_is_empty(self):
         with tempfile.TemporaryDirectory() as d:
-            self.assertEqual(bq.load_bank(d), ({}, set()))
+            self.assertEqual(bq.load_bank(d), ({}, set(), {}))
+
+    def test_seed_by_text_and_verified_first(self):
+        seed = {2916: ('水星', 3), 2866: ('错的', 0)}
+        opts = ['1、水星', '2、关汉卿', '3、王实甫', '4、马致远']
+        opt, why = bq.decide(({}, set(), seed), 2916, '?', opts)
+        self.assertEqual(opt, 0)
+        self.assertIn('推算', why)
+        opt, why = bq.decide(({}, set(), seed), 2916, '?', ['1、甲', '2、乙', '3、丙', '4、丁'])
+        self.assertNotIn('推算题库命中', why)                     # 文字对不上：不用推算下标
+        opt, why = bq.decide(({2866: ('阿拉伯半岛', 2)}, set(), seed), 2866, '?',
+                             ['1、《诗经》', '2、《全唐诗》', '3、阿拉伯半岛', '4、《诗品》'])
+        self.assertEqual((opt, '推算' in why), (2, False))
+
+    def test_repo_seed_covers_all_400_and_agrees_with_verified(self):
+        entries, decoys, seed = bq.load_bank()
+        self.assertEqual(sorted(seed), list(range(2601, 3001)))
+        for qno, (answer, opt) in entries.items():
+            if qno in seed:
+                self.assertEqual(seed[qno][1], opt, qno)
+                if answer:
+                    self.assertEqual(seed[qno][0], answer, qno)
+        data = json.loads((bq.BANK_DIR / 'boss_questions_0x46f5_20261030.json').read_text(encoding='utf-8'))
+        for q in data:
+            v = q['variants'][0]
+            opt, why = bq.decide((entries, decoys, seed), q['qno'], v['stem'], v['options'])
+            self.assertEqual(opt, (q['qno'] - 2601) // 100, (q['qno'], why))
 
 
 class Decide(unittest.TestCase):
