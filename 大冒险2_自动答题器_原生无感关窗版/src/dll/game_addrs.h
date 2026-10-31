@@ -21,6 +21,7 @@ constexpr uint32_t RVA_CLOSE_DIALOG = 0x3D1B50;  // thiscall(parent, panel, 0)�
 // 地址不对时 native_unlock 会自己按特征码找）
 constexpr uint32_t RVA_UNLOCK_FIGHT  = 0x61B40;  // 战斗辅助页「（待激活）」判断           (2.100: 0x5F570, 2.97: 0x5EA20)
 constexpr uint32_t RVA_UNLOCK_GATHER = 0x6188F;  // 自动采集页「（待激活）」判断           (2.100: 0x5F2BF, 2.97: 0x5E76F)
+constexpr uint32_t RVA_UNLOCK_TASK   = 0x61181;  // 自动任务页「（待激活）」判断 (2.101)
 
 // 两个答题面板（同一个界面类），见 batch_provision/research/shitu/BOSS_QUIZ.md
 constexpr uint32_t UI_QUIZ_BATTLE = 0x12F4;  // "Question"：战斗里的题 0x46F4 / 0x1F04       (2.100: 0x10C4)
