@@ -17,7 +17,8 @@ import sys
 import time
 
 COOLDOWN = 3600 + 60           # user: once per hour; a minute of margin for clock / server rounding
-NEAR = 200                     # px: a team stops spread around the leader's goal
+NEAR = 300                     # px: a team stops in a line behind the leader's goal (2026-10-31 pa: leader 34 px
+                               # short, 5th of 5 at 218 px -> 200 was too tight)
 ARRIVE = 60                    # px from the record after a return
 
 
@@ -94,7 +95,7 @@ def record(map_id, xy, names):
         else:
             bad.append(c.name)
     if bad:
-        raise t.Stop(f'飞鞋没记上: {" ".join(bad)}（地图 {map_id} 是迷宫就记不了）')
+        raise t.Stop(f'飞鞋没记上: {" ".join(bad)}（不在点附近，或地图 {map_id} 是迷宫记不了）')
 
 
 def fly(map_id, xy, names):

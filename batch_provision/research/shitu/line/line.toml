@@ -1,7 +1,8 @@
 # 师徒产线 v5 总控（python -X utf8 -m line）的设置。说明见 line/__main__.py 文件头和 docs/SHITU_LINE.md 第 8 节。
-teams = ["oa", "ob", "oc"]    # 这次跑哪几队（队名 = 下面 [team.<名>]）；2026-10-29 经验地图三队对照（EXP_MAP_TRIAL.md）
+teams = ["pa", "pb"]          # 这次跑哪几队（队名 = 下面 [team.<名>]）；2026-10-31 B+ 整批实测（飞鞋 / 掉线自愈 / fresh_dll）
+                              # 2026-10-29 经验地图三队对照是 ["oa", "ob", "oc"]（EXP_MAP_TRIAL.md）
                               # 第 6 轮（2026-10-28 夜）是 ["a", "b", "c"] + batches = [4]
-batches = [1, 2, 3]           # 2026-10-30 用户：当前批跑完就停（oa/ob 在跑第 4 批，oc 跑完第 3 批不再开第 4 批）
+batches = [1]                 # 2026-10-31 只跑 1 批；2026-10-30 oa/ob/oc 是 [1, 2, 3]
 retries = 3                   # 一步失败后：清场（回城 / 离队）+ 5 秒，再跑，最多几次
 recover_tries = 2             # 还不行：徒弟全部关窗重登 + 全员回城 + 等 recover_wait 秒，再跑，最多几次
 recover_wait = 120
@@ -100,3 +101,17 @@ levels = { lunhui = 12, maze1 = 16, maze2 = 24, bazhen = 24, cave = 28 }
 route = "bplus"
 tower2 = "38+200000"
 batches = [1]
+
+# ---- 2026-10-31 B+ 整批实测（默认 B+ 设置，看飞鞋 / 掉线自愈 / fresh_dll）：账号 cap49–56。
+# cap49–72 的第 1、2 槽是 Gemini 10-30 测试建的 亿万A1–F8（两批都出师了），这里用第 3 槽、新名字 亿万G / 亿万H
+[team.pa]
+master = "曾经不曾"
+accounts = 49
+names = "亿万G"
+gold = 50000
+
+[team.pb]
+master = "伏地魔1"
+accounts = 53
+names = "亿万H"
+gold = 50000

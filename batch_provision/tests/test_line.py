@@ -581,6 +581,9 @@ class BPlus(unittest.TestCase):
         self.assertIsNone(S.why_not('a', (141, 3410, 252), 1000, 1000 + S.COOLDOWN, *door))
         self.assertEqual(S.cooldown_left(None, 5), 0)
         self.assertGreaterEqual(S.COOLDOWN, 3600)
+        # 2026-10-31 pa: a team of 5 stops in a line, the last one 218 px from the door; it must still count
+        for x, y in ((3376, 248), (3326, 251), (3288, 252), (3238, 256), (3192, 260)):
+            self.assertTrue(S.record_ok((141, x, y), *door), (x, y))
 
     def test_reached(self):
         from line import ops
