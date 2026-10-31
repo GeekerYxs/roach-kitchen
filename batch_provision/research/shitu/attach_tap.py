@@ -3,7 +3,8 @@
     python -X utf8 research/shitu/attach_tap.py [role ...]      (default: mm01 欧皇)
 
 What it does, per window:
-  1. copies bin/provision_native.dll to research/shitu/bin/ (so its tap files land in research/shitu/runtime/)
+  1. copies bin/provision_native.dll to research/shitu/bin/ (so its tap files land in research/shitu/runtime/),
+     named by its content (fresh_dll)
   2. creates the DLL's status block Local\\MXBLLoginReplica_<pid> (normally made by launcher.exe)
   3. loads the DLL into the game (remote LoadLibraryW, same as launcher.exe inject())
   4. marks the status block stage 8 (= in world) and sends DLL command 100 (arm) to the window
@@ -13,8 +14,8 @@ The DLL cannot be unloaded again; it goes away when the game window is closed. T
 (it only runs on command 13, which nothing sends).
 """
 import ctypes
+import hashlib
 import re
-import shutil
 import struct
 import sys
 import time
@@ -133,14 +134,26 @@ def attach(role, pid, dll):
     return locals().get('mapping')
 
 
+def fresh_dll(src=None, bin_dir=None):
+    """bin/provision_native.dll copied to research/shitu/bin/ under a name from its content (the DLL writes its tap
+    files to <own dir>/../runtime, the name does not matter). A copy is never overwritten: a game that loaded it keeps
+    the file locked, and one fixed name kept the first copy for ever (2026-10-31: research/shitu/bin held the 10-26
+    DLL from before the 10-29 game update -> 亿万1 got it and arm was refused)."""
+    src = src or ROOT / 'bin' / 'provision_native.dll'
+    bin_dir = bin_dir or BIN
+    data = src.read_bytes()
+    dll = bin_dir / f'provision_native_{hashlib.md5(data).hexdigest()[:8]}.dll'
+    if not dll.is_file():
+        bin_dir.mkdir(parents=True, exist_ok=True)
+        tmp = dll.with_suffix('.tmp')
+        tmp.write_bytes(data)
+        tmp.replace(dll)
+    return dll
+
+
 def main(roles):
-    BIN.mkdir(exist_ok=True)
     RUNTIME.mkdir(exist_ok=True)
-    dll = BIN / 'provision_native.dll'
-    try:
-        shutil.copy2(ROOT / 'bin' / 'provision_native.dll', dll)
-    except PermissionError:            # a game already loaded this copy: it is locked, use it as it is
-        print(f'{dll} 正被游戏占用，直接用现有的这份')
+    dll = fresh_dll()
     found = find_roles(roles)
     for r in roles:
         if r not in found:

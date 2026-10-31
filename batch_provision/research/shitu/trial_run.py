@@ -61,13 +61,8 @@ class Client:
             raise Stop(f'{name} 的窗口没找到')
         self.name, self.pid = name, found[name][0]
         if not native.has_dll(self.pid) or native.read_status(self.pid)['stage'] != native.WORLD_STAGE:
-            attach_tap.BIN.mkdir(exist_ok=True)
             attach_tap.RUNTIME.mkdir(exist_ok=True)
-            dll = attach_tap.BIN / 'provision_native.dll'
-            if not dll.is_file():
-                import shutil
-                shutil.copy2(attach_tap.ROOT / 'bin' / 'provision_native.dll', dll)
-            attach_tap.attach(name, self.pid, dll)
+            attach_tap.attach(name, self.pid, attach_tap.fresh_dll())
         st = native.read_status(self.pid)
         self.mem = ProcessMemory(self.pid, module_base(self.pid))
         self.game = Game(native.Session(self.pid, st['hwnd'], st['game_base']), self.mem)

@@ -11,7 +11,6 @@ Restartable: every loop reads the state, does at most one action and waits for i
 Windows not started by our launcher get the DLL first (research/shitu/attach_tap.py, also records packets).
 """
 import argparse
-import shutil
 import sys
 import threading
 import time
@@ -21,8 +20,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / 'shitu'))
 
-from common import BIN, ROOT, find_roles      # noqa: E402  (puts batch_provision/ on sys.path)
-from attach_tap import attach                  # noqa: E402
+from common import find_roles                 # noqa: E402  (puts batch_provision/ on sys.path)
+from attach_tap import attach, fresh_dll       # noqa: E402
 from provisioner import native, world          # noqa: E402
 from provisioner.game import Game              # noqa: E402
 from provisioner.memory import ProcessMemory   # noqa: E402
@@ -154,10 +153,7 @@ def run_all(names, make_step):
     if missing:
         print('没找到窗口:', missing)
         return 1
-    dll = BIN / 'provision_native.dll'
-    if not dll.is_file():
-        dll.parent.mkdir(exist_ok=True)
-        shutil.copy2(ROOT / 'bin' / 'provision_native.dll', dll)
+    dll = fresh_dll()
     for n in names:
         attach(n, found[n][0], dll)           # no-op re-arm when the DLL is already there
     results = {}
