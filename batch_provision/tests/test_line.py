@@ -539,6 +539,49 @@ class BPlus(unittest.TestCase):
         self.assertIsNone(next_batch(cfg, {'done': [1]}, 'bp'))
         self.assertEqual(next_batch(cfg, {'done': [1]}, 'oa'), 2)
 
+    def test_shoe_records_on_the_way_and_flies_next_time(self):
+        """飞鞋 (user 2026-10-30): recorded at a field entrance the team walks to anyway, used on the next crossing;
+        a fly that can't happen is soft and the old walk follows; v5 has no 飞鞋."""
+        steps = dict((s.name, s) for s in R.ROUTE_BPLUS)
+
+        def heads(name):
+            return [(c.args[0], c.args[1] if c.args[0] == 'shoe_point.py' else None) for c in steps[name].cmds]
+        cave, snake, corpse, king = heads('cave'), heads('snake'), heads('corpse'), heads('king')
+        self.assertLess(cave.index(('go_goal.py', None)), cave.index(('shoe_point.py', 'record')))
+        self.assertLess(cave.index(('shoe_point.py', 'record')), cave.index(('go_cave.py', None)))
+        self.assertLess(snake.index(('shoe_point.py', 'fly')), snake.index(('go_cave.py', None)))
+        self.assertLess(corpse.index(('desert_go.py', None)), corpse.index(('shoe_point.py', 'record')))
+        self.assertLess(corpse.index(('shoe_point.py', 'record')), corpse.index(('ruin_go.py', None)))
+        self.assertLess(king.index(('shoe_point.py', 'fly')), king.index(('pp_chain.py', None)))
+        pp = next(c for c in steps['king'].cmds if c.args[0] == 'pp_chain.py')
+        self.assertEqual(pp.when, 'master_off 170')
+        for name in ('cave', 'snake', 'corpse', 'king'):
+            for c in steps[name].cmds:
+                if c.args[0] == 'shoe_point.py':
+                    self.assertTrue(c.soft, name)
+                    self.assertEqual(c.args[-2:], ('{M}', '{APPS}'), name)    # the master first
+        door = {'cave': R.CAVE_DOOR, 'snake': R.CAVE_DOOR, 'corpse': R.RUIN_DOOR, 'king': R.RUIN_DOOR}
+        for name, d in door.items():
+            c = next(c for c in steps[name].cmds if c.args[0] == 'shoe_point.py')
+            self.assertEqual(c.args[2:5], d, name)
+        self.assertFalse(any(c.args[0] == 'shoe_point.py' for s in R.ROUTE for c in s.cmds))
+        b = plan.Batch('a', 1)
+        fly = next(c for c in steps['king'].cmds if c.args[0] == 'shoe_point.py')
+        self.assertEqual(R.expand(fly, b, python=())[0][:5], ['shoe_point.py', 'fly', '170', '3068', '192'])
+        self.assertEqual(R.expand(fly, b, python=())[0][5], b.master)
+
+    def test_shoe_rules(self):
+        import shoe_point as S
+        door = (141, (3410, 252))
+        self.assertIsNone(S.why_not('a', (141, 3450, 300), None, 1000, *door))
+        self.assertIn('不在地图', S.why_not('a', (750, 3410, 252), None, 1000, *door))    # a maze: never recorded
+        self.assertIn('不在地图', S.why_not('a', None, None, 1000, *door))
+        self.assertIn('不在地图', S.why_not('a', (141, 3410, 900), None, 1000, *door))
+        self.assertIn('分', S.why_not('a', (141, 3410, 252), 1000, 1000 + 1800, *door))
+        self.assertIsNone(S.why_not('a', (141, 3410, 252), 1000, 1000 + S.COOLDOWN, *door))
+        self.assertEqual(S.cooldown_left(None, 5), 0)
+        self.assertGreaterEqual(S.COOLDOWN, 3600)
+
     def test_reached(self):
         from line import ops
         mem = unittest.mock.Mock()
