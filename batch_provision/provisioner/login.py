@@ -103,6 +103,7 @@ def _report(account, ok, code):
 def login(settings, account, runtime, throttle, log, kill_on_failure=False):
     """Start a client and stop on the role-selection screen; retry failures (no role is touched yet)."""
     attempts = settings.login_retries + 1
+    runtime.mkdir(parents=True, exist_ok=True)   # a fresh clone has no runtime/: the launcher cannot write its result
     for attempt in range(1, attempts + 1):
         result_file = runtime / f'launch_{account.name}_{attempt}.json'
         try:

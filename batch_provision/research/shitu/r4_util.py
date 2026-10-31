@@ -193,6 +193,17 @@ def keep_tap(name, pid):
     mark(name, f'tap_{pid}', pid=pid)
 
 
+def close_window(name, pid):
+    """Close one role's window by pid alone: WM_CLOSE through the DLL's status block, or terminate the process when
+    the DLL is not there."""
+    from provisioner import native
+    keep_tap(name, pid)
+    if not native.has_dll(pid):
+        return 'terminated' if native.kill(pid) else 'kill failed'
+    st = native.read_status(pid)
+    return native.close(native.Session(pid, st['hwnd'], st['game_base']))
+
+
 def offline(name):
     """True when the role's window is up but it is out of the world: connection gone (socket -1, nothing can be
     sent) or no world state any more (back at the login screen)."""
@@ -228,11 +239,8 @@ def windows(accounts):
         t.say(f'师傅 {MASTERS[0]} 掉线了（窗口在、网络断开），需要人工关窗重新登录')
         raise SystemExit(2)
     dead = [n for n in APPRENTICES if n in found and offline(n)]
-    for n in dead:
-        c = t.Client(n)
-        keep_tap(n, c.pid)
-        st = native.read_status(c.pid)
-        t.say(f'[{n}] 掉线了，关窗重登 {native.close(native.Session(c.pid, st["hwnd"], st["game_base"]))}')
+    for n in dead:                   # no t.Client here: it reads char_id from the world, gone when offline (2026-10-31 亿万A4)
+        t.say(f'[{n}] 掉线了，关窗重登 {close_window(n, found[n][0])}')
     if dead:
         time.sleep(3)
     lost = [n for n in APPRENTICES if n not in found or n in dead]
@@ -253,15 +261,11 @@ def relog(accounts, names=None):
     clients that look fine but are frozen (2026-10-28 亿万34 stuck mid map change for 20 minutes); team_npc uses it
     for one apprentice an NPC keeps ignoring."""
     from common import find_roles
-    from provisioner import native
     names = tuple(names or APPRENTICES)
     found = find_roles(names)
     for n in names:
         if n in found:
-            pid = found[n][0]
-            keep_tap(n, pid)
-            st = native.read_status(pid)
-            t.say(f'[{n}] 关窗重登: {native.close(native.Session(pid, st["hwnd"], st["game_base"]))}')
+            t.say(f'[{n}] 关窗重登: {close_window(n, found[n][0])}')
     time.sleep(3)
     windows(accounts)
 
