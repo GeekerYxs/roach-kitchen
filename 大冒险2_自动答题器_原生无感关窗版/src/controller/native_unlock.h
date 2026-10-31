@@ -1,4 +1,4 @@
-// controller/native_unlock.h — 解锁游戏自带「辅助工具」里的战斗辅助页和自动采集页（内存补丁，不改 exe 文件）。
+// controller/native_unlock.h — 解锁游戏自带辅助工具的战斗、采集和自动任务界面（仅进程内补丁）。
 //
 // 来源：D:\Codes\Gemini_Prj\smsm2_game\战斗辅助原生界面解锁工具（2.97 版，Gemini 写的）。按项目规矩只拿事实：
 // 两段特征码和补丁字节。2026-10-28 在 2.100 的 WAATClient.exe 磁盘文件里核对过：两段特征码在 .text 里各只出现一次，
@@ -9,6 +9,8 @@
 //         -> bb 01 00 00 00 mov ebx,1 / 90 nop / 83 c3 18      （ebx 恒非 0 = 整页启用）
 //   采集: 75 06 jne / 33 c0 / 33 ff xor edi,edi / eb 05 jmp / 8d 79 18 lea edi,[ecx+0x18]
 //         -> 33 c0 / 6a 01 5f (edi=1) / eb 06 / 90 / 8d 79 18   （跳转目标和原来一样，edi 恒非 0）
+//   任务: 75 04 jne / 33 f6 xor esi,esi / eb 03 jmp / 8d 71 18 lea esi,[ecx+0x18]
+//         -> be 01 00 00 00 / 90 90 90 90  （esi=1，跳过原来的 lea）
 // 只改客户端界面的启用判断；保存设置时发给服务器的还是游戏自己的包。
 //
 // 定位顺序：game_addrs.h 里的 RVA -> 整个模块扫描特征码（游戏小更新挪了地址也能找到）。已经是补丁后的字节 = 已解锁。
@@ -30,12 +32,14 @@ struct PatchSpec {
     size_t write_len;                    // 实际要写的前几个字节
 };
 
-inline std::vector<PatchSpec> default_specs(uint32_t fight_rva, uint32_t gather_rva) {
+inline std::vector<PatchSpec> default_specs(uint32_t fight_rva, uint32_t gather_rva, uint32_t task_rva) {
     return {
         {"战斗辅助", fight_rva, {0x75, 0x04, 0x33, 0xDB, 0xEB, 0x03, 0x83, 0xC3, 0x18},
                                 {0xBB, 0x01, 0x00, 0x00, 0x00, 0x90, 0x83, 0xC3, 0x18}, 6},
         {"自动采集", gather_rva, {0x75, 0x06, 0x33, 0xC0, 0x33, 0xFF, 0xEB, 0x05, 0x8D, 0x79, 0x18},
                                  {0x33, 0xC0, 0x6A, 0x01, 0x5F, 0xEB, 0x06, 0x90, 0x8D, 0x79, 0x18}, 8},
+        {"自动任务", task_rva, {0x75, 0x04, 0x33, 0xF6, 0xEB, 0x03, 0x8D, 0x71, 0x18, 0x83, 0xBB, 0xC8, 0x03, 0x00, 0x00, 0x00},
+                               {0xBE, 0x01, 0x00, 0x00, 0x00, 0x90, 0x90, 0x90, 0x90, 0x83, 0xBB, 0xC8, 0x03, 0x00, 0x00, 0x00}, 9},
     };
 }
 
@@ -67,7 +71,7 @@ inline long long find_patch(const uint8_t* buf, size_t n, const PatchSpec& s, St
 #ifdef _WIN32
 #include <windows.h>
 #include <cstdio>
-// 给一个游戏进程打两个补丁。-> 一行日志，例如「战斗辅助: 已解锁(+0x5F570) | 自动采集: 已解锁(+0x5F2BF)」；all_ok = 两个都处于解锁状态。
+// 给一个游戏进程打三个补丁。-> 一行日志，例如「战斗辅助: 已解锁(+0x5F570) | 自动采集: 已解锁(+0x5F2BF)」；all_ok = 三个都处于解锁状态。
 inline std::string unlock_process(HANDLE h, uintptr_t base, uint32_t mod_size, const std::vector<PatchSpec>& specs,
                                   bool& all_ok) {
     all_ok = true;

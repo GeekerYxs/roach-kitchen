@@ -5,7 +5,7 @@
 // 3. 自动多开发现与注入守护（自动为所有 WAATClient.exe 注入 quizbot_hook.dll）
 // 4. 内置 221 道精选题库与动态算术求解引擎，自适应乱序选项文本匹配
 // 5. 联动游戏主 UI 线程原生 CloseDialog (基址 + RVA_CLOSE_DIALOG) 瞬间关窗，零延迟、不抢鼠标、无残留
-// 6. 每个游戏窗口解锁自带「辅助工具」的战斗辅助页和自动采集页（native_unlock.h，内存补丁；--no-unlock 关掉）
+// 6. 每个游戏窗口解锁自带辅助工具的战斗、采集及自动任务界面（native_unlock.h；--no-unlock 关掉）
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <tlhelp32.h>
@@ -1108,7 +1108,7 @@ static bool unlock_native_ui(DWORD pid) {
         return false;
     }
     bool all_ok = false;
-    std::string msg = nu::unlock_process(h, base, size, nu::default_specs(ga::RVA_UNLOCK_FIGHT, ga::RVA_UNLOCK_GATHER), all_ok);
+    std::string msg = nu::unlock_process(h, base, size, nu::default_specs(ga::RVA_UNLOCK_FIGHT, ga::RVA_UNLOCK_GATHER, ga::RVA_UNLOCK_TASK), all_ok);
     CloseHandle(h);
     log_info_w(L"解锁", all_ok ? 10 : 12, L"%ls 辅助工具 %ls", get_client_tag(pid).c_str(), u8_to_ws(msg).c_str());
     return all_ok;
@@ -1165,7 +1165,7 @@ int main(int argc, char** argv) {
 
     std::set<DWORD> managed_pids;
     std::map<DWORD, int> unlock_tries;     // pid -> 解锁试了几次（成功后记成 -1）
-    log_info_w(L"解锁", 14, do_unlock ? L"辅助工具界面解锁: 开（战斗辅助 + 自动采集；启动参数 --no-unlock 关掉）"
+    log_info_w(L"解锁", 14, do_unlock ? L"辅助工具界面解锁: 开（战斗辅助 + 自动采集 + 自动任务；启动参数 --no-unlock 关掉）"
                                         : L"辅助工具界面解锁: 关（--no-unlock）");
 
     while (true) {
