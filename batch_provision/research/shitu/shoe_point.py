@@ -51,6 +51,12 @@ def used_at(name):
     return load_state(_used_file()).get(name, {}).get('used', {}).get('at')
 
 
+def mark_used(name, to):
+    """One return spent (take224.to_boss uses the 大个王 record too: the hour must count it)."""
+    from bai_shi import mark
+    mark(name, 'used', path=_used_file(), at=time.time(), to=list(to))
+
+
 def _settle(c, t):
     """Out of any battle and standing still (the record takes the SERVER position, shoe_dagewang.py)."""
     from quanshou import flee
@@ -129,7 +135,7 @@ def fly(map_id, xy, names):
                 msg += '，已飞的人和没飞的人都回城'
             raise t.Stop(msg)
         flown.append(c.name)
-        mark(c.name, 'used', path=_used_file(), at=time.time(), to=list(rec))
+        mark_used(c.name, rec)
         t.say(f'[{c.name}] 飞鞋到了 {rec}')
 
 

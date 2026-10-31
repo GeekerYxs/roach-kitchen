@@ -13,6 +13,7 @@ import math
 import sys
 import time
 
+import shoe_point
 import trial_run as t
 from common import APPRENTICES, MASTERS
 from bai_shi import mark
@@ -81,12 +82,16 @@ def to_boss(c):
     if st.map_id == MAP and math.dist((st.x, st.y), BOSS_XY) <= NEAR:
         return
     rec = w.read_shoe_record(c.mem)
-    if rec and rec[0] == MAP and math.dist(rec[1:], BOSS_XY) <= 300:
+    left = shoe_point.cooldown_left(shoe_point.used_at(c.name), time.time())
+    if rec and rec[0] == MAP and math.dist(rec[1:], BOSS_XY) <= 300 and left:
+        t.say(f'[{c.name}] 飞鞋还要 {left // 60} 分才能再用，走去大个王')
+    elif rec and rec[0] == MAP and math.dist(rec[1:], BOSS_XY) <= 300:
         t.say(f'[{c.name}] 用飞鞋回大个王（记录点 {rec}）')
         c.game.shoe_return()
         time.sleep(1.5)
         st = c.world()
         if math.dist((st.x, st.y), rec[1:]) <= 30:
+            shoe_point.mark_used(c.name, rec)      # shoe_point.fly (B+ snake / king) checks the same hour
             t.say(f'[{c.name}] 飞鞋到了 ({st.x:.0f},{st.y:.0f})')
         else:
             t.say(f'[{c.name}] 飞鞋没生效（现在 {st.x:.0f},{st.y:.0f}），走过去')
