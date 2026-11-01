@@ -582,6 +582,26 @@ class BPlus(unittest.TestCase):
             self.assertFalse(any('--stay' in c.args for c in v5[name].cmds), name)
         self.assertEqual([c.when for c in bp['snake'].cmds if c.args[0] == 'take224.py'], ['master_on 20'])
 
+    def test_team_tp_in_cave_and_snake(self):
+        """2026-11-01 (user): the team teleports to 无尽2路口 (team_tp.py) instead of walking map 20; soft, the walk
+        stays behind it; v5 unchanged."""
+        bp = dict((s.name, s) for s in R.ROUTE_BPLUS)
+        cave = [c.args for c in bp['cave'].cmds]
+        i = cave.index(('ops', 'take224_master'))
+        self.assertEqual(cave[i - 1], ('team_tp.py', 'send', '{APPS}'))
+        self.assertEqual(cave[i + 1], ('team_tp.py', 'go', '{M}', '{APPS}'))
+        self.assertEqual(cave[i + 2][0], 'go_goal.py')
+        snake = [c.args[0] for c in bp['snake'].cmds]
+        self.assertLess(snake.index('shoe_point.py'), snake.index('team_tp.py'))
+        self.assertLess(snake.index('team_tp.py'), snake.index('go_cave.py'))
+        tp = next(c for c in bp['snake'].cmds if c.args[0] == 'team_tp.py')
+        self.assertEqual(tp.when, 'master_on 20')
+        for s in bp.values():
+            for c in s.cmds:
+                if c.args[0] == 'team_tp.py':
+                    self.assertTrue(c.soft, s.name)
+        self.assertFalse(any(c.args[0] == 'team_tp.py' for s in R.ROUTE for c in s.cmds))
+
     def test_take224_stay_skips_teleport(self):
         import take224
         done = []
