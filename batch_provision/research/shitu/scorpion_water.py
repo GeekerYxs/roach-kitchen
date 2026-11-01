@@ -27,16 +27,18 @@ def potions(c):
 
 
 def place(c, npc, xy):
-    """One member at one 水源. -> True when a 蝎子药 was used up."""
-    d.step_to(c, xy)
+    """One member at one 水源. -> True when a 蝎子药 was used up. A click from where it stands first (user 2026-11-01)."""
     before = potions(c)
-    c.game.click_npc(npc)
-    try:
-        dlg = t.wait(lambda: c.dialog(), 5, f'{c.name} 水源 {npc}')
-    except t.Stop:
-        d.step_to(c, xy, near=30)
+    dlg = d.click_here(c, npc, xy)
+    if dlg is None:
+        d.step_to(c, xy)
         c.game.click_npc(npc)
-        dlg = t.wait(lambda: c.dialog(), 5, f'{c.name} 水源 {npc}（走近后）')
+        try:
+            dlg = t.wait(lambda: c.dialog(), 5, f'{c.name} 水源 {npc}')
+        except t.Stop:
+            d.step_to(c, xy, near=30)
+            c.game.click_npc(npc)
+            dlg = t.wait(lambda: c.dialog(), 5, f'{c.name} 水源 {npc}（走近后）')
     for _ in range(3):         # 17:25 live: 「勇者的考验［进行中］」 first, then「哈，是这里没错，投放蝎子药」
         opts = [(o, t.plain(l)) for o, l in dlg.options if o]
         if not opts:

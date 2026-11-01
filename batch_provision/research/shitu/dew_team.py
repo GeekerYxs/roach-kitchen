@@ -16,7 +16,7 @@ from provisioner import world as w
 from lunhui15 import Caster
 from monitor import Tap, texts
 import teamwalk
-from teamwalk import each, lead_to, leave_all, past, regroup, regroup_all, step_to  # dew_team.<name> still works
+from teamwalk import click_here, each, lead_to, leave_all, past, regroup, regroup_all, step_to  # noqa: F401
 
 MAP = teamwalk.MAP = 280
 FLOWERS = ((954, (292, 4295)), (957, (1050, 4065)), (955, (1440, 4724)))
@@ -28,12 +28,17 @@ ROUNDS = 6
 
 def gather(c, tap, npc, xy, got):
     """Gather npc until it is used up for c (or got reaches 5). -> new count. The member first walks up to the flower:
-    the last ones of the team trail stood too far (16:50: 千万4 / 千万8 got no dialog from 957)."""
-    step_to(c, xy)
-    for _ in range(4):
-        c.game.click_npc(npc)
+    the last ones of the team trail stood too far (16:50: 千万4 / 千万8 got no dialog from 957). User 2026-11-01: a
+    click from where it stands first (click_here), the walk only when that gave no dialog."""
+    here = click_here(c, npc, xy)
+    if here is None:
+        step_to(c, xy)
+    for i in range(4):
+        d = here if i == 0 else None          # the in-place click's dialog serves the first round
         try:
-            d = t.wait(lambda: c.dialog(), 5, f'{c.name} 通天花 {npc}')
+            if d is None:
+                c.game.click_npc(npc)
+                d = t.wait(lambda: c.dialog(), 5, f'{c.name} 通天花 {npc}')
         except t.Stop:
             step_to(c, xy, near=30)
             c.game.click_npc(npc)

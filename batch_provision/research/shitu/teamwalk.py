@@ -25,6 +25,8 @@ from provisioner.game import FIGHT_ESCAPE
 
 MAP = 280
 NEAR, STALL, OVER, JOIN_NEAR = 100, 3.0, 80, 80
+TRY_NEAR, TRY_WAIT = 300, 1.5   # click_here: px within which a click from where one stands is tried first; a dialog
+                                # comes ~0.1 s after the click when it works (GATHER.md 4.1: 63 ms)
 
 
 class Escaper:
@@ -135,6 +137,19 @@ def _texts(taps):
     return got
 
 
+def click_here(c, npc, xy, map_id=None):
+    """User 2026-11-01: click the NPC / object from where c stands first, most of the time it is close enough; walk
+    over (the caller's old path) only when no dialog came. -> the dialog, or None (too far to try, or no dialog)."""
+    s = c.world()
+    if s.map_id != (MAP if map_id is None else map_id) or math.dist((s.x, s.y), xy) > TRY_NEAR:
+        return None
+    c.game.click_npc(npc)
+    try:
+        return t.wait(lambda: c.dialog(), TRY_WAIT, f'{c.name} 原地点 NPC {npc}')
+    except t.Stop:
+        return None
+
+
 def fight_out(lead, caster=None, timeout=120):
     """The team's battle is fought to its end (the leader casting) before anybody leaves the team (user 2026-11-01,
     古迹 黑色水晶: the team stopped at the NPC, a battle started as the last ones caught up; the members left and their
@@ -185,20 +200,18 @@ def each(fn, cs):
 
 
 def regroup_all(lead, members):
-    """regroup for the whole team at once (user 2026-11-01: one by one, walk + invite + 1.5 s each, cost minutes
-    per dew / 水源 run): everybody walks onto the leader together (running from battles), every close one is invited
-    at the same time (well10.invite_near), and whoever is still out goes through regroup as before."""
-    from well10 import invite_near
+    """regroup for the whole team at once, nobody moving first (user 2026-11-01: the members walking onto the leader
+    one by one cost minutes per dew / 水源 run and ran into battles): well10.form_team invites every one within
+    INVITE_RANGE where they stand, all at once (invite_near); the leader walks over to whoever is farther (casting
+    in battles); a lost accept still falls back to regroup (member onto the leader, the 障碍 / 距离太远 cures)."""
+    from well10 import form_team
     out = [c for c in members if c.char_id not in lead.team()]
     if not out:
         return
-    ls = lead.world()
-    each(lambda c: step_to(c, (round(ls.x), round(ls.y)), near=JOIN_NEAR), out)
     for x in out + [lead]:              # an open NPC dialog blocks the invite (see regroup)
         if (dlg := x.dialog()) is not None:
             x.game.select_dialog(next((o for o, l in dlg.options if '离开' in t.plain(l)), 0))
-    invite_near(lead, out)
-    regroup(lead, members)
+    form_team(lead, members)
 
 
 def _offline_note(*cs):

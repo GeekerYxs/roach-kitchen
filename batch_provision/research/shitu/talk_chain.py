@@ -9,6 +9,7 @@ import sys
 import threading
 import time
 
+import teamwalk
 import trial_run as t
 from pp_chain import walk
 from provisioner import world as w
@@ -22,9 +23,11 @@ def run(name, map_id, xy, npc, word):
     if c.team():
         c.game.team_leave()
         t.wait(lambda: not c.team(), 5, f'{name} 离队')
-    walk(c, map_id, xy, f'NPC {npc}')
     before = w.read_quest(c.mem, QID)
-    d = talk(c, npc, [word])
+    here = teamwalk.click_here(c, npc, xy, map_id)     # user 2026-11-01: from where it stands first
+    if here is None:
+        walk(c, map_id, xy, f'NPC {npc}')
+    d = talk(c, npc, [word], d=here)
     seen = []
     for _ in range(10):
         opts = [(o, t.plain(l)) for o, l in d.options if o != 0]
