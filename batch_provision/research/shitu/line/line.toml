@@ -121,11 +121,12 @@ gold = 50000
 # ---- 2026-10-31 夜（用户）：6 个队长（standalone_login/配置.ini 的六个号），伏地魔各 2 批、满爆小法各 3 批；
 # 小号 mw01–24（10-31 查过全空，4 槽都空），密码 = local.toml [accounts]。tower2 不写 = auto（按这个师傅记下的
 # 后段经验收入自动定，第一批 39+170000）。每批结束徒弟金币交易给师傅、师傅背包清理（master_bag.py）
+# gold：2026-11-01 用户定 5 万 -> 1 万（徒弟到 35 级交考验前只花约 2–2.5 千 PP鸡；1 万已两次整批跑通）
 [team.w1]
 master = "伏地魔1"
 accounts = ["mw01", "mw02", "mw03", "mw04"]
 names = "亿万J"
-gold = 50000
+gold = 10000
 batches = [1, 2]
 skip = { "2" = ["亿万J8"] }    # 2026-11-01 03:11 mw04 建 亿万J8：result=3（谐音敏感词），第 2 批 3 人；现在会自动换名
 
@@ -133,21 +134,21 @@ skip = { "2" = ["亿万J8"] }    # 2026-11-01 03:11 mw04 建 亿万J8：result=3
 master = "伏地魔2"
 accounts = ["mw05", "mw06", "mw07", "mw08"]
 names = "亿万K"
-gold = 50000                  # 2026-11-01 第 1、2 批临时 10000（伏地魔2 当时只剩 4.1 万）；现在 355 万，改回
+gold = 10000                  # 2026-11-01 第 1、2 批临时 10000（伏地魔2 当时只剩 4.1 万），两批都正常出师
 batches = [1, 2]
 
 [team.w3]
 master = "伏地魔3"
 accounts = ["mw09", "mw10", "mw11", "mw12"]
 names = "亿万L"
-gold = 50000
+gold = 10000
 batches = [1, 2]
 
 [team.w4]                     # 第 1 批开跑时误按 亿万13 排除、只拜了 3 个：第 1 批照 3 个跑完，第 2 批 4 个
 master = "伏地魔4"
 accounts = ["mw13", "mw14", "mw15", "mw16"]
 names = "亿万M"
-gold = 50000
+gold = 10000
 batches = [1, 2]
 skip = { "1" = ["亿万M4"] }
 
@@ -155,12 +156,12 @@ skip = { "1" = ["亿万M4"] }
 master = "曾经不曾"
 accounts = ["mw17", "mw18", "mw19", "mw20"]
 names = "亿万N"
-gold = 50000
+gold = 10000
 batches = [1, 2, 3]
 
 [team.w6]
 master = "波大臀圆"
 accounts = ["mw21", "mw22", "mw23", "mw24"]
 names = "亿万P"
-gold = 50000
+gold = 10000
 batches = [1, 2, 3]
