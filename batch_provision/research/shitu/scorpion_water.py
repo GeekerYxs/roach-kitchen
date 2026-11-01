@@ -73,29 +73,27 @@ def main(master, names):
     caster = Caster(lead)
     st = lead.world()
     lead.came_from = (round(st.x), round(st.y))
-    d.regroup(lead, list(apps.values()))
+    d.regroup_all(lead, list(apps.values()))
     for npc, xy in SOURCES:
         need = [n for n, c in apps.items() if potions(c) > 0]
         if not need:
             break
         d.lead_to(lead, caster, xy)
         d.past(lead, caster, xy)
+        # user 2026-11-01: everybody leaves, places and re-joins at the same time (one by one cost minutes)
+        d.leave_all([apps[n] for n in need])
+        got = d.each(lambda c: place(c, npc, xy), [apps[n] for n in need])
         for n in need:
-            c = apps[n]
-            c.game.team_leave()
-            t.wait(lambda: not c.team(), 5, f'{n} 离队')
-        for n in need:
-            try:
-                ok = place(apps[n], npc, xy)
-            except t.Stop as e:    # 2026-10-28 亿万4 / 亿万12 at 968: one member's miss must not stop the team
-                t.say(f'[{n}] 水源 {npc}: {e}')
+            ok = got[n]
+            if isinstance(ok, t.Stop):     # 2026-10-28 亿万4 / 亿万12 at 968: one member's miss must not stop the team
+                t.say(f'[{n}] 水源 {npc}: {ok}')
                 if (dlg := apps[n].dialog()) is not None:
                     apps[n].game.select_dialog(0)
                 ok = False
             t.say(f'[{n}] 水源 {npc}: {"放好" if ok else "没放上"}，还剩 {potions(apps[n])} 瓶')
         if not any(potions(c) for c in apps.values()):
             break           # all placed: the next command scrolls home, a regroup here is wasted (user 2026-10-28)
-        d.regroup(lead, list(apps.values()))
+        d.regroup_all(lead, list(apps.values()))
     left = {n: potions(c) for n, c in apps.items()}
     q = {n: w.read_quest(c.mem, 183).steps for n, c in apps.items()}
     t.say(f'剩余蝎子药 {left}；183 {q}')

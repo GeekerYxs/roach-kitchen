@@ -135,6 +135,53 @@ def _texts(taps):
     return got
 
 
+def leave_all(cs):
+    """Everybody in cs leaves its team at once, then waits (one by one cost a wait each)."""
+    for c in cs:
+        if c.team():
+            c.game.team_leave()
+    for c in cs:
+        t.wait(lambda: not c.team(), 5, f'{c.name} 离队')
+
+
+def each(fn, cs):
+    """fn(c) for every member at once, one thread per window (talk_chain / dew.py). -> {name: result or the Stop}."""
+    import threading
+    out, crash = {}, []
+
+    def run(c):
+        try:
+            out[c.name] = fn(c)
+        except t.Stop as e:
+            out[c.name] = e
+        except Exception as e:             # anything else fails the step as it did one by one, after the others
+            out[c.name] = e
+            crash.append(e)
+    ths = [threading.Thread(target=run, args=(c,)) for c in cs]
+    [th.start() for th in ths]
+    [th.join() for th in ths]
+    if crash:
+        raise crash[0]
+    return out
+
+
+def regroup_all(lead, members):
+    """regroup for the whole team at once (user 2026-11-01: one by one, walk + invite + 1.5 s each, cost minutes
+    per dew / 水源 run): everybody walks onto the leader together (running from battles), every close one is invited
+    at the same time (well10.invite_near), and whoever is still out goes through regroup as before."""
+    from well10 import invite_near
+    out = [c for c in members if c.char_id not in lead.team()]
+    if not out:
+        return
+    ls = lead.world()
+    each(lambda c: step_to(c, (round(ls.x), round(ls.y)), near=JOIN_NEAR), out)
+    for x in out + [lead]:              # an open NPC dialog blocks the invite (see regroup)
+        if (dlg := x.dialog()) is not None:
+            x.game.select_dialog(next((o for o, l in dlg.options if '离开' in t.plain(l)), 0))
+    invite_near(lead, out)
+    regroup(lead, members)
+
+
 def _offline_note(*cs):
     """「（X 掉线了…）」when one of them is out of the world (user 2026-11-01: a lost invite may be a dropped client).
     The step fails anyway; the runner's retry starts with r4_util.windows, which closes and relogs a dropped
