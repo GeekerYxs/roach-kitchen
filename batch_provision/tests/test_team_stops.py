@@ -82,6 +82,33 @@ class RegroupAll(unittest.TestCase):
         self.assertEqual(log[2:], ['invite', 'regroup'])
 
 
+class FightOut(unittest.TestCase):
+    def test_casts_until_the_battle_ends(self):
+        left = [3]
+
+        def world():
+            return NS(in_battle=left[0] > 0)
+        ticks = []
+
+        def tick(now):
+            ticks.append(now)
+            left[0] -= 1
+        lead = NS(name='M', world=world)
+        with mock.patch.object(teamwalk.t, 'say', lambda s: None), mock.patch.object(teamwalk.time, 'sleep', lambda s: None):
+            teamwalk.fight_out(lead, NS(tick=tick))
+        self.assertEqual(len(ticks), 3)
+
+    def test_no_battle_no_caster(self):
+        lead = NS(name='M', world=lambda: NS(in_battle=False))
+        teamwalk.fight_out(lead)          # would build lunhui15.Caster (game memory) if it went on
+
+    def test_timeout(self):
+        lead = NS(name='M', world=lambda: NS(in_battle=True))
+        with mock.patch.object(teamwalk.t, 'say', lambda s: None), mock.patch.object(teamwalk.time, 'sleep', lambda s: None):
+            with self.assertRaises(teamwalk.t.Stop):
+                teamwalk.fight_out(lead, NS(tick=lambda now: None), timeout=0)
+
+
 class Scripts(unittest.TestCase):
     def calls(self, name):
         tree = ast.parse((HERE / name).read_text(encoding='utf-8'))
@@ -91,9 +118,38 @@ class Scripts(unittest.TestCase):
     def test_dew_and_water_use_the_parallel_helpers(self):
         for name in ('dew_team.py', 'scorpion_water.py'):
             c = self.calls(name)
-            self.assertTrue({'leave_all', 'each', 'regroup_all'} <= c, name)
+            self.assertTrue({'fight_out', 'leave_all', 'each', 'regroup_all'} <= c, name)
             self.assertNotIn('regroup', c, name)
             self.assertNotIn('team_leave', c, name)
+
+    def test_team_npc_fights_out_then_talks_at_once(self):
+        c = self.calls('team_npc.py')
+        self.assertTrue({'fight_out', 'leave_all', 'each'} <= c)
+        self.assertNotIn('team_leave', c)
+        src = (HERE / 'team_npc.py').read_text(encoding='utf-8')
+        self.assertLess(src.index('d.fight_out(lead)'), src.index('d.leave_all(apps)'))
+
+    def test_team_npc_main_collects_stops(self):
+        import team_npc
+        lead, apps = NS(name='M'), [NS(name='a'), NS(name='b')]
+        calls = []
+
+        def talk(c, *a):
+            calls.append(c.name)
+            if c.name == 'b' and calls.count('b') == 1:
+                raise team_npc.t.Stop('no dialog')
+        clients = {'M': lead, 'a': apps[0], 'b': apps[1]}
+        with mock.patch.object(team_npc.t, 'Client', lambda n: clients[n]), \
+                mock.patch.object(team_npc, 'talk', talk), \
+                mock.patch.object(team_npc.d, 'fight_out', lambda l: calls.append('fight')), \
+                mock.patch.object(team_npc.d, 'leave_all', lambda cs: calls.append('leave')), \
+                mock.patch.object(team_npc.t, 'say', lambda s: None), \
+                mock.patch.object(team_npc.time, 'sleep', lambda s: None), \
+                mock.patch.dict(team_npc.os.environ, {'PAIRS': ''}):
+            team_npc.main(650, 986, (2542, 3442), '水晶', 181, 'M', ['a', 'b'], regroup=False)
+        self.assertEqual(calls[:2], ['fight', 'leave'])
+        self.assertEqual(sorted(calls[2:4]), ['a', 'b'])
+        self.assertEqual(calls[4:], ['b'])          # only the one without a dialog goes again
 
 
 if __name__ == '__main__':

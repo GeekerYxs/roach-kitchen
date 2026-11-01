@@ -135,6 +135,25 @@ def _texts(taps):
     return got
 
 
+def fight_out(lead, caster=None, timeout=120):
+    """The team's battle is fought to its end (the leader casting) before anybody leaves the team (user 2026-11-01,
+    古迹 黑色水晶: the team stopped at the NPC, a battle started as the last ones caught up; the members left and their
+    junk drop / walk (quanshou.flee, Escaper) sent 逃跑 out of what was the team's battle, while the leader stood in
+    it without casting). Same rule as shoe_point._settle."""
+    if not lead.world().in_battle:
+        return
+    if caster is None:
+        from lunhui15 import Caster        # lazy: lunhui15 -> well10 -> (teamwalk lazily)
+        caster = Caster(lead)
+    t.say(f'[{lead.name}] 离队前先把这场打完')
+    end = time.monotonic() + timeout
+    while lead.world().in_battle:
+        if time.monotonic() > end:
+            raise t.Stop(f'{lead.name} {timeout}s 战斗没打完')
+        caster.tick(time.monotonic())
+        time.sleep(0.15)
+
+
 def leave_all(cs):
     """Everybody in cs leaves its team at once, then waits (one by one cost a wait each)."""
     for c in cs:

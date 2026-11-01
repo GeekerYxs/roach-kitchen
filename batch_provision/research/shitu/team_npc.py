@@ -82,18 +82,13 @@ def main(map_id, npc, xy, word, qid, master, names, regroup=True):
     d.MAP = map_id
     lead = t.Client(master)
     apps = [t.Client(n) for n in names]
-    for c in apps:
-        if c.team():
-            c.game.team_leave()
-            t.wait(lambda: not c.team(), 5, f'{c.name} 离队')
+    d.fight_out(lead)               # 2026-11-01 古迹水晶: members left in the team's battle and ran from it
+    d.leave_all(apps)
     todo = apps
     for attempt in range(1 + RETRY_PASSES):
-        failed = []
-        for c in todo:
-            try:
-                talk(c, npc, xy, word, qid)
-            except t.Stop as e:
-                failed.append((c, e))
+        # user 2026-11-01: everybody talks at the same time (one by one, 5-10 s each, the rest stood and waited)
+        got = d.each(lambda c: talk(c, npc, xy, word, qid), todo)
+        failed = [(c, got[c.name]) for c in todo if isinstance(got[c.name], t.Stop)]
         if not failed:
             break
         if attempt == RETRY_PASSES:
