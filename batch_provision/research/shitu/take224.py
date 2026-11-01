@@ -1,6 +1,6 @@
 """Task 224「遗忘洞穴的恐慌」at 大个王 + the 外城传送员 trip to 无尽2路口, recorded 2026-10-27 01:33 (伏地魔1, GATHER.md 7).
 
-    python -X utf8 research/shitu/take224.py [--disband] role [role ...]
+    python -X utf8 research/shitu/take224.py [--disband] [--stay] role [role ...]
 
 Per role, alone (a team is checked as a whole: 「有人等级不足无法接受任务哟！」when any member is below 28):
   1. not at 大个王 and task 224 not active yet -> 飞鞋 (if its record is next to 大个王) else walk there
@@ -8,6 +8,8 @@ Per role, alone (a team is checked as a whole: 「有人等级不足无法接受
   3. 外城传送员 740 (4744,2468)「龙之都外城中心 50金币」-> lands (3736,1220);
      外城传送员 743 (3610,1347)「传送服务」->「无尽2路口 50金币」-> lands (792,2692). All on map 20.
 --disband: everybody in the given roles' teams leaves first.
+--stay: no step 3, the role stays at 大个王 (B+ q224, user 2026-11-01: snake flies to the cave door from anywhere, and
+        when it can't fly go_cave walks the master over from the PP鸡 landing (4050,303) anyway: 100 金币 for nothing).
 """
 import math
 import sys
@@ -147,8 +149,8 @@ def teleport(c):
 
 
 def main(argv):
-    disband = '--disband' in argv
-    names = [a for a in argv if a != '--disband'] or ['伏地魔1']
+    disband, stay = '--disband' in argv, '--stay' in argv
+    names = [a for a in argv if a not in ('--disband', '--stay')] or ['伏地魔1']
     cs = [t.Client(n) for n in names]
     if disband:
         team = set(cs[0].team())
@@ -164,7 +166,8 @@ def main(argv):
         if c.team():
             raise t.Stop(f'{c.name} 还在队里 {c.team()}，单独接任务要先离队（加 --disband）')
         take(c)
-        teleport(c)
+        if not stay:
+            teleport(c)
 
 
 if __name__ == '__main__':

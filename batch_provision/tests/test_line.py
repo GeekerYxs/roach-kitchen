@@ -569,6 +569,33 @@ class BPlus(unittest.TestCase):
         self.assertIsNone(next_batch(cfg, {'done': [1]}, 'bp'))
         self.assertEqual(next_batch(cfg, {'done': [1]}, 'oa'), 2)
 
+    def test_take224_stays_at_boss_in_bplus(self):
+        """2026-11-01 (user): B+ apprentices take 224 and stay at 大个王 (no 外城传送员 to 无尽2路口); v5 unchanged."""
+        bp = dict((s.name, s) for s in R.ROUTE_BPLUS)
+        v5 = dict((s.name, s) for s in R.ROUTE)
+        for name in ('q224', 'snake'):
+            t224 = [c for c in bp[name].cmds if c.args[0] == 'take224.py']
+            self.assertTrue(t224, name)
+            for c in t224:
+                self.assertEqual(c.args, ('take224.py', '{A}', '--stay'), name)
+                self.assertTrue(c.par, name)                          # still all apprentices at once
+            self.assertFalse(any('--stay' in c.args for c in v5[name].cmds), name)
+        self.assertEqual([c.when for c in bp['snake'].cmds if c.args[0] == 'take224.py'], ['master_on 20'])
+
+    def test_take224_stay_skips_teleport(self):
+        import take224
+        done = []
+        c = unittest.mock.Mock(name='c')
+        c.name = '亿万1'
+        c.team.return_value = ()
+        with unittest.mock.patch.object(take224.t, 'Client', lambda n: c), \
+                unittest.mock.patch.object(take224, 'take', lambda c: done.append('take')), \
+                unittest.mock.patch.object(take224, 'teleport', lambda c: done.append('teleport')):
+            take224.main(['--stay', '亿万1'])
+            self.assertEqual(done, ['take'])
+            take224.main(['亿万1'])
+            self.assertEqual(done, ['take', 'take', 'teleport'])
+
     def test_shoe_records_on_the_way_and_flies_next_time(self):
         """飞鞋 (user 2026-10-30): recorded at a field entrance the team walks to anyway, used on the next crossing;
         a fly that can't happen is soft and the old walk follows; v5 has no 飞鞋."""
