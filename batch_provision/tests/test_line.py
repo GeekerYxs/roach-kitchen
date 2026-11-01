@@ -602,6 +602,17 @@ class BPlus(unittest.TestCase):
                     self.assertTrue(c.soft, s.name)
         self.assertFalse(any(c.args[0] == 'team_tp.py' for s in R.ROUTE for c in s.cmds))
 
+    def test_quan_scrolls_home_instead_of_walking_back(self):
+        """2026-11-01 (user): after the 40 拳手, 回城卷 + PP鸡 to 龙之都 instead of back_longeer through 142; v5 walks."""
+        bp = [c.args for c in dict((s.name, s) for s in R.ROUTE_BPLUS)['quan'].cmds]
+        v5 = [c.args for c in R.step('quan').cmds]
+        self.assertNotIn(('back_longeer.py',), bp)
+        i = bp.index(('quan100.py',))
+        self.assertEqual(bp[i + 1:i + 4], [R.HOME.args, ('pp_chain.py', '龙之都', '平静海岸2区'),
+                                           ('talk_chain.py', '20', '3174', '1251', '631', '战士的试炼', '{APPS}')])
+        self.assertEqual(bp[-1], ('U', 'need', '181', '3'))
+        self.assertIn(('back_longeer.py',), v5)
+
     def test_take224_stay_skips_teleport(self):
         import take224
         done = []
