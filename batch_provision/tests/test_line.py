@@ -4,6 +4,7 @@ import json
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 import unittest.mock
 from pathlib import Path
@@ -488,6 +489,17 @@ class Watchdog(unittest.TestCase):
     def test_exit_codes(self):
         self.assertEqual(self.run_procs(['print(1)', 'print(2)'])[0], 0)
         self.assertEqual(self.run_procs(['print(1)', 'raise SystemExit(3)'])[0], 3)
+
+    def test_quick_process_returns_quickly(self):
+        """2026-11-01: poll was 10 s, so a 1 s check (when master_on 20, U leave ...) held the team for 10 s."""
+        from line import runner
+        self.assertLessEqual(runner.POLL, 1)
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / 'x.log'
+            log.touch()
+            start = time.monotonic()
+            self.assertEqual(runner.run_procs([[sys.executable, '-c', 'pass']], None, log, 30), 0)
+            self.assertLess(time.monotonic() - start, 5)
 
     def test_silent_process_is_killed(self):
         rc, log = self.run_procs(['import time; time.sleep(60)'], silent=1)
