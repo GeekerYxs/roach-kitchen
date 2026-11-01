@@ -98,6 +98,7 @@ def main(master, counts):
             lead_to(lead, caster, xy)
             past(lead, caster, xy)
             # user 2026-11-01: everybody leaves, gathers and re-joins at the same time (one by one cost minutes)
+            teamwalk.fight_out(lead, caster)
             leave_all([apps[n] for n in need])
             before = dict(counts)
             got = each(lambda c: gather(c, taps[c.name], npc, xy, counts[c.name]), [apps[n] for n in need])

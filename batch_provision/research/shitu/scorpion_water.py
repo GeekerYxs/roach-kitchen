@@ -81,6 +81,7 @@ def main(master, names):
         d.lead_to(lead, caster, xy)
         d.past(lead, caster, xy)
         # user 2026-11-01: everybody leaves, places and re-joins at the same time (one by one cost minutes)
+        d.fight_out(lead, caster)
         d.leave_all([apps[n] for n in need])
         got = d.each(lambda c: place(c, npc, xy), [apps[n] for n in need])
         for n in need:
