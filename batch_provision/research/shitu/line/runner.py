@@ -49,7 +49,12 @@ def kill_tree(pid):
             pass
 
 
-def run_procs(argvs, env, log, silent, poll=10):
+POLL = 0.5     # s between exit checks. Was 10 (2026-11-01, user: apprentices at 无尽2路口 (792,2692) / the master at
+               # the PP鸡 landing (4050,303) stood 30 s+ for nothing): every Cmd and every when / unless / health check
+               # waited out a full 10 s even when it finished in 1 s, ~256 runs a B+ batch
+
+
+def run_procs(argvs, env, log, silent, poll=POLL):
     """Start every argv at once (output appended to log), wait for all; a log unchanged for `silent` s kills them
     all. -> 0 when every process exited 0, else the first non-zero code (-9 = killed as hung)."""
     with open(log, 'ab') as f:
