@@ -135,6 +135,18 @@ def _texts(taps):
     return got
 
 
+def _offline_note(*cs):
+    """「（X 掉线了…）」when one of them is out of the world (user 2026-11-01: a lost invite may be a dropped client).
+    The step fails anyway; the runner's retry starts with r4_util.windows, which closes and relogs a dropped
+    apprentice, so this only says why."""
+    try:
+        from r4_util import offline
+        down = [c.name for c in cs if offline(c.name)]
+    except Exception as e:                     # the check must never hide the real failure
+        return f'（掉线检查失败: {e}）'
+    return f'（{"、".join(down)} 掉线了，重跑前会关窗重登）' if down else '（两边都在线）'
+
+
 def flee(c):
     from quanshou import flee as run_away
     run_away(c)
@@ -174,10 +186,11 @@ def regroup(lead, members):
                     continue
                 time.sleep(0.15)
             flee(lead)   # 2026-10-28 亿万9 as the 蝎子王 leader: nobody fights a battle during a regroup
-            if (dlg := c.dialog()) is not None:     # an NPC dialog left open (通天花 with nothing to gather) may block it
-                t.say(f'[{c.name}] 入队前还开着对话框 {[(o, t.plain(l)) for o, l in dlg.options]}，先关掉')
-                c.game.select_dialog(next((o for o, l in dlg.options if '离开' in t.plain(l)), 0))
-                time.sleep(0.5)
+            for x in (c, lead):          # an NPC dialog left open (通天花 with nothing to gather) may block it; the
+                if (dlg := x.dialog()) is not None:   # leader's too (2026-11-01: 6 lost invites, all in dew / q183)
+                    t.say(f'[{x.name}] 入队前还开着对话框 {[(o, t.plain(l)) for o, l in dlg.options]}，先关掉')
+                    x.game.select_dialog(next((o for o, l in dlg.options if '离开' in t.plain(l)), 0))
+                    time.sleep(0.5)
             taps = _taps(lead, c)
             lead.game.team_invite(c.char_id, w.read_level(lead.mem), w.read_invite_byte(lead.mem), lead.name)
             time.sleep(1.5)
@@ -191,7 +204,8 @@ def regroup(lead, members):
                 said = _texts(taps)
                 t.say(f'[{c.name}] 第 {attempt + 1} 次邀请没进队（距离 {math.dist((s.x, s.y), (ls.x, ls.y)):.0f}，'
                       f'busy={s.busy} 战斗={s.in_battle} 对话框={c.dialog() is not None} 队伍={c.team()}，'
-                      f'师傅队伍={lead.team()}，系统提示={said}）')
+                      f'师傅队伍={lead.team()} 师傅 busy={ls.busy} 战斗={ls.in_battle} '
+                      f'对话框={lead.dialog() is not None}，系统提示={said}）')
                 if any('距离太远' in x for x in said):
                     # 2026-10-28 亿万28 in 苦无沙漠: 0 px on both clients, the server said 距离太远 four times (its
                     # position on the server was stale). Walking a few steps sends the real position.
@@ -216,5 +230,5 @@ def regroup(lead, members):
                 except t.Stop as e:
                     t.say(f'[{lead.name}] {e}')
         else:
-            raise t.Stop(f'{c.name} 邀请 4 次都没进队')
+            raise t.Stop(f'{c.name} 邀请 4 次都没进队' + _offline_note(lead, c))
     t.say(f'[{lead.name}] 队伍 {lead.team()}')
