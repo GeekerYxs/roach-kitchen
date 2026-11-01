@@ -90,7 +90,8 @@ def invite_near(lead, others):
             t.wait(lambda: w.read_team(c.mem).inviter == lead.char_id, 5, f'{c.name} 收到邀请')
         except t.Stop:
             pass
-    time.sleep(0.5)                    # the inviter field can be stale (see form_team): give the invite time to land
+    time.sleep(1.5)                    # the inviter field can be stale (see form_team): the invite must land first;
+                                       # teamwalk.regroup waits 1.5 s for the same reason (round 3), once for all here
     for c in near:
         c.game.team_accept()
     try:

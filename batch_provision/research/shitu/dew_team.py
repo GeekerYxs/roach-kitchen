@@ -16,7 +16,7 @@ from provisioner import world as w
 from lunhui15 import Caster
 from monitor import Tap, texts
 import teamwalk
-from teamwalk import lead_to, past, regroup, step_to     # moved there 18:5x; dew_team.<name> still works
+from teamwalk import each, lead_to, leave_all, past, regroup, regroup_all, step_to  # dew_team.<name> still works
 
 MAP = teamwalk.MAP = 280
 FLOWERS = ((954, (292, 4295)), (957, (1050, 4065)), (955, (1440, 4724)))
@@ -88,7 +88,7 @@ def main(master, counts):
     caster = Caster(lead)
     st = lead.world()
     lead.came_from = (round(st.x), round(st.y))     # past(): direction to the first flower
-    regroup(lead, list(apps.values()))
+    regroup_all(lead, list(apps.values()))
     for lap in range(ROUNDS):
         for npc, xy in FLOWERS:
             need = [n for n in apps if counts[n] < 5]
@@ -97,18 +97,20 @@ def main(master, counts):
                 return counts
             lead_to(lead, caster, xy)
             past(lead, caster, xy)
+            # user 2026-11-01: everybody leaves, gathers and re-joins at the same time (one by one cost minutes)
+            leave_all([apps[n] for n in need])
+            before = dict(counts)
+            got = each(lambda c: gather(c, taps[c.name], npc, xy, counts[c.name]), [apps[n] for n in need])
             for n in need:
-                c = apps[n]
-                c.game.team_leave()
-                t.wait(lambda: not c.team(), 5, f'{n} 离队')
-            for n in need:
-                before = counts[n]
-                counts[n] = gather(apps[n], taps[n], npc, xy, counts[n])
-                t.say(f'[{n}] 通天花 {npc}: {before} -> {counts[n]}/5')
+                if isinstance(got[n], t.Stop):
+                    t.say(f'[{n}] 通天花 {npc}: {got[n]}（下一圈再来）')
+                else:
+                    counts[n] = got[n]
+                t.say(f'[{n}] 通天花 {npc}: {before[n]} -> {counts[n]}/5')
             if all(v >= 5 for v in counts.values()):   # done: the next step scrolls home, no team needed (user 2026-10-28)
                 t.say(f'全部 5 滴: {counts}')
                 return counts
-            regroup(lead, list(apps.values()))
+            regroup_all(lead, list(apps.values()))
         t.say(f'第 {lap + 1} 圈后: {counts}')
     t.say(f'{ROUNDS} 圈后: {counts}')
     return counts
