@@ -255,6 +255,13 @@ def _bplus():
     snake = before('snake', 'go_cave.py', shoe('fly', CAVE_DOOR, when='master_on 20'),
                    C('pp_chain.py', '龙之都', '平静海岸2区', when='master_on 1'))   # a half fly scrolled everybody home
     corpse = before('corpse', 'ruin_go.py', C('desert_go.py', *RUIN_DOOR[1:]), shoe('record', RUIN_DOOR))
+    # 2026-11-01 (user): the apprentices stay at 大个王 after taking 224, no 外城传送员 trip to 无尽2路口: snake flies
+    # from anywhere, and a walk (record / cooldown) starts from the master at the PP鸡 landing anyway
+    def stay(step):
+        return Step(step.name, step.stage, tuple(Cmd(c.args + ('--stay',), c.when, c.soft) if c.args[0] == 'take224.py'
+                                                 else c for c in step.cmds), step.retry, step.unless, step.env)
+    q224 = stay(steps['q224'])
+    snake = stay(snake)
     king = steps['king'].cmds
     i = next(k for k, c in enumerate(king) if c.args[0] == 'pp_chain.py')
     king = Step('king', 'late', king[:i] + (shoe('fly', RUIN_DOOR), Cmd(king[i].args, when='master_off 170'))
@@ -299,7 +306,7 @@ def _bplus():
             continue
         if s.name == 'fairy':        # 2026-10-30 live: 神仙姐姐「等你40级了再来找我吧…勇者就职礼」at 39
             out.append(topup)
-        out.append({'end': end, 'tower2': tower2, 'q181': q181, 'q183': q183, 'cave': cave, 'snake': snake,
+        out.append({'end': end, 'tower2': tower2, 'q224': q224, 'q181': q181, 'q183': q183, 'cave': cave, 'snake': snake,
                     'corpse': corpse, 'king': king, 'arm': arm, 'finish': finish}.get(s.name, s))
     return tuple(_bag_check(x) for x in out)
 
