@@ -267,6 +267,12 @@ def _bplus():
         return Step(step.name, step.stage, tuple(Cmd(c.args + ('--stay',), c.when, c.soft) if c.args[0] == 'take224.py'
                                                  else c for c in step.cmds), step.retry, step.unless, step.env)
     q224 = stay(steps['q224'])
+    # 2026-11-01 (user): after the 40 拳手 the team scrolls home and rides the PP鸡 to 龙之都 instead of walking 142 ->
+    # 男爵 (back_longeer: round 3 measured 1.2-1.4 min with 4-5 battles); talk_chain walks everybody from the landing
+    quan = steps['quan']
+    quan = Step('quan', quan.stage, tuple(x for c in quan.cmds for x in (
+        (HOME, C('pp_chain.py', '龙之都', '平静海岸2区')) if c.args == ('back_longeer.py',) else (c,))),
+        quan.retry, quan.unless, quan.env)
     snake = stay(snake)
     king = steps['king'].cmds
     i = next(k for k, c in enumerate(king) if c.args[0] == 'pp_chain.py')
@@ -312,7 +318,7 @@ def _bplus():
             continue
         if s.name == 'fairy':        # 2026-10-30 live: 神仙姐姐「等你40级了再来找我吧…勇者就职礼」at 39
             out.append(topup)
-        out.append({'end': end, 'tower2': tower2, 'q224': q224, 'q181': q181, 'q183': q183, 'cave': cave, 'snake': snake,
+        out.append({'end': end, 'tower2': tower2, 'q224': q224, 'quan': quan, 'q181': q181, 'q183': q183, 'cave': cave, 'snake': snake,
                     'corpse': corpse, 'king': king, 'arm': arm, 'finish': finish}.get(s.name, s))
     return tuple(_bag_check(x) for x in out)
 
