@@ -169,6 +169,38 @@ def fight_out(lead, caster=None, timeout=120):
         time.sleep(0.15)
 
 
+SETTLE_STILL, SETTLE_MAX = 1.0, 8.0
+
+
+def settle(lead, members, caster=None, still=SETTLE_STILL, timeout=SETTLE_MAX):
+    """Before the team breaks up in a wild map: everybody has stopped (same spot, not moving, `still` s in a row) and
+    no battle is on (the leader fights it out, fight_out). User 2026-11-01, 水源: the leader stopped and the team was
+    broken at once, the last ones were still walking up and met monsters alone. Waits on the people, not a fixed
+    2 s: done as soon as all stand; after `timeout` s it goes on anyway (says who still moved)."""
+    cs = [lead] + [c for c in members if c is not lead]
+    end, since, last = time.monotonic() + timeout, None, {}
+    while True:
+        if lead.world().in_battle:
+            fight_out(lead, caster)
+            since, last = None, {}
+            continue
+        now = time.monotonic()
+        sts = {c.name: c.world() for c in cs}
+        pos = {n: (round(s.x), round(s.y)) for n, s in sts.items()}
+        moving = [n for n, s in sts.items() if s.moving or last.get(n, pos[n]) != pos[n] or n not in last]
+        last = pos
+        if moving:
+            since = None
+        elif since is None:
+            since = now
+        elif now - since >= still:
+            return
+        if now > end:
+            t.say(f'[{lead.name}] 等全队站稳 {timeout:.0f}s 还有人在动 {moving}，照常解散')
+            return
+        time.sleep(0.15)
+
+
 def leave_all(cs):
     """Everybody in cs leaves its team at once, then waits (one by one cost a wait each)."""
     for c in cs:

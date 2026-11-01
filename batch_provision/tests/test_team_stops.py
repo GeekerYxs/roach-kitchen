@@ -153,6 +153,51 @@ class FightOut(unittest.TestCase):
                 teamwalk.fight_out(lead, NS(tick=lambda now: None), timeout=0)
 
 
+class Settle(unittest.TestCase):
+    """user 2026-11-01: break the team only when everybody stands (the trailing ones met monsters alone at 水源)."""
+    def run_settle(self, frames, **kw):
+        """frames: per tick {name: (x, moving)}; the leader is in a battle on a frame with 'battle'."""
+        i, clock = [0], [0.0]
+
+        def world(n):
+            f = frames[min(i[0], len(frames) - 1)]
+            x, mv = f[n]
+            return NS(x=x, y=0, moving=mv, in_battle=bool(f.get('battle')) and n == 'M')
+
+        def sleep(s):
+            clock[0] += s
+            i[0] += 1
+        cs = [NS(name=n, world=(lambda n=n: world(n))) for n in ('M', 'a', 'b')]
+        fights = []
+        with mock.patch.object(teamwalk.time, 'monotonic', lambda: clock[0]), \
+                mock.patch.object(teamwalk.time, 'sleep', sleep), \
+                mock.patch.object(teamwalk.t, 'say', lambda s: None), \
+                mock.patch.object(teamwalk, 'fight_out', lambda l, c=None: fights.append(i[0]) or sleep(0.15)):
+            teamwalk.settle(cs[0], cs[1:], **kw)
+        return clock[0], fights
+
+    def test_waits_for_the_trailing_member(self):
+        walk = [{'M': (100, False), 'a': (100, False), 'b': (60 + 4 * k, True)} for k in range(10)]
+        still = [{'M': (100, False), 'a': (100, False), 'b': (100, False)}]
+        took, _ = self.run_settle(walk + still)
+        self.assertGreaterEqual(took, 10 * 0.15 + 1.0)
+        self.assertLess(took, 10 * 0.15 + 1.6)
+
+    def test_all_standing_is_quick(self):
+        took, _ = self.run_settle([{'M': (100, False), 'a': (100, False), 'b': (100, False)}])
+        self.assertLess(took, 1.5)
+
+    def test_battle_is_fought_out(self):
+        took, fights = self.run_settle([{'M': (100, False), 'a': (100, False), 'b': (100, False), 'battle': 1},
+                                        {'M': (100, False), 'a': (100, False), 'b': (100, False)}])
+        self.assertEqual(len(fights), 1)
+
+    def test_gives_up_after_timeout(self):
+        frames = [{'M': (100, False), 'a': (100, False), 'b': (k, True)} for k in range(200)]
+        took, _ = self.run_settle(frames, timeout=3)
+        self.assertLess(took, 3.5)
+
+
 class Scripts(unittest.TestCase):
     def calls(self, name):
         tree = ast.parse((HERE / name).read_text(encoding='utf-8'))
@@ -162,16 +207,16 @@ class Scripts(unittest.TestCase):
     def test_dew_and_water_use_the_parallel_helpers(self):
         for name in ('dew_team.py', 'scorpion_water.py'):
             c = self.calls(name)
-            self.assertTrue({'fight_out', 'leave_all', 'each', 'regroup_all'} <= c, name)
+            self.assertTrue({'settle', 'leave_all', 'each', 'regroup_all'} <= c, name)
             self.assertNotIn('regroup', c, name)
             self.assertNotIn('team_leave', c, name)
 
     def test_team_npc_fights_out_then_talks_at_once(self):
         c = self.calls('team_npc.py')
-        self.assertTrue({'fight_out', 'leave_all', 'each'} <= c)
+        self.assertTrue({'settle', 'leave_all', 'each'} <= c)
         self.assertNotIn('team_leave', c)
         src = (HERE / 'team_npc.py').read_text(encoding='utf-8')
-        self.assertLess(src.index('d.fight_out(lead)'), src.index('d.leave_all(apps)'))
+        self.assertLess(src.index('d.settle(lead, apps)'), src.index('d.leave_all(apps)'))
 
     def test_team_npc_main_collects_stops(self):
         import team_npc
@@ -185,7 +230,7 @@ class Scripts(unittest.TestCase):
         clients = {'M': lead, 'a': apps[0], 'b': apps[1]}
         with mock.patch.object(team_npc.t, 'Client', lambda n: clients[n]), \
                 mock.patch.object(team_npc, 'talk', talk), \
-                mock.patch.object(team_npc.d, 'fight_out', lambda l: calls.append('fight')), \
+                mock.patch.object(team_npc.d, 'settle', lambda l, apps: calls.append('fight')), \
                 mock.patch.object(team_npc.d, 'leave_all', lambda cs: calls.append('leave')), \
                 mock.patch.object(team_npc.t, 'say', lambda s: None), \
                 mock.patch.object(team_npc.time, 'sleep', lambda s: None), \

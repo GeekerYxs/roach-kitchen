@@ -87,7 +87,7 @@ def main(map_id, npc, xy, word, qid, master, names, regroup=True):
     d.MAP = map_id
     lead = t.Client(master)
     apps = [t.Client(n) for n in names]
-    d.fight_out(lead)               # 2026-11-01 古迹水晶: members left in the team's battle and ran from it
+    d.settle(lead, apps)            # 2026-11-01: battle fought out (古迹水晶) and the trailing ones stopped (水源)
     d.leave_all(apps)
     todo = apps
     for attempt in range(1 + RETRY_PASSES):
