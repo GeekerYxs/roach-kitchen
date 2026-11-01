@@ -35,10 +35,12 @@ def home():
         if c.team():
             c.game.team_leave()
     time.sleep(1)
-    for c in cs:
+
+    def one(c):                        # everybody scrolls at once (user 2026-11-01)
         t.wait(lambda: not c.team(), 5, f'{c.name} 离队')
         if c.world().map_id != 1:
             scroll(c)
+    t.each(cs, one)
     # the master pays one 回城卷 per home() (2026-10-28 伏地魔2 ran dry in the 古迹); and its pet's mp drinks: user
     # 2026-10-30「蓝低于50个就回城去补」, every home() checks (1980 胡萝卜汁 at 50 mp each lasted 伏地魔1 ~2.5 h)
     if buy_scroll.count(cs[0]) < 10 or buy_scroll.juice_needed(cs[0]):
@@ -56,14 +58,15 @@ def leave():
 
 
 def restock(n):
-    for name in APPRENTICES:
+    def one(name):                     # each buys its own 回城卷, all at once (user 2026-11-01)
         c = t.Client(name)
         if buy_scroll.count(c) >= n:
-            continue
+            return
         if c.world().map_id != MARKET:
             gate(c, 10213, (1338, 1053), 1, '自由市场', MARKET)
         buy_scroll.buy(c, n)
         gate(c, 24, (1781, 1268), MARKET, '逍遥村西区', 1)
+    t.each(APPRENTICES, one)
 
 
 def restock_master(n):
@@ -152,27 +155,29 @@ def double():
     eat one 加钙地瓜 at a time whenever the double time has run out."""
     import double_exp
     from bai_shi import done, load_state, mark
-    for name in APPRENTICES:
+
+    def one(name):                     # each claims / eats for itself, all at once (user 2026-11-01)
         c = t.Client(name)
         if time.time() < double_end(name) - 600:
-            continue
+            return
         if not done(name, 'double3h'):
             if c.world().map_id == 1:
                 double_exp.claim(c)
-            continue
+            return
         slot = next((s for s in w.read_bag(c.mem) if s.item_id == YAM), None)
         if slot is None:
             t.say(f'[{name}] 双倍时间到了，背包没有加钙地瓜')
-            continue
+            return
         c.game.use_item(slot.slot)
         try:
             t.wait(lambda: w.item_count(w.read_bag(c.mem), YAM) < slot.quantity, 5, f'{name} 吃加钙地瓜')
         except t.Stop as e:
             t.say(f'[{name}] {e}')
-            continue
+            return
         n = sum(k.startswith('yam_') for k in load_state().get(name, {}))
         mark(name, f'yam_{n + 1}', item=YAM)
         t.say(f'[{name}] 双倍时间到了，吃了 1 个加钙地瓜（还剩 {w.item_count(w.read_bag(c.mem), YAM)}）')
+    t.each(APPRENTICES, one)
 
 
 def steps(qid):
@@ -340,8 +345,7 @@ def need(qid, n):
 
 
 def space(n):
-    for name in APPRENTICES:
-        space_one(t.Client(name), n)
+    t.each(APPRENTICES, lambda name: space_one(t.Client(name), n))      # each its own bag, at once (2026-11-01)
 
 
 def space_one(c, n):

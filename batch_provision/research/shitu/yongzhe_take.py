@@ -60,5 +60,4 @@ def take(name):
 
 
 if __name__ == '__main__':
-    for n in sys.argv[1:]:
-        take(n)
+    t.each(sys.argv[1:], take)            # everybody at 男爵 at once (user 2026-11-01)

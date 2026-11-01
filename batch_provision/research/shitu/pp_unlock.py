@@ -51,9 +51,8 @@ def main(names):
     for n in names:
         if done(n, 'pp13_talk'):
             t.say(f'[{n}] state.json 记着已对话过，跳过')
-            continue
-        talk(cs[n])
-        time.sleep(0.5)
+    # each talks to 传送操作员4号 on its own, all at once (user 2026-11-01: 解散之后激活 PP鸡 是各自的事)
+    t.each([n for n in names if not done(n, 'pp13_talk')], lambda n: talk(cs[n]))
 
 
 if __name__ == '__main__':
