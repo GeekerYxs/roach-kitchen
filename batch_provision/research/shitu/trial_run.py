@@ -66,7 +66,8 @@ class Client:
         st = native.read_status(self.pid)
         self.mem = ProcessMemory(self.pid, module_base(self.pid))
         self.game = Game(native.Session(self.pid, st['hwnd'], st['game_base']), self.mem)
-        self.char_id = w.read_world(self.mem).char_id
+        world = w.read_world(self.mem)
+        self.char_id = world.char_id if world else 0
 
     def world(self):
         return w.read_world(self.mem)

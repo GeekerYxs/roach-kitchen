@@ -54,6 +54,12 @@ _u.GetWindowTextW.argtypes = [W.HWND, W.LPWSTR, ctypes.c_int]
 
 def game_window_titles():
     """{pid: [titles]} of all game windows. Only window titles are read; no process is opened."""
+    try:
+        hdesk = _u.OpenDesktopW("Default", 0, False, 0x10000000 | 0x01FF)
+        if hdesk:
+            _u.SetThreadDesktop(hdesk)
+    except Exception:
+        pass
     pids = set(game_pids())
     titles = {}
 
