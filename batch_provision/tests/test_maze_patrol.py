@@ -42,6 +42,26 @@ class Patrol(unittest.TestCase):
         self.assertEqual(r.points[0], (784, 2272))
 
 
+class RestartOnB(unittest.TestCase):
+    """2026-11-01 w1: a restart left the team on 暗影迷城's B point; A must not be B (nobody walked, no battles)."""
+    def first(self, stage, xy):
+        r = m.Route(stage)
+        r.say, r.walk = (lambda msg: None), (lambda *a: None)
+        r.stalls = 0
+        r.patrol(None, NS(x=xy[0], y=xy[1], moving=False, nav_active=False), 0)
+        return r
+
+    def test_landing_used_when_standing_on_b(self):
+        self.assertEqual(self.first(m.STAGES[0], (1136, 771)).points, [(786, 771), (1136, 771)])
+
+    def test_side_point_without_known_landing(self):
+        r = self.first(dict(name='八阵图', maze=700, legs={}, patrol_b=(1200, 1800)), (1190, 1810))
+        self.assertEqual(r.points, [(1200 - m.PROBE, 1800), (1200, 1800)])
+
+    def test_normal_landing_kept(self):
+        self.assertEqual(self.first(m.STAGES[0], (786, 771)).points[0], (786, 771))
+
+
 if __name__ == '__main__':
     unittest.main()
 

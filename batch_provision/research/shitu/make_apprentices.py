@@ -34,6 +34,56 @@ class Stop(Exception):
     pass
 
 
+class Refused(Stop):
+    def __init__(self, result, msg):
+        super().__init__(msg)
+        self.result = result
+
+
+REFUSED_NAME = 3        # 0x4003 result 3: the name is not allowed (亿万J8, 2026-11-01: a 谐音 敏感词; user: just rename)
+ALT_MARKS = 'XYZ'
+
+
+def alt_names(name):
+    """Names to try instead of a refused one: a letter before the trailing number (亿万J8 -> 亿万JX8, 亿万JY8 ...)."""
+    import re
+    m = re.fullmatch(r'(.*?)(\d+)', name)
+    head, num = (m.group(1), m.group(2)) if m else (name, '')
+    return [f'{head}{c}{num}' for c in ALT_MARKS if len(f'{head}{c}{num}'.encode('gbk')) <= 15]
+
+
+def save_alias(name, alt):
+    import json
+    from line.plan import ALIAS_FILE, aliases
+    al = aliases()
+    al[name] = alt
+    ALIAS_FILE.write_text(json.dumps(al, ensure_ascii=False, indent=1), encoding='utf-8')
+
+
+def create_named(session, account, name, lg):
+    """create(), and when the server refuses the name itself, the first alt_names one it takes (saved as an alias,
+    so the rest of the batch uses it). -> the name created."""
+    try:
+        create(session, account, name, lg)
+        return name
+    except Refused as e:
+        if e.result != REFUSED_NAME:
+            raise
+        lg.info('%s 被服务器拒绝（result=3，多半敏感词），换名字', name)
+    for alt in alt_names(name):
+        try:
+            create(session, account, alt, lg)
+        except Refused as e:
+            if e.result != REFUSED_NAME:
+                raise
+            lg.info('%s 也被拒绝', alt)
+            continue
+        save_alias(name, alt)
+        lg.info('改名 %s -> %s（logs/name_alias.json）', name, alt)
+        return alt
+    raise Stop(f'{name} 和替换名 {alt_names(name)} 都被服务器拒绝')
+
+
 def create(session, account, name, lg):
     native.arm(session)
     reader = TapReader(ROOT / 'runtime', session.pid)
@@ -51,7 +101,7 @@ def create(session, account, name, lg):
                 if result == 0 and char_id:
                     lg.info('%s 创建成功 角色ID=%d', name, char_id)
                     return char_id
-                raise Stop(f'服务器拒绝建角 result={result} raw={payload.hex()}')
+                raise Refused(result, f'服务器拒绝建角 result={result} raw={payload.hex()}')
         time.sleep(0.15)
     raise Stop('15s 内没收到建角回包 0x4003（结果不确定，重跑会先看选角列表）')
 
@@ -67,7 +117,7 @@ def one(settings, throttle, account, name, anywhere=False):
         if name not in names:
             if len(roster) >= MAX_SLOTS:
                 raise Stop(f'账号里已有 {len(roster)} 个角色 {names}，没有空槽，不建')
-            create(session, account, name, lg)
+            name = out['name'] = create_named(session, account, name, lg)
             lg.info('关窗重登，刷新选角列表 (%s)', native.close(session))
             session = login(settings, account, ROOT / 'runtime', throttle, lg)
             _, roster = read_session(session, account.name, lg)

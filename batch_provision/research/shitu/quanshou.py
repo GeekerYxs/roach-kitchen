@@ -34,6 +34,26 @@ class Kills:
         for tap in self.taps.values():
             tap.ready()
         self.count = {n: 5 if done(n, 'kills5') else 0 for n in self.taps}
+        # 2026-11-01 w6: the line was restarted seconds after the 5th kill, before the mark; the rerun waited 25 min
+        # for a text that never comes again. The tap file holds this login's packets: read the kills already there
+        for c in apps:
+            if self.count[c.name] < 5:
+                self.count[c.name] = max(self.count[c.name], self.seen(Tap(c.pid, from_end=False), c.name))
+
+    @staticmethod
+    def seen(tap, name):
+        """Highest kill count in the 0x46ff texts already in the tap file (marks kills5 at 5)."""
+        best = 0
+        tap.ready()
+        for _, d, op, body, _ in tap.poll():
+            if d == 'S->C' and op == 0x46ff:
+                k = KILLS.search(COLOR.sub('', ' '.join(texts(body))))
+                if k:
+                    best = max(best, int(k.group(1)))
+        if best >= 5 and not done(name, 'kills5'):
+            t.say(f'[{name}] 这次登录已经杀够 {best} 个 75Kg级拳手（之前的消息）')
+            mark(name, 'kills5')
+        return best
 
     def __call__(self):
         for n, tap in self.taps.items():

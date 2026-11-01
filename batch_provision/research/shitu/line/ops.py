@@ -13,6 +13,7 @@ ops: close NAME..        close these roles' windows (previous batch, same accoun
      when COND..         exit 0 when COND holds, 1 when not: lv_lt N | lv_ge N | exp_ge L+E | lacks QID | master_on MAP |
                          master_off MAP.. | kills5
      level               print the lowest apprentice level
+     exp_note POINT      append every apprentice's level + exp to logs/tower2_exp.csv (tower2 / king)
 Exit: 0 ok, 1 failed (trial_run.Stop), 2 master window missing.
 """
 import subprocess
@@ -165,6 +166,26 @@ def fairy():
             gate(c, 23, (954, 507), 270, '逍遥村西区', 1)
 
 
+EXP_CSV = t.HERE / 'logs' / 'tower2_exp.csv'      # plan.tower2_auto reads it back
+
+
+def exp_note(point):
+    """One row per apprentice (time, logid, master, point, name, level, exp) where the B+ route left 通天塔二区
+    ('tower2') and after 蝎子王 ('king'): what the late quests earned decides the next batch's tower2 (user 2026-10-31)."""
+    import csv
+    import os
+    new = not EXP_CSV.exists()
+    with EXP_CSV.open('a', newline='', encoding='utf-8') as f:
+        out = csv.writer(f)
+        if new:
+            out.writerow(['time', 'logid', 'master', 'point', 'name', 'level', 'exp'])
+        for n in APPRENTICES:
+            mem = t.Client(n).mem
+            lv, e = w.read_level(mem), read_exp(mem) or 0
+            out.writerow([time.strftime('%Y-%m-%d %H:%M:%S'), os.environ.get('LOGID', ''), M, point, n, lv, e])
+            t.say(f'[{n}] {point}: {lv} 级 + {e} 经验')
+
+
 def main(argv):
     op, args = argv[0], argv[1:]
     if op == 'when':
@@ -174,7 +195,7 @@ def main(argv):
         return
     fn = {'close': lambda: close(args), 'arm': lambda: arm(args), 'master_up': master_up,
           'home_village': home_village, 'q94': q94, 'take224_master': take224_master, 'gather': gather,
-          'fairy': fairy}[op]
+          'fairy': fairy, 'exp_note': lambda: exp_note(*args)}[op]
     fn()
 
 

@@ -124,7 +124,11 @@ class Team(threading.Thread):
         save_team(self.team, self.data)
 
     def runner(self, batch):
-        b = plan.Batch(self.team, batch, plan.plan_skip(self.team, batch, self.data['stuck']))
+        # line.toml [team.<t>] skip = { "1" = [...] }: names left out of that batch only (2026-11-01 w4: batch 1 had
+        # started with 3 under a stale 亿万13 exclusion; the line restarted, batch 2 takes 4 again)
+        extra = self.cfg.get('team', {}).get(self.team, {}).get('skip', {}).get(str(batch), [])
+        skip = list(dict.fromkeys(plan.plan_skip(self.team, batch, self.data['stuck']) + list(extra)))
+        b = plan.Batch(self.team, batch, skip)
         c = self.cfg
         return self.Runner(b, retries=c['retries'], recover_tries=c['recover_tries'], recover_wait=c['recover_wait'],
                            silent=c['silent'], say=lambda m: say(f'[{self.team} 第{batch}批] {m}'))
@@ -189,12 +193,12 @@ class Team(threading.Thread):
 
 def dry_run(cfg):
     for team in cfg['teams']:
-        data = Team(team, cfg).data
-        batch = next_batch(cfg, data, team)
+        t = Team(team, cfg)
+        batch = next_batch(cfg, t.data, team)
         if batch is None:
             print(f'== 队 {team}: 配置里的批次都跑完了')
             continue
-        b = plan.Batch(team, batch, plan.plan_skip(team, batch, data['stuck']))
+        b = t.runner(batch).b
         print(f'== 队 {team} 第 {batch} 批 {b.master}: {b.apprentices}  跳过 {b.skip}  {b.pairs}')
         for s in R.route_of(b):
             print(f'-- {s.stage}/{s.name}' + (f'  (跳过条件 {R.fill(s.unless, b)})' if s.unless else '') + f'  重跑前 {s.retry}')
@@ -236,8 +240,7 @@ def main(argv):
         return dry_run(cfg)
     if '--team' in argv:                 # manual catch-up of one batch
         team, batch = arg(argv, '--team'), int(arg(argv, '--batch', '1'))
-        data = Team(team, cfg).data
-        b = plan.Batch(team, batch, plan.plan_skip(team, batch, data['stuck']))
+        b = Team(team, cfg).runner(batch).b
         if '--apps' in argv:
             keep = arg(argv, '--apps').split(',')
             b.skip = [n for n in b.all_names if n not in keep]

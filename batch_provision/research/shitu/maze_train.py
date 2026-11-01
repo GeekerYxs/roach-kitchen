@@ -27,7 +27,7 @@ from well10 import form_team
 # Stages in order (user, 2026-10-27): 暗影迷城 until 19, then 八阵图 until 25. legs = what the leader does on each map
 # before it reaches the stage's maze; patrol_b = fixed B point, None = probe (see Route.patrol).
 STAGES = (
-    dict(name='暗影迷城', maze=600, until=19, patrol_b=(1136, 771),      # B probed live 01:02 (landing (786,771))
+    dict(name='暗影迷城', maze=600, until=19, patrol_b=(1136, 771), land=(786, 771),   # B probed live 01:02
          legs={555: ('click', 10157, (2880, 360)),       # 轮回之城 exit -> 平静海岸2区
                81: ('walk', 82, (1724, 2489)),           # across the 81 -> 82 link to the 暗影迷城 entrance
                82: ('click', 10160, (1724, 2489))}),     # 暗影迷城 entrance
@@ -57,6 +57,7 @@ class Route:
         self.stage, self.maze, self.legs, self.patrol_b = stage['name'], stage['maze'], stage['legs'], stage['patrol_b']
         self.goal = stage.get('goal')
         self.patrol_a = stage.get('patrol_a')         # fixed A point (default: where the leader first stands)
+        self.land = stage.get('land')                 # where the maze's entrance drops the team (A after a restart on B)
         self.last_nav, self.progress_xy, self.progress_at = -1e9, None, 0.0
         self.clicked_at, self.clicks, self.map = None, 0, None
         self.points, self.target, self.stalls, self.probes = None, 0, 0, []
@@ -149,6 +150,11 @@ class Route:
     def patrol(self, lead, st, now):
         if self.points is None:
             land = self.patrol_a or (round(st.x), round(st.y))
+            if self.patrol_b and not self.patrol_a and math.dist(land, self.patrol_b) < MIN_LEG:
+                # 2026-11-01 w1: the line restarted with the team standing on 暗影迷城's B point -> A == B, nobody moved,
+                # no battle for 15 min. A = the maze's own landing point, else PROBE px to the side of B
+                land = self.land or (self.patrol_b[0] - PROBE, self.patrol_b[1])
+                self.say(f'站在 B 点附近 ({st.x:.0f},{st.y:.0f})（重启时在迷宫里），A 点改用 {land}')
             self.points = [land, self.patrol_b]
             self.probes = [] if self.patrol_b else [
                 (round(land[0] + PROBE * math.cos(a)), round(land[1] + PROBE * math.sin(a)))

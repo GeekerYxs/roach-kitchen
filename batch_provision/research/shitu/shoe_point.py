@@ -20,6 +20,7 @@ COOLDOWN = 3600 + 60           # user: once per hour; a minute of margin for clo
 NEAR = 300                     # px: a team stops in a line behind the leader's goal (2026-10-31 pa: leader 34 px
                                # short, 5th of 5 at 218 px -> 200 was too tight)
 ARRIVE = 60                    # px from the record after a return
+FOLLOW_WAIT = 15               # s the team may need to catch up with the leader before the record
 
 
 def record_ok(rec, map_id, xy, near=NEAR):
@@ -59,11 +60,14 @@ def mark_used(name, to):
 
 
 def _settle(c, t):
-    """Out of any battle and standing still (the record takes the SERVER position, shoe_dagewang.py)."""
+    """Out of any battle and standing still (the record takes the SERVER position, shoe_dagewang.py). In a team the
+    battle is fought to its end: 2026-11-01 w3 fled one by one at the 遗址 entrance, the leader's flee left the
+    apprentices fighting on their own, the team fell apart ~700 px back and 亿万L3 fought alone for minutes."""
     from quanshou import flee
     if c.world().in_battle:
-        flee(c)
-        t.wait(lambda: not c.world().in_battle, 60, f'{c.name} 战斗结束')
+        if not c.team():
+            flee(c)
+        t.wait(lambda: not c.world().in_battle, 120, f'{c.name} 战斗结束')
     t.wait(lambda: (s := c.world()) and not s.moving, 10, f'{c.name} 站稳')
 
 
@@ -75,6 +79,11 @@ def record(map_id, xy, names):
     for c in cs:
         _settle(c, t)
     time.sleep(1.5)
+    near = lambda c: (st := c.world()).map_id == map_id and math.dist((st.x, st.y), xy) <= NEAR    # noqa: E731
+    try:        # 2026-11-01 w3: a battle just before the record, the team fled and stood ~700 px back for a while
+        t.wait(lambda: all(near(c) for c in cs), FOLLOW_WAIT, '全员走到记录点附近')
+    except t.Stop:
+        pass
     bad = []
     for c in cs:
         st = c.world()

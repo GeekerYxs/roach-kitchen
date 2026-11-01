@@ -1,5 +1,6 @@
 # 师徒产线 v5 总控（python -X utf8 -m line）的设置。说明见 line/__main__.py 文件头和 docs/SHITU_LINE.md 第 8 节。
-teams = ["pa", "pb"]          # 这次跑哪几队（队名 = 下面 [team.<名>]）；2026-10-31 B+ 整批实测（飞鞋 / 掉线自愈 / fresh_dll）
+teams = ["w1", "w2", "w3", "w4", "w5", "w6"]   # 这次跑哪几队（队名 = 下面 [team.<名>]）；2026-10-31 夜：6 个队长 × 2–3 批，mw01–24
+                              # 2026-10-31 B+ 整批实测是 ["pa", "pb"]
                               # 2026-10-29 经验地图三队对照是 ["oa", "ob", "oc"]（EXP_MAP_TRIAL.md）
                               # 第 6 轮（2026-10-28 夜）是 ["a", "b", "c"] + batches = [4]
 batches = [1]                 # 2026-10-31 只跑 1 批；2026-10-30 oa/ob/oc 是 [1, 2, 3]
@@ -60,6 +61,7 @@ gold = 50000
 
 [stuck]                       # 已知排除、仍占着师傅名额的徒弟（logs/line_state.json 里有了就以它为准）
 d = ["亿万13"]                # 伏地魔4 名下：2026-10-28 181 第 4 步日记因背包满丢失，树 NPC 953 不再给对话框
+# w4 不再排除 亿万13：Gemini 10-30 的 t4（伏地魔4）两批都是 4 人出师，名额早空了（用户 2026-11-01 指出）
 
 # ---- 2026-10-29 经验地图三队对照（research/shitu/EXP_MAP_TRIAL.md）：新账号 cap37–48，角色名用模型名 Opus 5.5
 [team.oa]                     # 对照基准：满爆小法，走 v5 线路（当时强号默认通天一区到 33）
@@ -115,3 +117,50 @@ master = "伏地魔1"
 accounts = 53
 names = "亿万H"
 gold = 50000
+
+# ---- 2026-10-31 夜（用户）：6 个队长（standalone_login/配置.ini 的六个号），伏地魔各 2 批、满爆小法各 3 批；
+# 小号 mw01–24（10-31 查过全空，4 槽都空），密码 = local.toml [accounts]。tower2 不写 = auto（按这个师傅记下的
+# 后段经验收入自动定，第一批 39+170000）。每批结束徒弟金币交易给师傅、师傅背包清理（master_bag.py）
+[team.w1]
+master = "伏地魔1"
+accounts = ["mw01", "mw02", "mw03", "mw04"]
+names = "亿万J"
+gold = 50000
+batches = [1, 2]
+skip = { "2" = ["亿万J8"] }    # 2026-11-01 03:11 mw04 建 亿万J8：result=3（谐音敏感词），第 2 批 3 人；现在会自动换名
+
+[team.w2]
+master = "伏地魔2"
+accounts = ["mw05", "mw06", "mw07", "mw08"]
+names = "亿万K"
+gold = 50000                  # 2026-11-01 第 1、2 批临时 10000（伏地魔2 当时只剩 4.1 万）；现在 355 万，改回
+batches = [1, 2]
+
+[team.w3]
+master = "伏地魔3"
+accounts = ["mw09", "mw10", "mw11", "mw12"]
+names = "亿万L"
+gold = 50000
+batches = [1, 2]
+
+[team.w4]                     # 第 1 批开跑时误按 亿万13 排除、只拜了 3 个：第 1 批照 3 个跑完，第 2 批 4 个
+master = "伏地魔4"
+accounts = ["mw13", "mw14", "mw15", "mw16"]
+names = "亿万M"
+gold = 50000
+batches = [1, 2]
+skip = { "1" = ["亿万M4"] }
+
+[team.w5]
+master = "曾经不曾"
+accounts = ["mw17", "mw18", "mw19", "mw20"]
+names = "亿万N"
+gold = 50000
+batches = [1, 2, 3]
+
+[team.w6]
+master = "波大臀圆"
+accounts = ["mw21", "mw22", "mw23", "mw24"]
+names = "亿万P"
+gold = 50000
+batches = [1, 2, 3]

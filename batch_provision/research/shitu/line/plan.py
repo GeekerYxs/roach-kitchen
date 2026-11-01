@@ -29,7 +29,16 @@ ROUTE_NAMES = ('bplus', 'v5')    # route.ROUTES keys; bplus = default
 TOWER1 = 35                      # user 2026-10-30: masters differ in strength, every team does 通天一 to 35 for now
 # 通天塔二区 target per route. B+ live 2026-10-30 (BPLUS_NOTES.md): left 二区 at 38+19.9万, the 181 reward + quest
 # battles up to 蝎子王 gave ~19.2万 -> 39+11.9万, short of the 40 that 神仙姐姐 wants; 39+125000 gets there without topup
-TOWER2 = {'bplus': '39+125000', 'v5': '40'}
+# 2026-10-31 pa / pb: 39+125000 still needed a 2-3 min topup on both (the late quests earned < 187,448 = 312,448 - 125,000,
+# bp's 19.2万 left a 2% margin) -> 'auto' (user: test, record, optimize): ops exp_note writes the exp where 二区 was
+# left and after 蝎子王 (logs/tower2_exp.csv); tower2_auto takes this master's smallest earning of its last batches
+TOWER2 = {'bplus': 'auto', 'v5': '40'}
+TOWER2_FIRST = '39+170000'       # no history for the master yet: ~26% margin on bp's earning
+TOWER2_MARGIN = 40000            # exp kept over the smallest earning seen (one 二区 minute is 2.2-3.9万); 2026-11-01
+                                 # w1: the same master earned 23.4万 then 19.6万 (25000 left it 1万 short -> topup)
+TOWER2_LOOKBACK = 3              # batches of history that count
+EXP_CSV = Path(__file__).resolve().parent.parent / 'logs' / 'tower2_exp.csv'
+EXPLIB = Path(__file__).resolve().parents[3] / 'expwatch' / 'explib.csv'
 # 任务 224 遗忘洞穴的恐慌 (the q224 / snake steps right after the cave) is taken at 28 only: below it 大个王 answers
 #「好吧」 and nothing else (2026-10-29 ob team left the cave at 27 and q224 failed)
 MIN_LEVELS = {'cave': 28}
@@ -64,6 +73,46 @@ class Team:
         return dict(LEVELS if self.route == 'v5' else BPLUS_LEVELS, **dict(self.levels))[key]
 
 
+def _explib(path=EXPLIB):
+    import csv
+    with open(path, encoding='utf-8') as f:
+        return {int(r['level']): int(r['playerexp']) for r in csv.DictReader(f)}
+
+
+def tower2_auto(master, rows, need=None, size=None):
+    """'39+E' for this master: E = exp 39 -> 40 - the smallest per-apprentice earning between leaving 二区 and
+    蝎子王 over its last TOWER2_LOOKBACK batches + TOWER2_MARGIN (rows = tower2_exp.csv dicts); TOWER2_FIRST without
+    history. Earning = total exp at 'king' - at 'tower2' (levels through the exp table). size = this batch's number
+    of apprentices: batches of that size count when there are any (2026-11-01: with 3 instead of 4 both 伏地魔1 and
+    伏地魔4 earned 3-4万 less)."""
+    need = need or _explib()
+    base = lambda lv, e: sum(need[k] for k in range(1, lv)) + e          # noqa: E731
+    at = {}
+    for r in rows:
+        if r['master'] == master:
+            at.setdefault(r['logid'], {}).setdefault(r['point'], {})[r['name']] = base(int(r['level']), int(r['exp']))
+    gains = []                        # (team size, smallest earning) per batch, oldest first
+    for logid, pts in at.items():
+        g = [pts['king'][n] - pts['tower2'][n] for n in pts.get('king', {}) if n in pts.get('tower2', {})]
+        if g:
+            gains.append((len(pts['tower2']), min(g)))
+    same = [g for k, g in gains if k == size]
+    gains = same or [g for _, g in gains]
+    if not gains:
+        return TOWER2_FIRST
+    e = need[39] - min(gains[-TOWER2_LOOKBACK:]) + TOWER2_MARGIN
+    return f'39+{max(0, min(e, need[39] - 1))}'
+
+
+def _tower2_rows(path=EXP_CSV):
+    import csv
+    try:
+        with open(path, encoding='utf-8', newline='') as f:
+            return list(csv.DictReader(f))
+    except OSError:
+        return []
+
+
 def _check_name(team, prefix):
     for n in (f'{prefix}1', f'{prefix}{4 * MASTER_SLOTS}'):          # role slots 1..4 -> suffix 1..16
         try:
@@ -93,8 +142,8 @@ def load_teams(path=CONFIG):
         if route not in ROUTE_NAMES:
             raise ValueError(f'line.toml [team.{k}] route = {route!r}：只有 {ROUTE_NAMES}')
         tower2 = str(v.get('tower2', TOWER2[route]))
-        if not re.fullmatch(r'\d+(\+\d+)?', tower2):
-            raise ValueError(f'line.toml [team.{k}] tower2 = {tower2!r}：写 40 或 38+200000')
+        if tower2 != 'auto' and not re.fullmatch(r'\d+(\+\d+)?', tower2):
+            raise ValueError(f'line.toml [team.{k}] tower2 = {tower2!r}：写 40、38+200000 或 auto')
         t = Team(v['master'], int(v.get('slot', 0)), int(v.get('gold', 50000)), int(v.get('tower1', TOWER1)),
                  0 if listed else int(acc), v.get('names', ''), tuple(sorted((a, int(b)) for a, b in levels.items())),
                  listed, route, tower2)
@@ -128,12 +177,28 @@ def check_teams(names, teams=None):
         raise ValueError(f'同一个师傅出现在两队: {masters}')
 
 
+# a name the server refused (0x4003 result 3: 敏感词, user 2026-11-01:「J8 是谐音梗」) -> the name make_apprentices
+# created instead; every later step of the batch reads it through batch_names
+ALIAS_FILE = Path(__file__).resolve().parent.parent / 'logs' / 'name_alias.json'
+
+
+def aliases(path=ALIAS_FILE):
+    import json
+    try:
+        return json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+
+
 def batch_names(team, batch):
     t = TEAMS[team]
     if t.names:
-        return [f'{t.names}{4 * (batch - 1) + i}' for i in range(1, 5)]
-    o = 16 * (batch - 1) + t.slot * 4
-    return [f'亿万{o + i}' for i in range(1, 5)]
+        names = [f'{t.names}{4 * (batch - 1) + i}' for i in range(1, 5)]
+    else:
+        o = 16 * (batch - 1) + t.slot * 4
+        names = [f'亿万{o + i}' for i in range(1, 5)]
+    al = aliases()
+    return [al.get(n, n) for n in names]
 
 
 def plan_skip(team, batch, stuck):
@@ -171,7 +236,8 @@ class Batch:
 
     @property
     def tower2(self):
-        return TEAMS[self.team].tower2
+        t2 = TEAMS[self.team].tower2
+        return tower2_auto(self.master, _tower2_rows(), size=len(self.apprentices)) if t2 == 'auto' else t2
 
     @property
     def all_names(self):

@@ -223,6 +223,55 @@ def offline(name):
     return False
 
 
+def pick_extra(pids, in_world):
+    """pids = one role's windows (newest last): keep the newest one in the world (else the newest), the rest go."""
+    live = [p for p in pids if in_world(p)]
+    keep = (live or pids)[-1]
+    return [p for p in pids if p != keep]
+
+
+def duplicate_windows(names):
+    """[(name, pid)] of extra windows of one role (2026-11-01 w1: a restart killed make_apprentices mid relog; its
+    clients stayed up offline next to the new ones and find_roles kept picking a dead one -> 'arm' failed 5 times)."""
+    from common import module_base
+    from provisioner.memory import ProcessMemory
+    from provisioner.procs import game_window_titles
+    by = {}
+    for pid, titles in game_window_titles().items():
+        for n in names:
+            if any(f'-{n}_' in x and '什么什么大冒险2' in x for x in titles):
+                by.setdefault(n, []).append(pid)
+
+    def in_world(pid):
+        try:
+            with ProcessMemory(pid, module_base(pid)) as m:
+                return w.read_world(m) is not None
+        except OSError:
+            return False
+    out = []
+    for n, pids in by.items():
+        if len(pids) > 1:
+            out += [(n, p) for p in pick_extra(sorted(pids, key=_started), in_world)]
+    return out
+
+
+def _started(pid):
+    """Process creation time (FILETIME ticks), 0 when unreadable: orders a role's windows oldest first."""
+    import ctypes
+    from ctypes import wintypes as W
+    k = ctypes.WinDLL('kernel32', use_last_error=True)
+    h = k.OpenProcess(0x1000, False, pid)            # PROCESS_QUERY_LIMITED_INFORMATION
+    if not h:
+        return 0
+    try:
+        c, e, kt, ut = W.FILETIME(), W.FILETIME(), W.FILETIME(), W.FILETIME()
+        if not k.GetProcessTimes(h, ctypes.byref(c), ctypes.byref(e), ctypes.byref(kt), ctypes.byref(ut)):
+            return 0
+        return (c.dwHighDateTime << 32) | c.dwLowDateTime
+    finally:
+        k.CloseHandle(h)
+
+
 def windows(accounts):
     """Before a supervisor run: the master's and the apprentices' game windows must exist. A missing apprentice is
     logged in again with make_apprentices (accounts = the batch's 'capNN:亿万M' pairs, the role already exists so it
@@ -238,6 +287,12 @@ def windows(accounts):
     if offline(MASTERS[0]):          # 2026-10-28 16:16 伏地魔1: window still there, socket -1 -> every step failed
         t.say(f'师傅 {MASTERS[0]} 掉线了（窗口在、网络断开），需要人工关窗重新登录')
         raise SystemExit(2)
+    extra = duplicate_windows(APPRENTICES)
+    for n, pid in extra:
+        t.say(f'[{n}] 多开了一个窗口 pid {pid}（重启时打断的登录留下的），关掉: {close_window(n, pid)}')
+    if extra:
+        time.sleep(3)
+        found = find_roles(names)
     dead = [n for n in APPRENTICES if n in found and offline(n)]
     for n in dead:                   # no t.Client here: it reads char_id from the world, gone when offline (2026-10-31 亿万A4)
         t.say(f'[{n}] 掉线了，关窗重登 {close_window(n, found[n][0])}')

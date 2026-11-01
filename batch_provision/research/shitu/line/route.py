@@ -262,7 +262,8 @@ def _bplus():
     end = Step('end', 'mid', (HOME, C('sell_tradable.py', '--safe', '{APPS}'), C('U', 'space', '4'),
                               C('trial_run.py', '--armor', '3', '--master', '{M}', '{APPS}'),
                               C('trial3_run.py', '--master', '{M}', '{APPS}')), retry='leave')
-    tower2 = Step('tower2', 'mid', (HOME, DOUBLE, C('tower2_go.py'), C('tower2_patrol.py', '{T2}')),
+    tower2 = Step('tower2', 'mid', (HOME, DOUBLE, C('tower2_go.py'), C('tower2_patrol.py', '{T2}'),
+                                    C('ops', 'exp_note', 'tower2', soft=True)),
                   retry='leave', unless='exp_ge {T2}')
     topup = Step('topup', 'late', (HOME, DOUBLE, C('tower2_go.py'), C('tower2_patrol.py', '40')),
                  retry='leave', unless='lv_ge 40')
@@ -281,6 +282,17 @@ def _bplus():
     q183 = Step('q183', 'late', q183[:i] + (Cmd(q183[i].args, soft=True),) + to40(183) + (
         C('pp_chain.py', '龙之都', '平静海岸2区', when='lacks 183'),
         Cmd(q183[i].args, when='lacks 183')) + q183[i + 1:], env=steps['q183'].env)
+    # what the late quests earned after 二区 (plan.tower2_auto, user 2026-10-31): before the step's closing gate
+    king = Step('king', 'late', king.cmds[:-1] + (C('ops', 'exp_note', 'king', soft=True),) + king.cmds[-1:],
+                king.retry, king.unless, king.env)
+    # the master's bag over 24 x 7 batches (user 2026-10-31, master_bag.py): the kinds it holds at the first batch are
+    # its own; new kinds (drops) are sold / dropped when 5 slots are left (after a step's trip home) and every batch end.
+    # The batch ends with every apprentice's gold traded to the master.
+    arm = Step('arm', 'make', steps['arm'].cmds + (C('master_bag.py', 'snapshot', '{M}', soft=True),), steps['arm'].retry)
+    finish = Step('finish', 'late', steps['finish'].cmds + (
+        C('give_gold.py', '{M}', '{APPS}'),
+        C('U', 'home'),
+        C('master_bag.py', 'clean', '{M}', soft=True)))
     out = []
     for s in ROUTE:
         if s.name == 'start':
@@ -288,8 +300,18 @@ def _bplus():
         if s.name == 'fairy':        # 2026-10-30 live: 神仙姐姐「等你40级了再来找我吧…勇者就职礼」at 39
             out.append(topup)
         out.append({'end': end, 'tower2': tower2, 'q181': q181, 'q183': q183, 'cave': cave, 'snake': snake,
-                    'corpse': corpse, 'king': king}.get(s.name, s))
-    return tuple(out)
+                    'corpse': corpse, 'king': king, 'arm': arm, 'finish': finish}.get(s.name, s))
+    return tuple(_bag_check(x) for x in out)
+
+
+BAG_CHECK = C('master_bag.py', 'clean', '{M}', '--if-free', '5', soft=True)
+
+
+def _bag_check(s):
+    """Right after a step's first trip home (逍遥村, next to the shop) the master's bag is cleaned when 5 slots are left."""
+    if not s.cmds or s.cmds[0] != HOME:
+        return s
+    return Step(s.name, s.stage, s.cmds[:1] + (BAG_CHECK,) + s.cmds[1:], s.retry, s.unless, s.env)
 
 
 ROUTE_BPLUS = _bplus()

@@ -346,7 +346,7 @@ class OwnAccountsAndLevels(unittest.TestCase):
     def test_levels_default_to_the_route(self):
         t = plan.Team('m', 0, 1)                                        # B+ is the default since 2026-10-30
         self.assertEqual([t.level(k) for k in plan.LEVELS], [12, 16, 23, 23, 28])
-        self.assertEqual((t.route, t.tower2), ('bplus', '39+125000'))
+        self.assertEqual((t.route, t.tower2), ('bplus', 'auto'))       # 2026-10-31: per master, plan.tower2_auto
         t = plan.Team('m', 0, 1, route='v5')
         self.assertEqual([t.level(k) for k in plan.LEVELS], [15, 19, 23, 25, 28])
         self.assertEqual(t.tower2, '40')
@@ -431,6 +431,23 @@ class ParkRetry(unittest.TestCase):
         self.assertEqual(sleeps, [600, 600])
         self.assertTrue(team.data['parked'])
         self.assertNotIn(4, team.data['done'])
+
+
+class SkipOneBatch(unittest.TestCase):
+    def test_skip_is_per_batch(self):
+        import line.__main__ as M
+        teams = dict(plan.TEAMS, a=plan.Team('m', 0, 1))
+        cfg = dict(M.load_config(), teams=['a'], batches=[1, 2], team={'a': {'skip': {'1': ['亿万4']}}})
+
+        class FakeRunner:
+            def __init__(self, b, **kw):
+                self.b = b
+        patch = unittest.mock.patch.object
+        with patch(M, 'load_state', lambda: {}), patch(plan, 'TEAMS', teams):
+            t = M.Team('a', cfg, runner=FakeRunner)
+            self.assertEqual(t.runner(1).b.apprentices, ['亿万1', '亿万2', '亿万3'])
+            self.assertEqual(t.runner(2).b.apprentices, ['亿万17', '亿万18', '亿万19', '亿万20'])
+            self.assertEqual(t.data['stuck'], [])
 
 
 class ReloadBatches(unittest.TestCase):
@@ -519,7 +536,7 @@ class BPlus(unittest.TestCase):
         self.assertEqual(R.route_of(b), R.ROUTE_BPLUS)
         tw = dict((s.name, s) for s in R.ROUTE_BPLUS)['tower2']
         self.assertEqual(R.fill(tw.unless, b), 'exp_ge 38+200000')
-        self.assertEqual(R.expand(tw.cmds[-1], b, python=()), [['tower2_patrol.py', '38+200000']])
+        self.assertEqual(R.expand(tw.cmds[-2], b, python=()), [['tower2_patrol.py', '38+200000']])
         plan.check_teams(['bp', 'oa', 'ob', 'oc'])
 
     def test_bad_values_rejected(self):
@@ -594,5 +611,105 @@ class BPlus(unittest.TestCase):
                 self.assertEqual(ops.reached(mem, 38, 200000), want, (lv, exp))
 
 
+class MasterBagAndGold(unittest.TestCase):
+    """2026-10-31 (user): tower2 per master from the recorded earnings, master bag cleaning, gold back to the master."""
+
+    def test_tower2_auto(self):
+        need = {k: 1000 for k in range(1, 39)} | {39: 312448, 40: 358773}
+        row = lambda lg, p, n, lv, e, m='m': dict(master=m, logid=lg, point=p, name=n, level=str(lv), exp=str(e))  # noqa
+        self.assertEqual(plan.tower2_auto('m', [], need), plan.TOWER2_FIRST)
+        rows = [row('L1', 'tower2', 'a', 39, 125000), row('L1', 'king', 'a', 39, 300000),     # earned 175000
+                row('L1', 'tower2', 'b', 39, 130000), row('L1', 'king', 'b', 40, 9000),       # earned 191448
+                row('L2', 'tower2', 'a', 39, 125000), row('L2', 'king', 'a', 39, 315000, m='other')]
+        self.assertEqual(plan.tower2_auto('m', rows, need), f'39+{312448 - 175000 + plan.TOWER2_MARGIN}')
+        self.assertEqual(plan.tower2_auto('m', rows[:1], need), plan.TOWER2_FIRST)            # no king row yet
+        three = [row('L3', 'tower2', n, 39, 100000) for n in 'xyz'] + [row('L3', 'king', n, 39, 290000) for n in 'xyz']
+        self.assertEqual(plan.tower2_auto('m', rows + three, need, size=3), f'39+{312448 - 190000 + plan.TOWER2_MARGIN}')
+        self.assertEqual(plan.tower2_auto('m', rows + three, need, size=2),               # only L1 has 2 people
+                         f'39+{312448 - 175000 + plan.TOWER2_MARGIN}')
+        self.assertEqual(plan.tower2_auto('m', rows + three, need, size=4),               # no batch of 4: all count
+                         f'39+{312448 - 175000 + plan.TOWER2_MARGIN}')
+        rows = [row('L1', 'tower2', 'a', 38, 0), row('L1', 'king', 'a', 39, 0)]               # earned only 1000
+        self.assertEqual(plan.tower2_auto('m', rows, need), '39+312447')                     # capped below 40
+
+    def test_route_bag_and_gold(self):
+        steps = {s.name: s for s in R.ROUTE_BPLUS}
+        args = lambda n: [c.args for c in steps[n].cmds]                                     # noqa: E731
+        self.assertEqual(args('arm')[-1], ('master_bag.py', 'snapshot', '{M}'))
+        fin = args('finish')
+        self.assertLess(fin.index(('mail_sell.py', '{APPS}')), fin.index(('give_gold.py', '{M}', '{APPS}')))
+        self.assertEqual(fin[-1], ('master_bag.py', 'clean', '{M}'))
+        self.assertFalse(next(c for c in steps['finish'].cmds if c.args[0] == 'give_gold.py').soft)
+        for s in R.ROUTE_BPLUS:
+            if s.cmds and s.cmds[0] == R.HOME:
+                self.assertEqual(s.cmds[1], R.BAG_CHECK, s.name)
+        self.assertEqual(args('tower2')[-1], ('ops', 'exp_note', 'tower2'))
+        self.assertEqual(args('king')[-2], ('ops', 'exp_note', 'king'))
+        self.assertFalse(any(c.args[0] in ('master_bag.py', 'give_gold.py') for s in R.ROUTE for c in s.cmds))
+
+    def test_bag_new_slots(self):
+        import master_bag as B
+        from types import SimpleNamespace as N
+        it = lambda i, ty, tr=True, imp=False: N(item_id=i, type=ty, tradable=tr, important=imp)  # noqa: E731
+        items = {1: it(1, 0x1000), 2: it(2, 0x1000), 3: it(3, 0x400), 4: it(4, 0x2000), 5: it(5, 0x103, tr=False),
+                 6: it(6, 0x821, imp=True)}
+        bag = [N(slot=k, item_id=i, quantity=1) for k, i in enumerate((1, 2, 3, 4, 5, 6, 99))]
+        sell, drop = B.new_slots(bag, {1}, items)
+        self.assertEqual([s.item_id for s in sell], [2])          # old kind 1 kept, 辅助品 / 任务品 / important kept
+        self.assertEqual([s.item_id for s in drop], [5])          # untradable new kind; unknown id 99 left alone
+
+
 if __name__ == '__main__':
     unittest.main()
+
+
+class DuplicateWindows(unittest.TestCase):
+    """2026-11-01 w1: three windows per apprentice after a restart; keep the newest one in the world."""
+    def test_pick_extra(self):
+        import r4_util as U
+        self.assertEqual(U.pick_extra([1, 2, 3], lambda p: p == 3), [1, 2])
+        self.assertEqual(U.pick_extra([1, 2, 3], lambda p: p == 1), [2, 3])     # the only live one stays
+        self.assertEqual(U.pick_extra([1, 2], lambda p: False), [1])           # none live: newest stays
+        self.assertEqual(U.pick_extra([5], lambda p: True), [])
+
+
+class RefusedName(unittest.TestCase):
+    """2026-11-01 亿万J8: 0x4003 result 3 (敏感词); make_apprentices takes another name and the batch follows it."""
+    def test_alt_names(self):
+        import make_apprentices as MA
+        self.assertEqual(MA.alt_names('亿万J8'), ['亿万JX8', '亿万JY8', '亿万JZ8'])
+        self.assertEqual(MA.alt_names('Opus55D12')[0], 'Opus55DX12')
+
+    def test_create_named_and_alias(self):
+        import json
+        import make_apprentices as MA
+        tried, saved = [], {}
+
+        def create(session, account, name, lg):
+            tried.append(name)
+            if name in ('亿万J8', '亿万JX8'):
+                raise MA.Refused(3, 'no')
+        lg = unittest.mock.Mock()
+        with unittest.mock.patch.object(MA, 'create', create), \
+                unittest.mock.patch.object(MA, 'save_alias', lambda n, a: saved.update({n: a})):
+            self.assertEqual(MA.create_named(None, None, '亿万J8', lg), '亿万JY8')
+        self.assertEqual(tried, ['亿万J8', '亿万JX8', '亿万JY8'])
+        self.assertEqual(saved, {'亿万J8': '亿万JY8'})
+
+        def other(session, account, name, lg):
+            raise MA.Refused(5, 'something else')
+        with unittest.mock.patch.object(MA, 'create', other):
+            with self.assertRaises(MA.Refused):
+                MA.create_named(None, None, '亿万J8', lg)
+
+        teams = dict(plan.TEAMS, a=plan.Team('m', 0, 1))
+        with unittest.mock.patch.object(plan, 'TEAMS', teams),                 unittest.mock.patch.object(plan, 'aliases', lambda: {'亿万1': '亿万X1'}):
+            self.assertEqual(plan.batch_names('a', 1), ['亿万X1', '亿万2', '亿万3', '亿万4'])
+
+    def test_aliases_file(self):
+        import json
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / 'a.json'
+            self.assertEqual(plan.aliases(p), {})
+            p.write_text(json.dumps({'亿万J8': '亿万JX8'}, ensure_ascii=False), encoding='utf-8')
+            self.assertEqual(plan.aliases(p), {'亿万J8': '亿万JX8'})
