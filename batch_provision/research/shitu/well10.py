@@ -69,11 +69,44 @@ class Eater:
         self.sent = (now, count)
 
 
+def invite_near(lead, others):
+    """Every member already next to the leader (same map, within INVITE_RANGE) is invited at once, then all accept
+    (user 2026-11-01: a leader can have 4 invites out at the same time); one at a time cost ~1.5-2 s apiece. Whoever
+    is not in after this goes through form_team's one-by-one path as before."""
+    ls = lead.world()
+    near = []
+    for c in others:
+        if c.char_id in lead.team() or c.team():
+            continue
+        s = c.world()
+        if s and s.map_id == ls.map_id and math.dist((ls.x, ls.y), (s.x, s.y)) <= INVITE_RANGE and not s.in_battle:
+            near.append(c)
+    if len(near) < 2:
+        return
+    for c in near:
+        lead.game.team_invite(c.char_id, w.read_level(lead.mem), w.read_invite_byte(lead.mem), lead.name)
+    for c in near:
+        try:
+            t.wait(lambda: w.read_team(c.mem).inviter == lead.char_id, 5, f'{c.name} 收到邀请')
+        except t.Stop:
+            pass
+    time.sleep(0.5)                    # the inviter field can be stale (see form_team): give the invite time to land
+    for c in near:
+        c.game.team_accept()
+    try:
+        t.wait(lambda: all(c.char_id in lead.team() for c in near), 3, '同时邀请的人入队')
+    except t.Stop:
+        pass
+    t.say(f'[{lead.name}] 同时邀请 {[c.name for c in near]}，进队 '
+          f'{[c.name for c in near if c.char_id in lead.team()]}')
+
+
 def form_team(lead, others):
     """Leader invites every one not yet in its team; returns True when all are in."""
     team = lead.team()
     if team and team[0] != lead.char_id:
         raise t.Stop(f'{lead.name} 在别人的队里 {team}')
+    invite_near(lead, others)
     for c in others:
         if c.char_id in lead.team():
             continue
