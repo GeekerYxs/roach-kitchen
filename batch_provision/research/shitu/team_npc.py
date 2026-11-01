@@ -23,11 +23,16 @@ from provisioner import world as w
 def talk(c, npc, xy, word, qid):
     import r4_util
     r4_util.space_one(c, 2)     # the NPC may hand over an item; loot from the walk filled the bag (2026-10-28)
-    d.step_to(c, xy, near=80)
     before = w.read_quest(c.mem, qid)
-    c.game.click_npc(npc)
+    dlg = d.click_here(c, npc, xy)          # user 2026-11-01: from where it stands first, walk only if that fails
+    if dlg is None and w.read_quest(c.mem, qid).steps != before.steps:
+        t.say(f'[{c.name}] 原地点 NPC {npc} 没有对话框，{qid} {before.steps} -> {w.read_quest(c.mem, qid).steps}')
+        return
     try:
-        dlg = t.wait(lambda: c.dialog(), 5, f'{c.name} NPC {npc}')
+        if dlg is None:
+            d.step_to(c, xy, near=80)
+            c.game.click_npc(npc)
+            dlg = t.wait(lambda: c.dialog(), 5, f'{c.name} NPC {npc}')
     except t.Stop:
         if w.read_quest(c.mem, qid).steps != before.steps:      # an object that counts on a plain click, no dialog
             t.say(f'[{c.name}] 点 NPC {npc} 没有对话框，{qid} {before.steps} -> {w.read_quest(c.mem, qid).steps}')
@@ -107,7 +112,7 @@ def main(map_id, npc, xy, word, qid, master, names, regroup=True):
             time.sleep(RETRY_WAIT)
         todo = [t.Client(n) for n in names]
     if regroup:     # --no-regroup: the next command scrolls everybody home, which breaks the team anyway (user 2026-10-28)
-        d.regroup(lead, apps)
+        d.regroup_all(lead, apps)
 
 
 if __name__ == '__main__':

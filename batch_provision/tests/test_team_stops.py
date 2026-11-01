@@ -69,17 +69,61 @@ class LeaveAll(unittest.TestCase):
 
 
 class RegroupAll(unittest.TestCase):
-    def test_walk_together_invite_together_then_fallback(self):
+    def test_nobody_walks_form_team_invites_in_place(self):
+        """user 2026-11-01: invite where they stand (form_team -> invite_near), the leader walks to the far ones."""
         log = []
-        lead = NS(name='M', char_id=1, team=lambda: (1, 10) if log.count('invite') else (), dialog=lambda: None,
-                  world=lambda: NS(x=100, y=100))
+        lead = NS(name='M', char_id=1, team=lambda: (), dialog=lambda: None)
         cs = [NS(name=n, char_id=i, dialog=lambda: None) for n, i in (('a', 10), ('b', 11))]
-        with mock.patch.object(teamwalk, 'step_to', lambda c, xy, near: log.append(('walk', c.name, xy))), \
-                mock.patch('well10.invite_near', lambda l, out: log.append('invite')), \
-                mock.patch.object(teamwalk, 'regroup', lambda l, ms: log.append('regroup')):
+        with mock.patch.object(teamwalk, 'step_to', lambda *a, **k: log.append('walk')), \
+                mock.patch('well10.form_team', lambda l, ms: log.append(('form', l.name, [c.name for c in ms]))):
             teamwalk.regroup_all(lead, cs)
-        self.assertEqual(sorted(log[:2]), [('walk', 'a', (100, 100)), ('walk', 'b', (100, 100))])
-        self.assertEqual(log[2:], ['invite', 'regroup'])
+        self.assertEqual(log, [('form', 'M', ['a', 'b'])])
+
+    def test_all_in_nothing_to_do(self):
+        lead = NS(name='M', char_id=1, team=lambda: (1, 10))
+        with mock.patch('well10.form_team', lambda l, ms: self.fail('no regroup needed')):
+            teamwalk.regroup_all(lead, [NS(name='a', char_id=10)])
+
+
+class ClickHere(unittest.TestCase):
+    def client(self, xy, map_id=280, dialog=True):
+        clicks = []
+        c = NS(name='a', world=lambda: NS(map_id=map_id, x=xy[0], y=xy[1]),
+               dialog=lambda: ('dlg' if dialog and clicks else None),
+               game=NS(click_npc=lambda npc: clicks.append(npc)))
+        return c, clicks
+
+    def run_here(self, c, xy=(1000, 1000), map_id=None):
+        with mock.patch.object(teamwalk.t, 'wait', lambda cond, timeout, what: cond() or
+                               (_ for _ in ()).throw(teamwalk.t.Stop(what))), mock.patch.object(teamwalk, 'MAP', 280):
+            return teamwalk.click_here(c, 954, xy, map_id)
+
+    def test_close_enough_clicks_in_place(self):
+        c, clicks = self.client((1200, 1000))
+        self.assertEqual(self.run_here(c), 'dlg')
+        self.assertEqual(clicks, [954])
+
+    def test_too_far_or_other_map_does_not_try(self):
+        for xy, m in (((1400, 1000), 280), ((1000, 1000), 20)):
+            c, clicks = self.client(xy, map_id=m)
+            self.assertIsNone(self.run_here(c))
+            self.assertEqual(clicks, [])
+
+    def test_no_dialog_is_none(self):
+        c, clicks = self.client((1000, 1000), dialog=False)
+        self.assertIsNone(self.run_here(c))
+        self.assertEqual(clicks, [954])
+
+    def test_map_given(self):
+        c, clicks = self.client((1000, 1000), map_id=20)
+        self.assertEqual(self.run_here(c, map_id=20), 'dlg')
+
+    def test_scripts_try_in_place_before_walking(self):
+        for name, walk in (('dew_team.py', 'step_to(c, xy)'), ('scorpion_water.py', 'd.step_to(c, xy)'),
+                           ('team_npc.py', 'd.step_to(c, xy, near=80)'), ('talk_chain.py', 'walk(c, map_id, xy')):
+            src = (HERE / name).read_text(encoding='utf-8')
+            self.assertIn('click_here(', src, name)
+            self.assertLess(src.index('click_here('), src.index(walk), name)
 
 
 class FightOut(unittest.TestCase):

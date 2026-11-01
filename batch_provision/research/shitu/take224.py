@@ -63,10 +63,12 @@ def walk(c, xy, why):
     raise t.Stop(f'{c.name} 120s 没走到{why}')
 
 
-def talk(c, npc, steps):
-    """ClickNpc(npc), then pick the option containing each word in `steps` in turn."""
-    c.game.click_npc(npc)
-    d = t.wait(lambda: c.dialog(), 5, f'NPC {npc} 的对话框')
+def talk(c, npc, steps, d=None):
+    """ClickNpc(npc), then pick the option containing each word in `steps` in turn. d = a dialog already open for npc
+    (teamwalk.click_here) instead of the click."""
+    if d is None:
+        c.game.click_npc(npc)
+        d = t.wait(lambda: c.dialog(), 5, f'NPC {npc} 的对话框')
     for word in steps:
         opt, label = pick_text(d, word)
         t.say(f'[{c.name}]   选 opt={opt}「{plain(label)}」')
