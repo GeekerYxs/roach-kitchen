@@ -109,16 +109,18 @@ def home_village():
         if c.team():
             c.game.team_leave()
     time.sleep(1)
-    for c in cs:
+
+    def one(c):                        # everybody scrolls at once (user 2026-11-01)
         t.wait(lambda: not c.team(), 5, f'{c.name} 离队')
         if c.world().map_id not in (1, 8):
             scroll(c)
+    t.each(cs, one)
 
 
 def q94():
     from take224 import talk
     from zhuanzhi_finish import walk
-    for n in APPRENTICES:
+    def one(n):                        # each hands in 94 at NPC 308 on its own, all at once (user 2026-11-01)
         c = t.Client(n)
         if w.read_quest(c.mem, 94).active:
             walk(c, 1, (1278, 1135), 'NPC 308')
@@ -126,6 +128,7 @@ def q94():
             t.say(f'[{n}] 任务 94 {w.read_quest(c.mem, 94)} 对话 {t.body(d)[:40] if d else None}')
             if d:
                 c.game.select_dialog(0)
+    t.each(APPRENTICES, one)
 
 
 def take224_master():
@@ -151,7 +154,7 @@ def gather():
 def fairy():
     from take224 import talk
     from zhuanzhi_finish import gate, walk
-    for n in APPRENTICES:
+    def one(n):                        # each to 神仙姐姐 and back on its own, all at once (user 2026-11-01)
         c = t.Client(n)
         if w.read_quest(c.mem, 183).active:
             gate(c, 10213, (1338, 1053), 1, '梦幻岛', 270)
@@ -164,6 +167,7 @@ def fairy():
             time.sleep(0.5)
         if c.world().map_id == 270:
             gate(c, 23, (954, 507), 270, '逍遥村西区', 1)
+    t.each(APPRENTICES, one)
 
 
 EXP_CSV = t.HERE / 'logs' / 'tower2_exp.csv'      # plan.tower2_auto reads it back

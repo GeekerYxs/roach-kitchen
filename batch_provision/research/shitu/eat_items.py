@@ -53,8 +53,7 @@ if __name__ == '__main__':
     if os.environ.get('SHITU_STATE', '').startswith('state_r4'):   # round 4: 地瓜 one at a time (r4_util double)
         words = [x for x in words if x != '加钙地瓜']
     try:
-        for n in args:
-            run(n, table, tuple(words))
+        t.each(args, lambda n: run(n, table, tuple(words)))      # each its own bag, at once (user 2026-11-01)
     except t.Stop as e:
         t.say(f'停止: {e}')
         raise SystemExit(1)

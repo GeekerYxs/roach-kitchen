@@ -91,6 +91,25 @@ def wait(cond, timeout, what):
     raise Stop(f'{timeout}s 内没等到: {what}')
 
 
+def each(names, fn):
+    """fn(name) for every name at once, one thread each (each role is its own window; talk_chain / dew.py), user
+    2026-11-01: what every apprentice does for itself (talk to an NPC, sell, eat, open packs ...) is not done one
+    after another any more. All run to their end; then the first error is raised, as the loop would have."""
+    import threading
+    errs = []
+
+    def run(n):
+        try:
+            fn(n)
+        except BaseException as e:          # Stop, SystemExit from a script's own guard, bugs: all fail the step
+            errs.append(e)
+    ths = [threading.Thread(target=run, args=(n,)) for n in names]
+    [th.start() for th in ths]
+    [th.join() for th in ths]
+    if errs:
+        raise errs[0]
+
+
 # ---------------------------------------------------------------- team / walking
 
 def form_team(app, master):

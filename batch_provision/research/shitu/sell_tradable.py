@@ -72,22 +72,25 @@ def main(names, mode='all'):
     log.setup(t.HERE / 'logs', prefix='sell_tradable')
     items = load_items()
     nm = lambda i: items[i].name if i in items else str(i)        # noqa: E731
-    for n in names:
-        c = t.Client(n)
-        if mode == 'all':
-            unequip_weapon(c, nm)
-        walk(c, 1, (1338, 1155), '宠物商人小美')
-        bag = w.read_bag(c.mem)
-        sell = [s for s in bag if s.item_id in items and items[s.item_id].tradable and wanted(items[s.item_id], mode)]
-        keep = [nm(s.item_id) for s in bag if s not in sell]
-        gold = w.read_gold(c.mem)
-        t.say(f'[{n}] 模式 {mode}：卖 {len(sell)} 格: {[nm(s.item_id) for s in sell]}；留 {len(keep)} 格: {keep}')
-        shop = ShopClient(c.game, c.mem, log.for_account(n))
-        sold = shop.sell(PETSHOP, sell) if sell else 0
-        shop.close()
-        left = [nm(s.item_id) for s in w.read_bag(c.mem) if s in sell]
-        t.say(f'[{n}] 卖了 {sold}/{len(sell)} 格，金币 {gold} -> {w.read_gold(c.mem)}' +
-              (f'；可交易但没卖掉: {left}' if left else ''))
+    t.each(names, lambda n: one(n, mode, items, nm))     # each walks to 小美 and sells at once (user 2026-11-01)
+
+
+def one(n, mode, items, nm):
+    c = t.Client(n)
+    if mode == 'all':
+        unequip_weapon(c, nm)
+    walk(c, 1, (1338, 1155), '宠物商人小美')
+    bag = w.read_bag(c.mem)
+    sell = [s for s in bag if s.item_id in items and items[s.item_id].tradable and wanted(items[s.item_id], mode)]
+    keep = [nm(s.item_id) for s in bag if s not in sell]
+    gold = w.read_gold(c.mem)
+    t.say(f'[{n}] 模式 {mode}：卖 {len(sell)} 格: {[nm(s.item_id) for s in sell]}；留 {len(keep)} 格: {keep}')
+    shop = ShopClient(c.game, c.mem, log.for_account(n))
+    sold = shop.sell(PETSHOP, sell) if sell else 0
+    shop.close()
+    left = [nm(s.item_id) for s in w.read_bag(c.mem) if s in sell]
+    t.say(f'[{n}] 卖了 {sold}/{len(sell)} 格，金币 {gold} -> {w.read_gold(c.mem)}' +
+          (f'；可交易但没卖掉: {left}' if left else ''))
 
 
 if __name__ == '__main__':

@@ -51,8 +51,7 @@ def run(name, items):
 if __name__ == '__main__':
     table = load_items()
     try:
-        for n in sys.argv[1:]:
-            run(n, table)
+        t.each(sys.argv[1:], lambda n: run(n, table))           # each its own bag, at once (user 2026-11-01)
     except t.Stop as e:
         t.say(f'停止: {e}')
         raise SystemExit(1)

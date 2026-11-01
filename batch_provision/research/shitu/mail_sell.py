@@ -122,5 +122,4 @@ if __name__ == '__main__':
         batch, args = int(args[1]), args[2:]
     log.setup(t.HERE / 'logs', prefix='mail_sell')
     table = load_items()
-    for n in args:
-        run(n, batch, table)
+    t.each(args, lambda n: run(n, batch, table))                # each its own mails + 小美, at once (2026-11-01)

@@ -41,8 +41,7 @@ if __name__ == '__main__':
             i = args.index('--name')
             words.append(args[i + 1])
             del args[i:i + 2]
-        for n in args:
-            run(n, table, tuple(words))
+        t.each(args, lambda n: run(n, table, tuple(words)))      # each its own bag, at once (user 2026-11-01)
     except t.Stop as e:
         t.say(f'停止: {e}')
         raise SystemExit(1)
