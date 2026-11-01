@@ -37,8 +37,10 @@ def main(leader, members):
     # 2026-10-28 team C: only 亿万11 got a 蝎爪, the other three had full bags; clear room, fight again for the rest
     everyone = [lead] + cs
     for round_ in range(1, 4):
-        for c in apps:
-            r4_util.space_one(c, 2)
+        t.each([c.name for c in apps], lambda n: r4_util.space_one(next(c for c in apps if c.name == n), 2))
+        full = [c.name for c in apps if not claws(c) and w.read_bag_capacity(c.mem) - len(w.read_bag(c.mem)) < 1]
+        if full:        # user 2026-11-01: a full bag gets no 蝎爪, the fight would be wasted on it
+            t.say(f'第 {round_} 次开打前背包还是满的（拿不到蝎爪）: {full}')
         # 2026-10-28 team B: the boss says 走开 to a leader that already holds a 蝎爪; lead with one still short of it
         short = [c for c in apps if not claws(c) and len(w.read_quest(c.mem, 183).steps) == 6]
         if short and short[0] is not lead:

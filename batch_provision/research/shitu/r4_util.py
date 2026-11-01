@@ -348,8 +348,29 @@ def space(n):
     t.each(APPRENTICES, lambda name: space_one(t.Client(name), n))      # each its own bag, at once (2026-11-01)
 
 
+JUNK, PRANK = 0x1000, (0x802, 0x803)        # 杂物; 整人道具 (定身丸, 就看你不爽, 变身卡 ..., drop_prank.py)
+
+
+def drop_order(bag, items):
+    """What space_one may drop, first choice first: 0-quality 杂物, then 整人道具, then any other 杂物 (user 2026-11-01:
+    蝎子王 gave no 蝎爪 to a full bag 3 times over, it held no 0-quality 杂物). Never 任务品, 辅助品 (回城卷, drinks),
+    equipment or anything important."""
+    def kind(s):
+        it = items.get(s.item_id)
+        if not it or it.important:
+            return None
+        if it.type == JUNK and it.quality == 0:
+            return 0
+        if it.type in PRANK:
+            return 1
+        if it.type == JUNK:
+            return 2
+        return None
+    return sorted((s for s in bag if kind(s) is not None), key=kind)
+
+
 def space_one(c, n):
-    """c: drop 0-quality junk until n free slots (battle loot refills the bag on the way: 2026-10-28 team A's
+    """c: drop junk (drop_order) until n free slots (battle loot refills the bag on the way: 2026-10-28 team A's
     「拾取情报」 got 物品栏已满 although the step had made 3 free)."""
     import struct
     from factory.items import load_items
@@ -363,12 +384,12 @@ def space_one(c, n):
         free = w.read_bag_capacity(c.mem) - len(bag)
         if free >= n:
             break
-        junk = [s for s in bag if (it := items.get(s.item_id)) and it.quality == 0 and it.type == 0x1000
-                and not it.important]
+        junk = drop_order(bag, items)
         if not junk:
-            t.say(f'[{name}] 只剩 {free} 格空，没有 0 品质杂物可丢')
+            t.say(f'[{name}] 只剩 {free} 格空，没有杂物 / 整人道具可丢')
             break
         s = junk[0]
+        t.say(f'[{name}] 空格 {free} < {n}，丢 {items[s.item_id].name} x{s.quantity}')
         c.game.send(0x48, struct.pack('<IBBH', 0, 0, s.slot, s.quantity))
         time.sleep(0.6)
     t.say(f'[{name}] 空格 {w.read_bag_capacity(c.mem) - len(w.read_bag(c.mem))}')
