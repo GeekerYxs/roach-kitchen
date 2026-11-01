@@ -26,6 +26,9 @@ LEVELS = {'lunhui': 15, 'maze1': 19, 'maze2': 23, 'bazhen': 25, 'cave': 28}
 # (exp-map trial EXP_MAP_TRIAL.md: at 24 洞穴 10,639/min vs 八阵图 6,984; the bp live run used 24)
 BPLUS_LEVELS = {'lunhui': 12, 'maze1': 16, 'maze2': 23, 'bazhen': 23, 'cave': 28}
 ROUTE_NAMES = ('bplus', 'v5')    # route.ROUTES keys; bplus = default
+GOLD = 10000                     # starting gold per apprentice (user 2026-11-01): spent before the first income
+                                 # (考验 at 35) is ~2-2.5k of PP鸡; 1万 ran whole batches twice (r4 d, 11-01 w2);
+                                 # give_gold returns it all at the batch end, more only ties up the master's gold
 TOWER1 = 35                      # user 2026-10-30: masters differ in strength, every team does 通天一 to 35 for now
 # 通天塔二区 target per route. B+ live 2026-10-30 (BPLUS_NOTES.md): left 二区 at 38+19.9万, the 181 reward + quest
 # battles up to 蝎子王 gave ~19.2万 -> 39+11.9万, short of the 40 that 神仙姐姐 wants; 39+125000 gets there without topup
@@ -144,7 +147,7 @@ def load_teams(path=CONFIG):
         tower2 = str(v.get('tower2', TOWER2[route]))
         if tower2 != 'auto' and not re.fullmatch(r'\d+(\+\d+)?', tower2):
             raise ValueError(f'line.toml [team.{k}] tower2 = {tower2!r}：写 40、38+200000 或 auto')
-        t = Team(v['master'], int(v.get('slot', 0)), int(v.get('gold', 50000)), int(v.get('tower1', TOWER1)),
+        t = Team(v['master'], int(v.get('slot', 0)), int(v.get('gold', GOLD)), int(v.get('tower1', TOWER1)),
                  0 if listed else int(acc), v.get('names', ''), tuple(sorted((a, int(b)) for a, b in levels.items())),
                  listed, route, tower2)
         if not t.accounts and not listed and not 0 <= t.slot < 4:

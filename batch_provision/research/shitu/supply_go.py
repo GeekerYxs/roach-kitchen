@@ -1,4 +1,4 @@
-"""After the well: 伏地魔1 gives each apprentice 10 回城卷 + 50000 gold, everybody scrolls home, then 伏地魔1 leads the
+"""After the well: 伏地魔1 gives each apprentice 10 回城卷 + SHITU_GOLD (10000) gold, everybody scrolls home, then 伏地魔1 leads the
 five of them through PP鸡 to 平静海岸2区 (map 81) and stops there.
 
     python -X utf8 research/shitu/supply_go.py
@@ -28,7 +28,7 @@ from well10 import form_team
 from common import APPRENTICES, MASTERS  # noqa: E402
 MASTER = MASTERS[0]
 OTHERS = APPRENTICES + MASTERS[1:]
-SCROLLS, GOLD = int(os.environ.get('SHITU_SCROLLS', '10')), int(os.environ.get('SHITU_GOLD', '50000'))  # 伏地魔4 has less
+SCROLLS, GOLD = int(os.environ.get('SHITU_SCROLLS', '10')), int(os.environ.get('SHITU_GOLD', '10000'))  # 伏地魔4 has less
 GAP = 0.5
 TRADE_NEAR = 80
 

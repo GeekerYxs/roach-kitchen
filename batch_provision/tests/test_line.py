@@ -58,7 +58,8 @@ class Plan(unittest.TestCase):
             with self.assertRaises(ValueError):
                 plan.load_teams(p)
             p.write_text('[team.x]\nmaster = "m"\nslot = 1\n', encoding='utf-8')
-            self.assertEqual(plan.load_teams(p)['x'], plan.Team('m', 1, 50000))
+            self.assertEqual(plan.load_teams(p)['x'], plan.Team('m', 1, plan.GOLD))
+            self.assertEqual(plan.GOLD, 10000)
 
     def test_skip_and_prev(self):
         self.assertEqual(plan.plan_skip('d', 3, ['亿万13']), ['亿万13', '亿万48'])
