@@ -251,9 +251,15 @@ def _bplus():
         i = next(k for k, c in enumerate(cmds) if c.args[0] == script)
         return Step(name, steps[name].stage, cmds[:i] + new + cmds[i:], steps[name].retry, steps[name].unless,
                     steps[name].env)
+    # 2026-11-01 (user): the team takes the 外城传送员 to 无尽2路口 instead of walking map 20 (team_tp.py): the
+    # apprentices start for 740 while the master takes 224 at 大个王 next to it. A miss is soft: go_goal walks as before.
     cave = before('cave', 'go_cave.py', C('go_goal.py', '20', *CAVE_DOOR), shoe('record', CAVE_DOOR))
+    cave = Step('cave', 'mid', tuple(x for c in cave.cmds for x in (
+        (C('team_tp.py', 'send', '{APPS}', soft=True), c, C('team_tp.py', 'go', '{M}', '{APPS}', soft=True))
+        if c.args == ('ops', 'take224_master') else (c,))), cave.retry, cave.unless, cave.env)
     snake = before('snake', 'go_cave.py', shoe('fly', CAVE_DOOR, when='master_on 20'),
-                   C('pp_chain.py', '龙之都', '平静海岸2区', when='master_on 1'))   # a half fly scrolled everybody home
+                   C('pp_chain.py', '龙之都', '平静海岸2区', when='master_on 1'),   # a half fly scrolled everybody home
+                   C('team_tp.py', 'go', '{M}', '{APPS}', when='master_on 20', soft=True))   # no fly: teleport
     corpse = before('corpse', 'ruin_go.py', C('desert_go.py', *RUIN_DOOR[1:]), shoe('record', RUIN_DOOR))
     # 2026-11-01 (user): the apprentices stay at 大个王 after taking 224, no 外城传送员 trip to 无尽2路口: snake flies
     # from anywhere, and a walk (record / cooldown) starts from the master at the PP鸡 landing anyway
