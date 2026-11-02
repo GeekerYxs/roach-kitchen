@@ -37,7 +37,7 @@ TOWER1 = 35                      # user 2026-10-30: masters differ in strength, 
 # left and after 蝎子王 (logs/tower2_exp.csv); tower2_auto takes this master's smallest earning of its last batches
 TOWER2 = {'bplus': 'auto', 'v5': '40'}
 TOWER2_FIRST = '39+170000'       # no history for the master yet: ~26% margin on bp's earning
-TOWER2_MARGIN = 40000            # exp kept over the smallest earning seen (one 二区 minute is 2.2-3.9万); 2026-11-01
+TOWER2_MARGIN = 25000            # exp kept over the smallest earning seen (one 二区 minute is 2.2-3.9万); user 2026-11-02 (was 40000)
                                  # w1: the same master earned 23.4万 then 19.6万 (25000 left it 1万 short -> topup)
 TOWER2_LOOKBACK = 3              # batches of history that count
 EXP_CSV = Path(__file__).resolve().parent.parent / 'logs' / 'tower2_exp.csv'
