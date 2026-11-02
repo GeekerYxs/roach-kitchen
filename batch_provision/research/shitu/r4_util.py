@@ -377,11 +377,17 @@ def space_one(c, n):
     items = load_items()
     name = c.name
     from quanshou import flee
+    def free_slots():
+        capacity = w.read_bag_capacity(c.mem)
+        return None if capacity is None else capacity - len(w.read_bag(c.mem))
+
     for _ in range(10):
         flee(c)                         # 2026-10-28 亿万14: drops sent during a battle were ignored (空格 0)
         t.wait(lambda: not (s := c.world()).moving and not s.busy, 10, f'{name} 站稳')
         bag = w.read_bag(c.mem)
-        free = w.read_bag_capacity(c.mem) - len(bag)
+        free = free_slots()
+        if free is None:
+            raise t.Stop(f'{name} 背包容量不可读（客户端会话未就绪），暂停清包以便恢复后重试')
         if free >= n:
             break
         junk = drop_order(bag, items)
@@ -392,7 +398,10 @@ def space_one(c, n):
         t.say(f'[{name}] 空格 {free} < {n}，丢 {items[s.item_id].name} x{s.quantity}')
         c.game.send(0x48, struct.pack('<IBBH', 0, 0, s.slot, s.quantity))
         time.sleep(0.6)
-    t.say(f'[{name}] 空格 {w.read_bag_capacity(c.mem) - len(w.read_bag(c.mem))}')
+    free = free_slots()
+    if free is None:
+        raise t.Stop(f'{name} 背包容量不可读（客户端会话未就绪），无法核验清包结果')
+    t.say(f'[{name}] 空格 {free}')
 
 
 if __name__ == '__main__':

@@ -137,6 +137,16 @@ def walk_to(me, npc, xy):
         st = me.world()
         if st.map_id != MAP:
             raise Stop(f'不在遗忘洞穴了 (map {st.map_id})')
+        # Battles on the lower floor can respawn a character on the upper floor
+        # without changing map_id. Re-enter the requested floor before navigating
+        # to a flower; otherwise Navigate oscillates at the floor boundary until
+        # WALK_TIMEOUT.
+        target_lower = xy[1] > FLOOR_SPLIT_Y
+        if (st.y > FLOOR_SPLIT_Y) != target_lower:
+            change_floor(me, target_lower)
+            issued, last_pos = 0.0, None
+            last_move = time.monotonic()
+            continue
         d = math.dist((st.x, st.y), xy)
         if d <= NEAR and not st.moving:
             return d

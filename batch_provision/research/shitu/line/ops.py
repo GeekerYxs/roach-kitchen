@@ -148,6 +148,12 @@ def gather():
         if stones >= 3:
             return
         run(3 - stones, 'dark')
+    # The fifth and final gather can supply the last stone. Recheck after it
+    # returns instead of failing based only on the count from before that run.
+    stones = w.item_count(w.read_bag(t.Client(M).mem), 11151)
+    t.say(f'遗忘之石 {stones}')
+    if stones >= 3:
+        return
     raise t.Stop('5 轮暗·遗忘之花后遗忘之石还不到 3 个')
 
 

@@ -13,6 +13,7 @@ Password = the [accounts] password of batch_provision/local.toml (mvp uses the s
 Reuses provisioner.login / worker / enter / novice; windows stay open in the world.
 """
 import dataclasses
+import os
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -109,12 +110,17 @@ def create(session, account, name, lg):
 def one(settings, throttle, account, name, anywhere=False):
     lg = log.for_account(account.name)
     out = {'account': account.name, 'name': name, 'ok': False}
+    target_slot = int(os.environ.get('BATCH', '0') or 0)
     session = None
     try:
         session = login(settings, account, ROOT / 'runtime', throttle, lg)
         _, roster = read_session(session, account.name, lg)
         names = [n for _, _, n in roster]
+        if name in names and target_slot and names.index(name) + 1 != target_slot:
+            raise Stop(f'{name} 已在第 {names.index(name) + 1} 槽，不是本批指定的第 {target_slot} 槽')
         if name not in names:
+            if target_slot and len(roster) != target_slot - 1:
+                raise Stop(f'本批要求第 {target_slot} 槽，但账号当前有 {len(roster)} 个角色 {names}；不建角')
             if len(roster) >= MAX_SLOTS:
                 raise Stop(f'账号里已有 {len(roster)} 个角色 {names}，没有空槽，不建')
             name = out['name'] = create_named(session, account, name, lg)
@@ -125,6 +131,8 @@ def one(settings, throttle, account, name, anywhere=False):
         if names.count(name) != 1:
             raise Stop(f'{name} 不在选角列表里（或重名）: {names}')
         slot = names.index(name) + 1                   # the list as read decides the slot (2026-10-27 03:2x round)
+        if target_slot and slot != target_slot:
+            raise Stop(f'{name} 在第 {slot} 槽，不是本批指定的第 {target_slot} 槽')
         char_id, level, _ = roster[slot - 1]
         lg.info('进入第 %d 槽 %s (ID=%d, %d级)', slot, name, char_id, level)
         enter_role(session, slot, settings.enter_timeout, lg, account.name)

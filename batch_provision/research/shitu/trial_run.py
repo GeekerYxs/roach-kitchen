@@ -122,20 +122,17 @@ def form_team(app, master):
             say(f'[{c.name}] 先离开现在的队伍 {c.team()}')
             c.game.team_leave()
             wait(lambda: not c.team(), 5, f'{c.name} 离队')
-    level, byte = w.read_level(app.mem), w.read_invite_byte(app.mem)
-    say(f'[{app.name}] 邀请 {master.name} 入队 (0x30, 等级 {level})')
-    app.game.team_invite(master.char_id, level, byte, app.name)
-    wait(lambda: w.read_team(master.mem).inviter == app.char_id, 5, f'{master.name} 收到邀请')
-    for attempt in range(3):     # the inviter field can hold an OLD invite: accept again (well10.form_team, round 3 11:06)
-        say(f'[{master.name}] 接受邀请')
-        master.game.team_accept()
-        try:
-            wait(lambda: app.team() == want and master.team() == want, 3, '双方队伍名单 = [徒弟, 师傅]')
-            break
-        except Stop:
-            if attempt == 2:
-                raise
-            time.sleep(0.5)
+    lead, member = app.world(), master.world()
+    if lead.map_id != member.map_id:
+        raise Stop(f'{app.name} 与 {master.name} 不在同一地图：{lead.map_id} / {member.map_id}')
+    distance = math.dist((lead.x, lead.y), (member.x, member.y))
+    say(f'[{app.name}] 组队前与 {master.name} 距离 {distance:.0f} px；使用安全靠近后再邀请')
+    # The game refuses team invites beyond ~150 px. The previous path sent immediately; EAX=1 did not
+    # mean the server registered it. Reuse the battle-aware, obstruction-tolerant regroup already used by B+.
+    import teamwalk
+    teamwalk.MAP = lead.map_id
+    teamwalk.regroup(app, [master])
+    wait(lambda: app.team() == want and master.team() == want, 8, '双方队伍名单 = [徒弟, 师傅]')
     say(f'[{app.name}] 组队成功，队伍 {app.team()}')
 
 

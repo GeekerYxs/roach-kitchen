@@ -218,7 +218,9 @@ def status(cfg):
             p = LOGS / f'{plan.logid(team, d["batch"])}_line.json'
             try:
                 pr = json.loads(p.read_text(encoding='utf-8'))
-                todo = [n for n in R.NAMES if n not in pr['done']]
+                batch = plan.Batch(team, d['batch'])
+                route_names = [step.name for step in R.route_of(batch)]
+                todo = [n for n in route_names if n not in pr['done']]
                 line += f'  第 {d["batch"]} 批下一步 {todo[0] if todo else "-"}  最近: {pr["events"][-1:]}'
             except (OSError, ValueError, KeyError):
                 line += f'  第 {d["batch"]} 批进行中'
