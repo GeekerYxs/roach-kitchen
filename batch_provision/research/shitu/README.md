@@ -130,3 +130,7 @@ bash r3_end.sh                                   # 回城，卖杂物，考验�
 python -X utf8 tower2_go.py; python -X utf8 tower2_patrol.py 40   # 通天塔二区巡逻到 40
 # 40 级之后的任务 181 / 183 / 出师 / 收尾，逐条命令见 docs/SHITU_PIPELINE.md 第 4 节
 ```
+
+## 测试数据与实测参考
+
+- [师徒批次战斗场次参考（2026-11-02）](notes/battle-counts-2026-11-02.md)：第三槽位五队两段练级计数对比；说明该合计不等于整套任务总场次。
