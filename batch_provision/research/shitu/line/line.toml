@@ -166,3 +166,13 @@ accounts = ["mw21", "mw22", "mw23", "mw24"]
 names = "亿万P"
 gold = 10000
 batches = [1, 2, 3]
+
+[team.ys]                     # 2026-11-02 元素使 队：10 级转术士、40 级转元素使（YUANSU_NOTES.md）；徒弟全加敏捷，体质 3
+master = "伏地魔1"
+accounts = ["yss01", "yss02", "yss03", "yss04"]
+names = "元素使0"             # 第 1 批 = 元素使01..04
+gold = 10000
+stat = "敏捷"
+job = "术士"
+revive = 27002                # 美味小强料理：师傅在战斗中救倒地的徒弟，那一回合宠物防御
+tidy = true                   # 每次 U home 后整理背包：开 5 级倍数礼包、丢整人道具、脱武器、卖新手装 / 扳手 / 杂物 / 穿不上的装备

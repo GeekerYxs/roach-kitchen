@@ -41,6 +41,7 @@ def unequip_weapon(c, nm):
             t.say(f'[{c.name}] 脱下 {nm(e.item_id)} -> 背包第 {free} 格')
 
 
+WRENCH = 118                    # 专打屁屁扳手 (orange, tradable, 510 at the shop)
 KEEP_JUNK = {9801}              # --junk keeps 回城卷 (round 2, 04:57: all bags full in the cave, sold mid-run)
 KEEP_QUALITY = 3                # user, round 3: never sell 蓝 (3) / 橙 (4) equipment; quality = items.csv per item id
 ZAWU, RELIC, STONE, RECIPE = 0x1000, 0x82B, 0x821, 0x823   # factory/items.py type names
@@ -65,6 +66,8 @@ def wanted(it, mode):
         return it.type in (ZAWU, RELIC, STONE, RECIPE) or '图纸' in it.name or '配方' in it.name
     if mode == 'safe':
         return it.type in (ZAWU, RELIC) or (it.type in EQUIP_TYPES and it.quality < KEEP_QUALITY)
+    if mode == 'tidy':           # 元素使 team (user 2026-11-02): safe + the 专打屁屁扳手 (taken off first), 回城卷 kept
+        return wanted(it, 'safe') or it.item_id == WRENCH
     return True
 
 
@@ -77,7 +80,7 @@ def main(names, mode='all'):
 
 def one(n, mode, items, nm):
     c = t.Client(n)
-    if mode == 'all':
+    if mode in ('all', 'tidy'):
         unequip_weapon(c, nm)
     walk(c, 1, (1338, 1155), '宠物商人小美')
     bag = w.read_bag(c.mem)
@@ -94,7 +97,7 @@ def one(n, mode, items, nm):
 
 
 if __name__ == '__main__':
-    flags = {'--junk': 'junk', '--safe': 'safe', '--zawu': 'zawu', '--stones': 'stones', '--noorange': 'noorange'}
+    flags = {'--junk': 'junk', '--safe': 'safe', '--tidy': 'tidy', '--zawu': 'zawu', '--stones': 'stones', '--noorange': 'noorange'}
     argv = sys.argv[1:]
     if '--name' in argv:
         i = argv.index('--name')

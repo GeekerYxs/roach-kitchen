@@ -11,6 +11,7 @@ it stays steps (0,0,1)): ClickNpc(304) ->「★力量的考验［进行中］」
 Skips a role whose task 24 is already active. Walks there from map 1 / 8 (navigate(8, ...) crosses 逍遥村 -> 就职所).
 """
 import math
+import os
 import sys
 import time
 
@@ -19,18 +20,26 @@ from bai_shi import mark
 from provisioner import world as w
 from take224 import talk
 
-MAP, NPC, XY, QUEST = 8, 304, (894, 459), 24
-STEPS = ['成为战士', '真的吗', '可以', '接受任务']
+# env SHITU_JOB picks the class (2026-11-02 元素使 team: 术士). 术士 = task 25「悟性的考验」at 半吊法师留一手 305 (642,351),
+# recorded live 元素使01 21:01: 成为术士 -> 你能教我吗？-> 继续。-> 但是什么…… -> 接受任务。(the server skips the table's
+# 平静海岸 葫芦籽 / 虫洞法师 steps like it does for 24; next: 夕阳草原 水滴精灵 for 3 本《看我七十二变》)
+JOBS = {
+    '战士': (304, (894, 459), 24, ['成为战士', '真的吗', '可以', '接受任务'], '力量的考验'),
+    '术士': (305, (642, 351), 25, ['成为术士', '你能教我', '继续', '但是什么', '接受任务'], '悟性的考验'),
+}
+JOB = os.environ.get('SHITU_JOB', '战士')
+MAP = 8
+NPC, XY, QUEST, STEPS, TITLE = JOBS[JOB]
 
 
 def go(c):
     st = c.world()
     if st.map_id == MAP and math.dist((st.x, st.y), XY) <= 80:
         return
-    t.say(f'[{c.name}] 走去禁军教头 {XY}（现在 map {st.map_id} ({st.x:.0f},{st.y:.0f})）')
+    t.say(f'[{c.name}] 走去{JOB}导师 {XY}（现在 map {st.map_id} ({st.x:.0f},{st.y:.0f})）')
     c.game.navigate(MAP, XY[0], XY[1] + 40)
     t.wait(lambda: (s := c.world()) and s.map_id == MAP and math.dist((s.x, s.y), XY) <= 80 and not s.moving,
-           90, f'{c.name} 走到禁军教头旁')
+           90, f'{c.name} 走到{JOB}导师旁')
 
 
 def take(c):
@@ -43,7 +52,7 @@ def take(c):
     t.wait(lambda: w.read_quest(c.mem, QUEST).active, 5, f'{c.name} 任务 {QUEST} 进行中')
     q = w.read_quest(c.mem, QUEST)
     mark(c.name, 'zhuanzhi_task', quest=QUEST, steps=list(q.steps))
-    t.say(f'[{c.name}] 接到转职任务 {QUEST} 力量的考验 {q}')
+    t.say(f'[{c.name}] 接到转职任务 {QUEST} {TITLE} {q}')
     time.sleep(0.5)
 
 
@@ -53,7 +62,7 @@ def handin(c):
         t.say(f'[{c.name}] 任务 {QUEST} 不在打拳手这一步 {q}，跳过')
         return
     go(c)
-    talk(c, NPC, ['力量的考验', '知道了'])
+    talk(c, NPC, [TITLE, '知道了'])
     t.wait(lambda: tuple(w.read_quest(c.mem, QUEST).steps) != (0, 0, 1), 5, f'{c.name} 任务 {QUEST} 进到下一步')
     time.sleep(0.6)
     q = w.read_quest(c.mem, QUEST)

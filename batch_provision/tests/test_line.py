@@ -730,6 +730,15 @@ class MasterBagAndGold(unittest.TestCase):
         self.assertEqual([s.item_id for s in drop], [5])          # untradable new kind; unknown id 99 left alone
 
 
+
+class NoDoubleAtTheEnd(unittest.TestCase):
+    def test_fairy_and_chushi_eat_no_yam(self):
+        """User 2026-11-03: a 加钙地瓜 right before 神仙姐姐 / 出师 is wasted, nothing is leveled after them."""
+        for route in (R.ROUTE, R.ROUTE_BPLUS):
+            for s in route:
+                if s.name in ('fairy', 'chushi'):
+                    self.assertNotIn(('U', 'double'), [c.args for c in s.cmds], s.name)
+
 if __name__ == '__main__':
     unittest.main()
 

@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 MASTER_SLOTS = 4                 # a master holds 4 apprentices at most (excluded ones stay bound and take a slot)
+TALENT_STATS = ('力量', '感知', '体质', '敏捷', '运气')     # = provisioner.game.TALENT_STATS (not importable here)
 SCROLLS = 20                     # 回城卷 each apprentice gets from the master (SHITU_SCROLLS)
 CONFIG = Path(__file__).with_name('line.toml')
 # the v5 route leaves 轮回之城 at 15, 暗影迷城 at 19, 八阵图 at 23 (maze_train) and 25 (bazhen25), 遗忘洞穴 at 28
@@ -59,6 +60,10 @@ class Team:
     account_names: tuple = ()    # explicit accounts (instead of capN..capN+3)
     route: str = 'bplus'         # 'bplus' = route.ROUTE_BPLUS (default), 'v5' = route.ROUTE
     tower2: str = ''             # 通天塔二区 target: '40' or 'L+E'; '' = the route's TOWER2
+    stat: str = '体质'           # where the apprentices' talent points go (provisioner.game.TALENT_STATS)
+    job: str = '战士'            # 10 级 class (zhuanzhi_take.JOBS: 战士 / 术士)
+    revive: int = 0              # item the master uses on a downed apprentice in battle (revive.py; 0 = off)
+    tidy: bool = False           # every U home also runs tidy.py (packs / pranks / gear / selling)
 
     def __post_init__(self):
         if not self.tower2:
@@ -149,7 +154,10 @@ def load_teams(path=CONFIG):
             raise ValueError(f'line.toml [team.{k}] tower2 = {tower2!r}：写 40、38+200000 或 auto')
         t = Team(v['master'], int(v.get('slot', 0)), int(v.get('gold', GOLD)), int(v.get('tower1', TOWER1)),
                  0 if listed else int(acc), v.get('names', ''), tuple(sorted((a, int(b)) for a, b in levels.items())),
-                 listed, route, tower2)
+                 listed, route, tower2, v.get('stat', '体质'), v.get('job', '战士'), int(v.get('revive', 0)),
+                 bool(v.get('tidy', False)))
+        if t.stat not in TALENT_STATS:
+            raise ValueError(f'line.toml [team.{k}] stat = {t.stat!r}：只有 {TALENT_STATS}')
         if not t.accounts and not listed and not 0 <= t.slot < 4:
             raise ValueError(f'line.toml [team.{k}] slot {t.slot} 不在 0..3')
         if bool(t.accounts or listed) != bool(t.names):
@@ -276,6 +284,10 @@ class Batch:
             'SHITU_MASTERS': self.master,
             'SHITU_APPRENTICES': ','.join(self.apprentices),
             'SHITU_GOLD': str(TEAMS[self.team].gold),
+            'SHITU_STAT': TEAMS[self.team].stat,
+            'SHITU_JOB': TEAMS[self.team].job,
+            'SHITU_REVIVE': str(TEAMS[self.team].revive),
+            'SHITU_TIDY': '1' if TEAMS[self.team].tidy else '0',
             'SHITU_SCROLLS': str(SCROLLS),
             'LOGID': self.logid,
             'PAIRS': ' '.join(self.pairs),

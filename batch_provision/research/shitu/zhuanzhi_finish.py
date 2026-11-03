@@ -18,6 +18,11 @@ import trial_run as t
 from bai_shi import mark
 from provisioner import world as w
 from take224 import talk
+from zhuanzhi_take import JOB, QUEST, TITLE
+
+# 术士 (live 元素使01 2026-11-02 21:14): 悟性的考验［进行中］->「我宣誓……」->「继续。」->「谢谢！」-> task 25 done ->
+#「你已经是一个优秀的术士了…」「接受」-> task 107; the 战士 page has「好的」where the 术士 one has「谢谢！」
+OATH = {'战士': ['我宣誓', '继续', '好的'], '术士': ['我宣誓', '继续', '谢谢']}[JOB]
 
 ISLAND = 270
 GATE_VILLAGE, GATE_VILLAGE_XY = 10213, (1338, 1053)
@@ -45,21 +50,21 @@ def gate(c, npc, xy, map_from, label, map_to):
 
 
 def finish(c):
-    q = w.read_quest(c.mem, 24)
+    q = w.read_quest(c.mem, QUEST)
     if not q.done:
         if tuple(q.steps) != (0, 0, 2, 0, 1):
-            raise t.Stop(f'{c.name} 任务 24 不在「去梦幻岛找神仙姐姐」这一步: {q}')
+            raise t.Stop(f'{c.name} 任务 {QUEST} 不在「去梦幻岛找神仙姐姐」这一步: {q}')
         if c.world().map_id != ISLAND:
             gate(c, GATE_VILLAGE, GATE_VILLAGE_XY, 1, '梦幻岛', ISLAND)
         walk(c, ISLAND, FAIRY_XY, '神仙姐姐')
-        d = talk(c, FAIRY, ['力量的考验', '我宣誓', '继续', '好的'])
-        t.wait(lambda: w.read_quest(c.mem, 24).done, 5, f'{c.name} 任务 24 完成')
-        d = t.wait(lambda: c.dialog(), 5, '「你已经是一个优秀的战士了」')
+        d = talk(c, FAIRY, [TITLE] + OATH)
+        t.wait(lambda: w.read_quest(c.mem, QUEST).done, 5, f'{c.name} 任务 {QUEST} 完成')
+        d = t.wait(lambda: c.dialog(), 5, f'「你已经是一个优秀的{JOB}了」')
         if '接受' in [l for _, l in d.options]:
             c.game.select_dialog(t.pick(d, '接受'))
             t.wait(lambda: w.read_quest(c.mem, 107).active, 5, f'{c.name} 接到任务 107 光荣的使命')
-        mark(c.name, 'zhuanzhi_done', job='战士', quest107=str(w.read_quest(c.mem, 107)))
-        t.say(f'[{c.name}] 转职成战士，任务 24 {w.read_quest(c.mem, 24)}，任务 107 {w.read_quest(c.mem, 107)}')
+        mark(c.name, 'zhuanzhi_done', job=JOB, quest107=str(w.read_quest(c.mem, 107)))
+        t.say(f'[{c.name}] 转职成{JOB}，任务 {QUEST} {w.read_quest(c.mem, QUEST)}，任务 107 {w.read_quest(c.mem, 107)}')
         time.sleep(0.5)
     if c.world().map_id == ISLAND:
         gate(c, GATE_ISLAND, GATE_ISLAND_XY, ISLAND, '逍遥村西区', 1)

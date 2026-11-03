@@ -215,8 +215,10 @@ ROUTE = (
         tc(20, 3174, 1251, 631, '勇者'),
         C('U', 'need', '183', '8'),
     ), env={'SHITU_QID': '183'}),
-    Step('fairy', 'late', (HOME, DOUBLE, C('ops', 'fairy')), env={'SHITU_QID': '183'}),
-    Step('chushi', 'late', (HOME, DOUBLE, C('U', 'space', '2'), C('chushi.py', '{M}', '{APPS}'))),
+    # no DOUBLE before 神仙姐姐 / 出师 (user 2026-11-03): nothing is leveled after them, a 加钙地瓜 eaten there is wasted
+    # (元素使 team 09:36: each ate one right before 出师)
+    Step('fairy', 'late', (HOME, C('ops', 'fairy')), env={'SHITU_QID': '183'}),
+    Step('chushi', 'late', (HOME, C('U', 'space', '2'), C('chushi.py', '{M}', '{APPS}'))),
     Step('finish', 'late', (
         C('open_packs.py', '{APPS}', soft=True),
         C('sell_tradable.py', '--safe', '{APPS}', soft=True),

@@ -14,6 +14,7 @@ the client's sender + the client's own accept/leave functions, reading = ReadPro
 """
 import json
 import math
+import os
 import random
 import re
 import sys
@@ -280,6 +281,8 @@ def split_master(argv):
     if '--armor' in argv:
         i = argv.index('--armor')
         ARMOR_CHOICE = int(argv[i + 1])
+        if os.environ.get('SHITU_JOB') == '术士':      # 2026-11-02: 壮志精甲 is 战士-only (EquipLib 职业 100),
+            ARMOR_CHOICE = 1                             # 魔幻布甲 is 999 like the 术士's pack armour
         del argv[i:i + 2]
     if argv[:1] == ['--master'] and len(argv) > 1:
         return argv[1], argv[2:]

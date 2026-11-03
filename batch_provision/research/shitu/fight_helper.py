@@ -9,6 +9,7 @@ import trial_run as t
 from factory.welltrain import Talent, decide_talent
 from lunhui15 import APPRENTICES, CASTERS, LEADER, MEMBERS, TICK, Caster
 from provisioner import world as w
+from common import TALENT_STAT
 
 
 def main():
@@ -36,8 +37,8 @@ def main():
             tm, pts = talents[n], w.read_talent_points(cs[n].mem)
             d = decide_talent(pts, tm, now)
             if d.kind == 'add':
-                t.say(f'[{n}] 等级 {w.read_level(cs[n].mem)}，{d.reason}')
-                cs[n].game.add_constitution(d.arg)
+                t.say(f'[{n}] 等级 {w.read_level(cs[n].mem)}，{d.reason.replace("体质", TALENT_STAT)}')
+                cs[n].game.add_talent(d.arg, TALENT_STAT)
                 tm.sent_at, tm.before = now, pts
             elif d.kind in ('verified', 'unconfirmed'):
                 tm.sent_at = None

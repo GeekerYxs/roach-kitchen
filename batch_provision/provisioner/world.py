@@ -401,6 +401,13 @@ def _fighter(mem, battle, pos):
     return Fighter(pos, sp, bool(dead))
 
 
+def read_fighter(mem, pos):
+    """The fighter at this client position in the own battle view, or None (no battle / empty position). A team's
+    members share one side, so an apprentice's own me.pos is its position in the master's view too."""
+    battle = mem.u32(mem.base + BATTLE_RVA)
+    return _fighter(mem, battle, pos) if battle else None
+
+
 def read_battle(mem):
     """Own fighter, own pet and the live enemies while in battle, or None without a battle object."""
     battle = mem.u32(mem.base + BATTLE_RVA)

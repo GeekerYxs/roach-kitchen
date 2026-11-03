@@ -15,6 +15,7 @@
     python -X utf8 research/shitu/r4_util.py space [N]            apprentices: drop 0-quality junk until N free slots
     python -X utf8 research/shitu/r4_util.py relog capNN:亿万M ...    close every apprentice window, log them in again
 """
+import os
 import sys
 import time
 
@@ -26,6 +27,7 @@ from quanshou import scroll
 from zhuanzhi_finish import gate
 
 MARKET = 300
+SCROLL_LOW = 5
 
 
 def home():
@@ -45,6 +47,13 @@ def home():
     # 2026-10-30「蓝低于50个就回城去补」, every home() checks (1980 胡萝卜汁 at 50 mp each lasted 伏地魔1 ~2.5 h)
     if buy_scroll.count(cs[0]) < 10 or buy_scroll.juice_needed(cs[0]):
         restock_master(max(60, buy_scroll.count(cs[0])))
+    # 2026-11-03 元素使01: out of 回城卷 in 葵花魔穴 (the line only restocks before the late quests), the next home()
+    # could not bring it back. Whoever is home with fewer than SCROLL_LOW buys up to 20 right away
+    if any(c.world().map_id == 1 and buy_scroll.count(c) < SCROLL_LOW for c in cs[1:]):
+        restock(20)
+    if os.environ.get('SHITU_TIDY') == '1':   # 元素使 team (user 2026-11-02): every trip home tidies the bags (tidy.py)
+        import tidy
+        tidy.main(list(APPRENTICES))
 
 
 def leave():

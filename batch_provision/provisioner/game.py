@@ -85,13 +85,19 @@ RVA_CAST_PET_MAGIC = 0x135A0   # 2.100: 0x13580, 2.98/2.99: 0x12F60
 
 # Talent points (bb01 2026-10-05, TALENT_ALLOCATION_BB_20261005.md): 0x0070, 24 bytes <6i>, the 4th = 体质 delta.
 # The server answers 0x4740 and ignores a request for more points than remain.
+# Fields 1-5 follow the client's stat order 力 / 感 / 抗(体质) / 敏 / 运 (Lua StrengthReq / SenseReq / ResistanceReq /
+# AgilityReq / LuckReq); confirmed values sit at session+0xF18..0xF28 in the same order. 敏捷 = field 4 was checked live
+# 2026-11-02 (元素使02: 5 points, 敏 3 -> 8).
 OP_TALENT = 0x0070
+TALENT_STATS = ('力量', '感知', '体质', '敏捷', '运气')
 
 
-def talent_body(constitution):
-    if not 0 < constitution < 1000:
-        raise ValueError(f'体质点数 {constitution} 不合法')
-    return struct.pack('<6i', 0, 0, 0, constitution, 0, 0)
+def talent_body(points, stat='体质'):
+    if not 0 < points < 1000:
+        raise ValueError(f'{stat}点数 {points} 不合法')
+    fields = [0] * 6
+    fields[1 + TALENT_STATS.index(stat)] = points
+    return struct.pack('<6i', *fields)
 
 
 def team_invite_body(target_id, level, invite_byte, name):
@@ -280,4 +286,7 @@ class Game:
         return native.call(self.session, RVA_CAST_PET_MAGIC, target, magic_id, level)
 
     def add_constitution(self, points):
-        return self.send(OP_TALENT, talent_body(points))
+        return self.add_talent(points, '体质')
+
+    def add_talent(self, points, stat):
+        return self.send(OP_TALENT, talent_body(points, stat))

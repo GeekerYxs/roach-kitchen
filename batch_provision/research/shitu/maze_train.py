@@ -22,6 +22,7 @@ import trial_run as t
 from factory.welltrain import Talent, decide_talent
 from lunhui15 import APPRENTICES, ARRIVE, CASTERS, HELPERS, LEADER, MEMBERS, NAV_RETRY, NEAR, STALL, TICK, Caster
 from provisioner import world as w
+from common import TALENT_STAT
 from well10 import form_team
 
 # Stages in order (user, 2026-10-27): 暗影迷城 until 19, then 八阵图 until 25. legs = what the leader does on each map
@@ -262,13 +263,13 @@ def main():
             tm, pts = talents[n], w.read_talent_points(cs[n].mem)
             d = decide_talent(pts, tm, now)
             if d.kind == 'add':
-                t.say(f'[{n}] {d.reason}')
-                cs[n].game.add_constitution(d.arg)
+                t.say(f'[{n}] {d.reason.replace("体质", TALENT_STAT)}')
+                cs[n].game.add_talent(d.arg, TALENT_STAT)
                 tm.sent_at, tm.before = now, pts
             elif d.kind == 'verified':
                 tm.sent_at, tm.misses = None, 0
             elif d.kind == 'unconfirmed':
-                t.say(f'[{n}] {d.reason}')
+                t.say(f'[{n}] {d.reason.replace("体质", TALENT_STAT)}')
                 tm.sent_at, tm.misses, tm.last_miss = None, tm.misses + 1, now
         lw = sts[LEADER]
         if lw.in_battle != in_battle:

@@ -14,13 +14,14 @@ import math
 import sys
 import time
 
+import revive
 import trial_run as t
 from factory.welltrain import Fight, Talent, decide_battle, decide_talent
 from provisioner import world as w
 from provisioner.game import FIGHT_ATTACK
 from well10 import form_team
 
-from common import APPRENTICES, MASTERS  # noqa: E402
+from common import APPRENTICES, MASTERS, TALENT_STAT  # noqa: E402
 import os  # noqa: E402
 # the two 70s: 扫射 + pet 烈焰爆发 whoever leads; SHITU_CASTERS overrides (a role without 扫射 just attacks)
 CASTERS = tuple(os.environ.get('SHITU_CASTERS', ','.join(MASTERS)).split(','))
@@ -49,10 +50,15 @@ class Caster:
         self.pet_level = pet.abilities.get(PET_MAGIC, 0) if pet else 0
         self.me, self.pet = Fight(), Fight()
         self.casts = 0
+        self.reviver = None
+        if c.name in MASTERS and revive.ITEM:          # 2026-11-02 元素使 team: revive downed apprentices
+            self.reviver = revive.Reviver(c, APPRENTICES)
         t.say(f'[{c.name}] 扫射 lv{self.skill}，宠物烈焰爆发 lv{self.pet_level}' + (f'，魔力 {pet.mp}' if pet else '，没有出战宠物'))
 
     def tick(self, now):
         battle = w.read_battle(self.c.mem)
+        if self.reviver and self.reviver.tick(battle, self, now):
+            return
         pet = w.read_fighting_pet(self.c.mem)
         pet_ok = bool(self.pet_level) and pet is not None and pet.mp >= PET_MP_MIN
         for who, d in decide_battle(battle, self.me, self.pet, now, bool(self.skill), pet_ok):
@@ -171,13 +177,13 @@ def main(target):
             tm, pts = talents[n], w.read_talent_points(cs[n].mem)
             d = decide_talent(pts, tm, now)
             if d.kind == 'add':
-                t.say(f'[{n}] {d.reason}')
-                cs[n].game.add_constitution(d.arg)
+                t.say(f'[{n}] {d.reason.replace("体质", TALENT_STAT)}')
+                cs[n].game.add_talent(d.arg, TALENT_STAT)
                 tm.sent_at, tm.before = now, pts
             elif d.kind == 'verified':
                 tm.sent_at, tm.misses = None, 0
             elif d.kind == 'unconfirmed':
-                t.say(f'[{n}] {d.reason}')
+                t.say(f'[{n}] {d.reason.replace("体质", TALENT_STAT)}')
                 tm.sent_at, tm.misses, tm.last_miss = None, tm.misses + 1, now
         lw = sts[LEADER]
         if lw.in_battle != in_battle:

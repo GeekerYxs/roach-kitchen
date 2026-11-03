@@ -185,6 +185,8 @@ class TalentTests(unittest.TestCase):
     def test_body(self):
         self.assertEqual(talent_body(5), struct.pack('<6i', 0, 0, 0, 5, 0, 0))
         self.assertRaises(ValueError, talent_body, 0)
+        self.assertEqual(talent_body(5, '敏捷'), struct.pack('<6i', 0, 0, 0, 0, 5, 0))   # live 2026-11-02 元素使02
+        self.assertRaises(ValueError, talent_body, 5, '智力')
 
 
 ALT = 7

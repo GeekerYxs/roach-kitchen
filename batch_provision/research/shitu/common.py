@@ -22,6 +22,8 @@ DEFAULT_ROLES = ('mm01', '欧皇')              # title match: '-<role>' (欧皇
 APPRENTICES = tuple(os.environ.get('SHITU_APPRENTICES', '十万1,十万2,十万3').split(','))
 # the 70s in this team: env SHITU_MASTERS="伏地魔1" (round 3 runs two teams, one master each); first = the master
 MASTERS = tuple(os.environ.get('SHITU_MASTERS', '伏地魔1,伏地魔2').split(','))
+# where the apprentices' talent points go: env SHITU_STAT (provisioner.game.TALENT_STATS; 2026-11-02 元素使 team: 敏捷)
+TALENT_STAT = os.environ.get('SHITU_STAT', '体质')
 # progress file: env SHITU_STATE="state_r3a.json" so two teams running at once never rewrite each other's file
 STATE_FILE = os.environ.get('SHITU_STATE', 'state.json')
 

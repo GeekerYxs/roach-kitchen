@@ -41,8 +41,9 @@ def claim(c):
     if done(c.name, 'double3h'):
         t.say(f'[{c.name}] 已经领过双倍，跳过')
         return
-    if not w.read_quest(c.mem, 24).done:
-        raise t.Stop(f'{c.name} 还没转职（任务 24 没完成），先转职再领双倍')
+    from zhuanzhi_take import QUEST             # 24 战士 / 25 术士 (SHITU_JOB)
+    if not w.read_quest(c.mem, QUEST).done:
+        raise t.Stop(f'{c.name} 还没转职（任务 {QUEST} 没完成），先转职再领双倍')
     if c.world().map_id != MARKET:
         gate(c, GATE_VILLAGE, GATE_VILLAGE_XY, 1, '自由市场', MARKET)
     walk(c, MARKET, SANFU_XY, '散福老人')
