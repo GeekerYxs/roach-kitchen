@@ -97,7 +97,9 @@ def one(name):
 
 if __name__ == '__main__':
     try:
-        t.each(sys.argv[1:] or list(APPRENTICES), one)
+        for name in sys.argv[1:] or list(APPRENTICES):     # one after another: the floor serves one role, and only
+            one(name)                                      # the leader talks (2nd run: in parallel they took the lead
+                                                           # from each other, 元素使05 lost it with its vessel up)
     except t.Stop as e:
         t.say(f'停止: {e}')
         raise SystemExit(1)

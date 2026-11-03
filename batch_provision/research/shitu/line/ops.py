@@ -174,7 +174,24 @@ def fairy():
         if w.read_quest(c.mem, int(qid)).active:
             gate(c, 10213, (1338, 1053), 1, '梦幻岛', 270)
             walk(c, 270, (1374, 628), '神仙姐姐')
-            talk(c, 1, words)
+            if qid == '183':
+                talk(c, 1, words)
+            else:
+                # 189 (2nd 元素使 run): a fixed word order met a second「继续」page; take any page's option that holds
+                # one of the words, or its only option, until the quest is done (team_npc's rule)
+                c.game.click_npc(1)
+                end = time.monotonic() + 30
+                while time.monotonic() < end and not w.read_quest(c.mem, int(qid)).done:
+                    d = t.wait(lambda: c.dialog(), 5, f'{n} 神仙姐姐对话')
+                    opts = [(o, t.plain(l)) for o, l in d.options if o]
+                    hit = [o for o, l in opts if any(k in l for k in words)] or ([opts[0][0]] if len(opts) == 1 else [])
+                    if not hit:
+                        raise t.Stop(f'{n} 神仙姐姐页面不认识: {t.body(d)[:60]} {opts}')
+                    before = d.text
+                    c.game.select_dialog(hit[0])
+                    time.sleep(0.6)
+                    if c.dialog() and c.dialog().text == before:
+                        time.sleep(0.8)
             t.wait(lambda: w.read_quest(c.mem, int(qid)).done, 5, f'{n} 任务 {qid} 完成')
             t.say(f'[{n}] {qid} {w.read_quest(c.mem, int(qid))}')
             if c.dialog():

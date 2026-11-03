@@ -36,8 +36,19 @@ def activate(name):
     if c.dialog():
         c.game.select_dialog(0)
         time.sleep(0.5)
-    c.game.click_npc(MOLE)
-    t.wait(lambda: c.dialog(), 5, f'{name} 土拨鼠')
+    # 2026-11-03 ys2: four at once -> 元素使08 got no dialog in 5 s; now one by one (main), walking up when a click
+    # from where it stands gives nothing
+    import teamwalk
+    teamwalk.MAP = 850
+    for attempt in range(3):
+        c.game.click_npc(MOLE)
+        try:
+            t.wait(lambda: c.dialog(), 5, f'{name} 土拨鼠')
+            break
+        except t.Stop:
+            if attempt == 2:
+                raise
+            teamwalk.step_to(c, XY, near=60)
     last, end = None, time.monotonic() + 15
     while time.monotonic() < end and c.dialog():
         d = c.dialog()
@@ -59,7 +70,8 @@ def main(master, apps):
         go_in()
     items = load_items()
     have = lambda n: w.item_count(w.read_bag(t.Client(n).mem), DUST)     # noqa: E731
-    t.each([n for n in apps if not have(n)], activate)
+    for n in [n for n in apps if not have(n)]:     # one at a time: the 土拨鼠 talks to one role at once
+        activate(n)
     for k in range(TRIES):
         lacking = [n for n in apps if not have(n)]
         if not lacking:

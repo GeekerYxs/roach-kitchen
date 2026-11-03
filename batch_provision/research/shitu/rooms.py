@@ -7,6 +7,7 @@ into 1号房 295 (lands (761,802)); the path-finder cannot target 295 itself (st
 the team (the master gets only the inscription) clicks 石像 1088「传送至2号房」-> 291 (414,597), 石像 1089「传送至
 3号房」-> 297 (582,759); the whole team goes along.
 """
+import math
 import subprocess
 import sys
 import time
@@ -23,14 +24,21 @@ def run(script, *args):
 
 
 def main(leader, master, apps):
+    import os
     m = t.Client(master)
     if m.world().map_id not in (280, 295, 291, 297):
-        run('tower1_go.py', 480, 400)
-    if m.world().map_id == 280:
-        run('go_goal.py', 280, 280, *DOOR)
-        m.game.navigate(280, *STEP_IN)
-        t.wait(lambda: m.world().map_id == 295, 20, '走进 1号房')
+        run('tower1_go.py')               # the master takes the team into 通天塔一区 (its landing spot)
     lead = t.Client(leader)
+    # user 2026-11-03: the quest holder leads from here on. 2nd run: with the master leading, the team stopped on the
+    # door itself, the master stepped into 1号房 alone and the apprentice could not regroup with it (two maps).
+    # So the apprentice takes the lead at the landing and walks the team (master following and casting) in.
+    if lead.world().map_id == 280:
+        boss_fight.lead_team(lead, [m] + [t.Client(n) for n in apps if n != leader])
+        env = dict(os.environ, SHITU_LEADER=leader)
+        subprocess.run([sys.executable, '-X', 'utf8', 'go_goal.py', '280', '280', *map(str, DOOR)], check=True, env=env)
+        lead.game.navigate(280, *STEP_IN)
+        t.wait(lambda: lead.world().map_id == 295, 30, '走进 1号房')
+        time.sleep(1.5)
     boss_fight.lead_team(lead, [m] + [t.Client(n) for n in apps if n != leader])
     for here, npc, word, there in HOPS:
         if lead.world().map_id != here:
