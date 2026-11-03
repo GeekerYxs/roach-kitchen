@@ -19,7 +19,8 @@ from well10 import form_team
 # + 20/40/50/152/172 from the old pp graph (D:/Codes/Gemini_Prj/smsm2_game/mwxqll_game/runtime/pp_runtime/data.json,
 # 「complete server menus, verified landings」): 20 -> 81 279 40 50 300 210; 50 -> 20 172 300; 40 -> 20 152 300
 PP = {1: (11, (342, 315)), 10: (12, (342, 1671)), 20: (586, (3954, 273)), 40: (15, (1607, 1897)), 50: (16, (265, 323)),
-      81: (13, (1158, 779)), 152: (17, (3259, 287)), 172: (18, (1051, 350)), 279: (14, (227, 285)), 300: (26, (1902, 1071))}
+      81: (13, (1158, 779)), 152: (17, (3259, 287)), 172: (18, (1051, 350)), 180: (19, (2022, 777)),
+      279: (14, (227, 285)), 300: (26, (1902, 1071))}
 NEAR = 80
 
 
@@ -84,17 +85,18 @@ def main(target, via):
     cs = [t.Client(n) for n in (LEADER,) + MEMBERS]
     lead = cs[0]
     form_team(lead, cs[1:])
-    for _ in range(4):
+    for _ in range(8):
         st = lead.world()
         if target in MAP_NAMES.get(st.map_id, ''):
             t.say(f'到了 {MAP_NAMES[st.map_id]}（map {st.map_id}），队伍 {lead.team()}，停下等指示')
             return
         hop(lead, cs, target, via)
-    raise t.Stop('传送 4 次还没到')
+    raise t.Stop('传送 8 次还没到')
 
 
 MAP_NAMES = {1: '逍遥村西区', 10: '乌龙村南区', 11: '乌龙村北区', 20: '龙之都外城', 40: '圣人谷', 50: '恶人山',
-             152: '迷惑森林3区', 172: '苦无沙漠3区', 24: '龙之都内城', 25: '龙之都交叉口', 81: '平静海岸2区', 279: '通天塔路口',
+             152: '迷惑森林3区', 172: '苦无沙漠3区', 180: '荒芜之地1区', 24: '龙之都内城', 25: '龙之都交叉口',
+             81: '平静海岸2区', 279: '通天塔路口',
              280: '通天塔一区', 300: '自由市场'}
 
 if __name__ == '__main__':

@@ -61,6 +61,12 @@ def wanted(it, mode):
         return any(k in it.name for k in NAMES)
     if mode == 'noorange':
         return it.type == ZAWU or (it.type in EQUIP_TYPES and it.quality < 4)
+    if mode == 'junk-stones-white':
+        # Apprentice cleanup: include all skill stones and weapon/armor recipes as well as the three
+        # named gourd consumables. The user explicitly asked these to be cleared before entering 1150.
+        return (it.type in (ZAWU, RELIC, STONE, RECIPE) or
+                (it.type in EQUIP_TYPES and it.quality == 1) or
+                '图纸' in it.name or '配方' in it.name or '葫芦' in it.name)
     if mode == 'stones':
         # 配方 by TYPE: their names look like gear (学识之头罩, 猛袭之软甲 ...), so the name test missed them (18:2x)
         return it.type in (ZAWU, RELIC, STONE, RECIPE) or '图纸' in it.name or '配方' in it.name
@@ -82,6 +88,8 @@ def one(n, mode, items, nm):
     c = t.Client(n)
     if mode in ('all', 'tidy'):
         unequip_weapon(c, nm)
+    elif mode == 'junk-stones-white':
+        unequip_quality(c, 1, items, nm)
     walk(c, 1, (1338, 1155), '宠物商人小美')
     bag = w.read_bag(c.mem)
     sell = [s for s in bag if s.item_id in items and items[s.item_id].tradable and wanted(items[s.item_id], mode)]
@@ -96,8 +104,26 @@ def one(n, mode, items, nm):
           (f'；可交易但没卖掉: {left}' if left else ''))
 
 
+def unequip_quality(c, quality, items, nm):
+    """Take off worn gear of the requested quality so it can be sold with the bag items."""
+    for e in w.read_equipment(c.mem) or ():
+        it = items.get(e.item_id)
+        if not it or it.type not in EQUIP_TYPES or it.quality != quality:
+            continue
+        bag = w.read_bag(c.mem)
+        used = {s.slot for s in bag}
+        free = next((i for i in range(w.read_bag_capacity(c.mem)) if i not in used), None)
+        if free is None:
+            raise t.Stop(f'{c.name} 背包无空格，不能安全脱下白装 {nm(e.item_id)}')
+        c.game.unequip(e.slot, free)
+        t.wait(lambda: not any(x.slot == e.slot for x in (w.read_equipment(c.mem) or ())),
+               5, f'{c.name} 脱下白装 {nm(e.item_id)}')
+        t.say(f'[{c.name}] 脱下白装 {nm(e.item_id)} -> 背包第 {free} 格')
+
+
 if __name__ == '__main__':
-    flags = {'--junk': 'junk', '--safe': 'safe', '--tidy': 'tidy', '--zawu': 'zawu', '--stones': 'stones', '--noorange': 'noorange'}
+    flags = {'--junk': 'junk', '--safe': 'safe', '--tidy': 'tidy', '--zawu': 'zawu', '--stones': 'stones',
+             '--noorange': 'noorange', '--junk-stones-white': 'junk-stones-white'}
     argv = sys.argv[1:]
     if '--name' in argv:
         i = argv.index('--name')

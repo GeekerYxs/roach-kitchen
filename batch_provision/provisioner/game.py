@@ -82,6 +82,8 @@ TEAM_NAME_SIZE = 17
 # PetNormalAttack (RVA 0x12DB0 / 0x12DE0) are just SendFightCmdPacket(is_pet, target, 2, 0) = fight_command().
 RVA_CAST_SKILL = 0x134E0       # 2.100: 0x134C0, 2.98/2.99: 0x12EA0
 RVA_CAST_PET_MAGIC = 0x135A0   # 2.100: 0x13580, 2.98/2.99: 0x12F60
+OP_CAST_SKILL = 0x1005
+MANUAL_MAGIC_CALLSITE_RVA = 0x242694  # 2.101: captured 0x1005 prefix used by manual magic-skill casts
 
 # Talent points (bb01 2026-10-05, TALENT_ALLOCATION_BB_20261005.md): 0x0070, 24 bytes <6i>, the 4th = 体质 delta.
 # The server answers 0x4740 and ignores a request for more points than remain.
@@ -281,6 +283,24 @@ class Game:
 
     def cast_skill(self, target, skill_id, level):
         return native.call(self.session, RVA_CAST_SKILL, target, skill_id, level)
+
+    def cast_magic_skill_captured(self, target, skill_id, level):
+        """Replay the manually observed 2.101 magic-skill 0x1005 layout.
+
+        CastSkillToFighter's RVA was located statically, but the old direct-call ABI produced a different packet
+        from the live manual 天之箭 capture. This builder is intentionally limited to the captured magic form:
+        <u32 callsite><u16 (target_pos<<8)|0xF0><u16 0x0106><u16 level><u16 skill_id><u32 0>.
+        """
+        if not 0 <= int(target) <= 9:
+            raise ValueError(f'目标战斗位置无效: {target}')
+        if int(skill_id) != 354:
+            raise ValueError(f'只验证过技能 354 的手动魔法封包: {skill_id}')
+        callsite = self.mem.base + MANUAL_MAGIC_CALLSITE_RVA
+        if self.mem.read(callsite, 4) != bytes.fromhex('8b178bf0'):
+            raise RuntimeError('当前客户端 CastSkill 手动封包标识与 2.101 抓包不符，停止发送')
+        body = struct.pack('<IHHHHI', callsite, (int(target) << 8) | 0xF0, 0x0106,
+                           int(level), int(skill_id), 0)
+        return self.send(OP_CAST_SKILL, body)
 
     def cast_pet_magic(self, target, magic_id, level):
         return native.call(self.session, RVA_CAST_PET_MAGIC, target, magic_id, level)
