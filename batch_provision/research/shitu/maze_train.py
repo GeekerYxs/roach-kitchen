@@ -110,6 +110,10 @@ class Route:
             self.progress_at = now
             if st.in_battle:
                 self.last_nav = -1e9
+                # A patrol leg may already be active when an encounter starts. Stop it so the captain
+                # cannot keep walking away from the team while combat is resolving.
+                if st.nav_active or st.moving:
+                    lead.game.cancel_navigation()
             return
         if self.goal and st.map_id == self.goal[0]:
             if self.goal[1] is None or math.dist((st.x, st.y), self.goal[1]) <= NEAR and not st.moving:
@@ -225,7 +229,7 @@ def main():
         stage_i += 1
     route = Route(STAGES[stage_i])
     t.say(f'当前段: {STAGES[stage_i]["name"]}' + (f'（刷到 {STAGES[stage_i]["until"]} 级）' if STAGES[stage_i]['until'] else ''))
-    battles, in_battle, last_levels, t0 = 0, False, None, time.monotonic()
+    battles, stage_battles, in_battle, last_levels, t0 = 0, 0, False, None, time.monotonic()
     fallen, falls = set(), {}            # round 3 (user 12:3x) stopped at the first death; now after MAX_FALLS
     while True:
         now = time.monotonic()
@@ -254,6 +258,8 @@ def main():
                              f'({sts[LEADER].x:.0f},{sts[LEADER].y:.0f})，共 {battles} 场），等指示')
         missing = [n for n, c in cs.items() if c.char_id not in lead.team()]
         if missing:
+            if sts[LEADER].nav_active:
+                lead.game.cancel_navigation()
             raise t.Stop(f'{missing} 不在 {LEADER} 的队里了（掉线或死亡？）')
         levels = {n: w.read_level(cs[n].mem) for n in APPRENTICES}
         if levels != last_levels:
@@ -273,12 +279,21 @@ def main():
                 tm.sent_at, tm.misses, tm.last_miss = None, tm.misses + 1, now
         lw = sts[LEADER]
         if lw.in_battle != in_battle:
+            if lw.in_battle and not in_battle and STAGES[stage_i].get('maze') == lw.map_id:
+                stage_battles += 1
             in_battle = lw.in_battle
             battles += in_battle
             if not in_battle:
                 for c in casters:
                     c.reset()
         stage = STAGES[stage_i]
+        battle_limit = stage.get('battle_limit')
+        if battle_limit and stage_battles >= battle_limit and not lw.in_battle:
+            if lw.nav_active or lw.moving:
+                lead.game.cancel_navigation()
+            t.say(f'{stage["name"]} 完成 {stage_battles} 场本地图战斗（本流程共 {battles} 场），按指定场数停下；等级 {levels}，'
+                  f'停在地图 {lw.map_id} ({lw.x:.0f},{lw.y:.0f})')
+            return
         if stage.get('quest'):                        # (quest id, steps): done once no apprentice still shows them
             qid, steps = stage['quest']
             qs = {n: w.read_quest(cs[n].mem, qid) for n in APPRENTICES}

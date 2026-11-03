@@ -115,7 +115,11 @@ def home_village():
         t.wait(lambda: not c.team(), 5, f'{c.name} 离队')
         if c.world().map_id not in (1, 8):
             scroll(c)
-    t.each(cs, one)
+    # Return apprentices before the master. A scroll-less apprentice can borrow from a same-map master;
+    # parallel returns let the master leave first and make the loan impossible.
+    for c in cs[1:]:
+        one(c)
+    one(cs[0])
 
 
 def q94():
