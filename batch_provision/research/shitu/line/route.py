@@ -339,8 +339,100 @@ ROUTE_BPLUS = _bplus()
 ROUTES = {'v5': ROUTE, 'bplus': ROUTE_BPLUS}
 
 
+# ---- 元素使 (user 2026-11-03: optional, a team with job = "术士"; the default stays 勇者 and ROUTE / ROUTE_BPLUS are
+# not touched, tests/test_line.py pins them). Built on B+: 10 级 术士 (task 25, 水滴精灵 books instead of 拳手), a
+# 35 级 白装 trip before 通天塔二区, and 187 术士的试炼 + 189 元素使的考验 instead of 181 + 183. Every step and NPC
+# answer was recorded live with the first 元素使 batch (research/shitu/YUANSU_NOTES.md, 2026-11-02 / 03).
+def tn(map_id, npc, x, y, words, qid):          # team_npc: every apprentice talks to the NPC at once
+    return C('team_npc.py', *map(str, (map_id, npc, x, y)), words, str(qid), '{M}', '{APPS}', '--no-regroup')
+
+
+DRAGON = C('pp_chain.py', '龙之都', '平静海岸2区')
+TO_RUIN = (C('pp_chain.py', '恶人山', '平静海岸2区', '龙之都'), C('ruin_go.py', '4134', '3957'))
+LADY = (20, 633, 3064, 1964)                    # 奥里雷西亚女士, 龙之都外城
+LIU = (8, 305, 642, 351)                        # 半吊法师留一手, 逍遥村就职所
+JACK = (20, 596, 3630, 2385)                    # 杰克·卡尔
+YUANSU_LATE = (
+    Step('y187', 'late', (HOME, C('U', 'restock', '20'), DRAGON,
+                          tn(*LADY, '进行术士的试炼|接受任务', 187),
+                          C('U', 'need', '187', '1')), env={'SHITU_QID': '187'}),
+    # 留一手 -> 逍遥古迹 精灵巫师: 10 完美的魔法石 (stones.py) -> 清明长老 完美无暇的能量石 -> 留一手: 优秀术士证书
+    Step('y_stone', 'late', (HOME, tn(*LIU, '术士的试炼', 187), C('U', 'space', '6'), C('stones.py'), DRAGON,
+                             tn(20, 580, 2584, 1884, '术士的试炼|完美无暇', 187), HOME, tn(*LIU, '术士的试炼', 187),
+                             C('U', 'need', '187', '4')), env={'SHITU_QID': '187'}),
+    # 虫洞法师 -> 通天塔一区 5 色妖道 within 2 h (second 证书) -> 虫洞法师
+    Step('y_yaodao', 'late', (HOME, C('pp_chain.py', '乌龙村', '平静海岸2区'),
+                              tn(15, 203, 498, 249, '术士的试炼|来就来|走着', 187), HOME, C('yaodao.py'),
+                              C('pp_chain.py', '乌龙村', '平静海岸2区'), tn(15, 203, 498, 249, '术士的试炼', 187),
+                              C('U', 'need', '187', '6')), env={'SHITU_QID': '187'}),
+    # 奥里雷西亚 -> 苦无沙漠1区 猥琐教打杂的 10 神仙姐姐的画像 -> 奥里雷西亚 (the teleport offer is declined here)
+    Step('y_huaxiang', 'late', (HOME, DRAGON, tn(*LADY, '术士的试炼|说吧|太可恶|明白', 187), C('U', 'space', '6'),
+                                C('farm.py', '170', '1062', '1221', '10716', '10', 'desert_go.py', '1062', '1221'),
+                                DRAGON, tn(*LADY, '术士的试炼|哦，啊|好的|考虑', 187),
+                                C('U', 'need', '187', '8')), env={'SHITU_QID': '187'}),
+    # 死鸟人: one-by-one teleports + the master walks in, a 女神奖杯 each -> 奥里雷西亚: 187 done (奖学金)
+    Step('y_bird', 'late', (HOME, DRAGON, C('bird.py', '{M}', '{APPS}'), HOME, DRAGON,
+                            tn(*LADY, '术士的试炼|亮出|会的', 187), C('U', 'need', '187', '99')),
+         env={'SHITU_QID': '187'}),
+    Step('y189', 'late', (HOME, DRAGON, tn(*LADY, '进行术士转职考验|成为元素使|接受任务', 189),
+                          C('U', 'need', '189', '7')), env={'SHITU_QID': '189'}),
+    Step('y_fire', 'late', (HOME, DRAGON, C('fire.py', '{M}', '{APPS}'), C('U', 'have', '10722', '1')),
+         env={'SHITU_QID': '189'}),
+    # 水侯爷 兰花束 -> 余美人 -> 水侯爷: 5 水之精华
+    Step('y_water', 'late', (HOME, DRAGON, C('go_goal.py', '20', '150', '1494', '900', '140', '141', '142'),
+                             tn(150, 1701, 1494, 855, '元素使|怎么了|找个回来|好美|给我花', 189),
+                             C('go_goal.py', '150', '150', '1890', '2550'),
+                             tn(150, 1702, 1890, 2511, '元素使|水侯爷给你的花|再见', 189),
+                             C('go_goal.py', '150', '150', '1494', '900'),
+                             tn(150, 1701, 1494, 855, '元素使|没有|谢谢了', 189),
+                             C('U', 'have', '10720', '5')), env={'SHITU_QID': '189'}),
+    # 风娃娃 first, then 杰克·卡尔: only after both do 猴娃娃 / 嫩竹爱好者 drop the 毛皮 / 细绒毛 (79 battles for nothing)
+    Step('y_wind1', 'late', (HOME, *TO_RUIN, tn(1000, 1132, 4134, 3957, '元素使|龙之都吧|风之气息|好吧', 189),
+                             HOME, DRAGON, tn(*JACK, '元素使|只要会说话|怎么找|知道了', 189)), env={'SHITU_QID': '189'}),
+    # 迷惑森林1区: 5 毛皮 + 5 细绒毛, then 秘密宝窟 土拨鼠 (mole.py: activate each, fight per leader that lacks)
+    Step('y_doll', 'late', (HOME, DRAGON, C('go_goal.py', '20', '150', '3822', '1527', '140', '141', '142'),
+                            C('farm.py', '--stay', '150', '3822', '1527', '10728', '5'),
+                            C('farm.py', '--stay', '150', '3700', '2181', '10729', '5'),
+                            C('mole.py', '{M}', '{APPS}'), C('U', 'have', '10721', '1')), env={'SHITU_QID': '189'}),
+    # 杰克·卡尔 机器娃娃 -> 风娃娃 风之气息
+    Step('y_wind2', 'late', (HOME, DRAGON, tn(*JACK, '元素使|谢谢', 189), C('U', 'have', '10730', '1'),
+                             HOME, *TO_RUIN, tn(1000, 1132, 4134, 3957, '元素使|给你', 189),
+                             C('U', 'have', '10719', '1')), env={'SHITU_QID': '189'}),
+    # 通天塔3号房 第五元素 (rooms.py, then fifth.py one by one as leader) -> 奥里雷西亚
+    Step('y_fifth', 'late', (HOME, C('rooms.py', '{A0}', '{M}', '{APPS}'), C('fifth.py', '{APPS}'),
+                             C('U', 'have', '10732', '1'), HOME, DRAGON, tn(*LADY, '元素使的考验|给你吧', 189),
+                             C('U', 'need', '189', '9')), env={'SHITU_QID': '189'}),
+)
+GEAR = Step('gear', 'mid', (HOME, DRAGON, C('buy_gear.py', '{APPS}')), retry='leave')   # 乐乐姐 35 级 恶魔白装
+BRAVE = ('q181', 'quan', 'wulong', 'tree', 'crystal', 'dew', 'pour', 'q183', 'corpse', 'king')
+
+
+def _yuansu():
+    out = []
+    for s in ROUTE_BPLUS:
+        if s.name == 'zhuanzhi':             # task 25: 水滴精灵 books (shuidi.py) instead of the 拳手 (quanshou.py)
+            s = Step(s.name, s.stage, tuple(C('shuidi.py') if c.args[0] == 'quanshou.py' else c for c in s.cmds),
+                     s.retry, s.unless, s.env)
+        elif s.name == 'tower2':
+            out.append(GEAR)
+        elif s.name == 'q181':
+            out.extend(YUANSU_LATE)
+        elif s.name == 'fairy':
+            s = Step(s.name, s.stage, s.cmds, s.retry, s.unless, {'SHITU_QID': '189'})
+        if s.name in BRAVE:
+            continue
+        out.append(s)
+    return tuple(_bag_check(x) for x in out)
+
+
+ROUTE_YUANSU = _yuansu()
+
+
 def route_of(b):
-    """The steps a batch runs (its team's line.toml route; B+ unless the team says route = "v5")."""
+    """The steps a batch runs (its team's line.toml route; B+ unless the team says route = "v5"). A team with
+    job = "术士" runs the 元素使 line (B+ based); every other team runs exactly what it ran before."""
+    if getattr(b, 'job', '战士') == '术士':
+        return ROUTE_YUANSU
     return ROUTES[getattr(b, 'route', 'bplus')]
 
 

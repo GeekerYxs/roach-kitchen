@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 MASTER_SLOTS = 4                 # a master holds 4 apprentices at most (excluded ones stay bound and take a slot)
+JOBS = ('战士', '术士')           # zhuanzhi_take.JOBS; 战士 -> 勇者 (route B+ / v5), 术士 -> 元素使 (route.ROUTE_YUANSU)
 TALENT_STATS = ('力量', '感知', '体质', '敏捷', '运气')     # = provisioner.game.TALENT_STATS (not importable here)
 SCROLLS = 20                     # 回城卷 each apprentice gets from the master (SHITU_SCROLLS)
 CONFIG = Path(__file__).with_name('line.toml')
@@ -156,6 +157,8 @@ def load_teams(path=CONFIG):
                  0 if listed else int(acc), v.get('names', ''), tuple(sorted((a, int(b)) for a, b in levels.items())),
                  listed, route, tower2, v.get('stat', '体质'), v.get('job', '战士'), int(v.get('revive', 0)),
                  bool(v.get('tidy', False)))
+        if t.job not in JOBS:
+            raise ValueError(f'line.toml [team.{k}] job = {t.job!r}：只有 {JOBS}（默认 战士 = 勇者线，术士 = 元素使线）')
         if t.stat not in TALENT_STATS:
             raise ValueError(f'line.toml [team.{k}] stat = {t.stat!r}：只有 {TALENT_STATS}')
         if not t.accounts and not listed and not 0 <= t.slot < 4:
@@ -244,6 +247,10 @@ class Batch:
     @property
     def route(self):
         return TEAMS[self.team].route
+
+    @property
+    def job(self):               # route.route_of: 术士 -> the 元素使 line, anything else the 勇者 line as before
+        return TEAMS[self.team].job
 
     @property
     def tower2(self):

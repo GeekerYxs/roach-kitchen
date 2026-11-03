@@ -16,6 +16,7 @@ ops: close NAME..        close these roles' windows (previous batch, same accoun
      exp_note POINT      append every apprentice's level + exp to logs/tower2_exp.csv (tower2 / king)
 Exit: 0 ok, 1 failed (trial_run.Stop), 2 master window missing.
 """
+import os
 import subprocess
 import sys
 import time
@@ -157,17 +158,25 @@ def gather():
     raise t.Stop('5 轮暗·遗忘之花后遗忘之石还不到 3 个')
 
 
+# 神仙姐姐 per class quest: 183 勇者 (round 3) / 189 元素使 (live 2026-11-03 09:33, SHITU_JOB=术士)
+FAIRY = {'183': ['勇者的考验', '继续', '继续', '完成转职礼', '接受奖励'],
+         '189': ['元素使的考验', '继续', '完成转职礼', '接受奖励']}
+
+
 def fairy():
     from take224 import talk
     from zhuanzhi_finish import gate, walk
+    qid = os.environ.get('SHITU_QID', '183')
+    words = FAIRY[qid]
+
     def one(n):                        # each to 神仙姐姐 and back on its own, all at once (user 2026-11-01)
         c = t.Client(n)
-        if w.read_quest(c.mem, 183).active:
+        if w.read_quest(c.mem, int(qid)).active:
             gate(c, 10213, (1338, 1053), 1, '梦幻岛', 270)
             walk(c, 270, (1374, 628), '神仙姐姐')
-            talk(c, 1, ['勇者的考验', '继续', '继续', '完成转职礼', '接受奖励'])
-            t.wait(lambda: w.read_quest(c.mem, 183).done, 5, f'{n} 任务 183 完成')
-            t.say(f'[{n}] 183 {w.read_quest(c.mem, 183)}')
+            talk(c, 1, words)
+            t.wait(lambda: w.read_quest(c.mem, int(qid)).done, 5, f'{n} 任务 {qid} 完成')
+            t.say(f'[{n}] {qid} {w.read_quest(c.mem, int(qid))}')
             if c.dialog():
                 c.game.select_dialog(0)
             time.sleep(0.5)

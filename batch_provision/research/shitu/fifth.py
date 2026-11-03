@@ -17,7 +17,7 @@ import sys
 import time
 
 import trial_run as t
-from common import APPRENTICES
+from common import APPRENTICES, MASTERS
 from provisioner import world as w
 
 FLOOR, VESSELS, FIFTH = 994, (995, 996, 997, 998, 999), 1134
@@ -47,7 +47,7 @@ def take_lead(c):
     team = c.team()
     if not team or team[0] == c.char_id:
         return
-    lead = next(x for x in (t.Client(n) for n in APPRENTICES + ('伏地魔1',)) if x.char_id == team[0])
+    lead = next(x for x in (t.Client(n) for n in APPRENTICES + MASTERS) if x.char_id == team[0])
     lead.game.send(0x35, struct.pack('<II', 0, c.char_id))
     t.wait(lambda: (tm := c.team()) and tm[0] == c.char_id, 5, f'{lead.name} 把队长交给 {c.name}')
     t.say(f'[{c.name}] 当队长（{lead.name} 交过来）')
