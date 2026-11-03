@@ -51,7 +51,7 @@ CLICK_NEAR = 25     # live 01:09: 10159 ignored 3 clicks from 67 px, answered at
 CLICK_WAIT = 8.0
 
 
-MAX_FALLS = 5      # one apprentice knocked out this often in one stage = the map is too hard for it: stop
+MAX_FALLS = int(os.environ.get('SHITU_MAX_FALLS', '5'))  # project-specific recovery policy; other users keep default
 
 class Route:
     def __init__(self, stage):
@@ -225,12 +225,15 @@ def main():
     casters = [Caster(cs[n]) for n in CASTERS]
     talents = {n: Talent() for n in APPRENTICES}
     stage_i = 0
-    while STAGES[stage_i]['until'] and min(w.read_level(cs[n].mem) for n in APPRENTICES) >= STAGES[stage_i]['until']:
+    while stage_i < len(STAGES) and STAGES[stage_i]['until'] and min(w.read_level(cs[n].mem) for n in APPRENTICES) >= STAGES[stage_i]['until']:
         stage_i += 1
+    if stage_i >= len(STAGES):
+        t.say('所有目标等级已达到：' + str({n: w.read_level(cs[n].mem) for n in APPRENTICES}))
+        return
     route = Route(STAGES[stage_i])
     t.say(f'当前段: {STAGES[stage_i]["name"]}' + (f'（刷到 {STAGES[stage_i]["until"]} 级）' if STAGES[stage_i]['until'] else ''))
     battles, stage_battles, in_battle, last_levels, t0 = 0, 0, False, None, time.monotonic()
-    fallen, falls = set(), {}            # round 3 (user 12:3x) stopped at the first death; now after MAX_FALLS
+    fallen, falls = set(), {}
     while True:
         now = time.monotonic()
         sts = {n: c.world() for n, c in cs.items()}

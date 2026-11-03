@@ -36,8 +36,19 @@ def say(msg):
 
 def home_and_fly(cs):
     from line.ops import home_village
+    import sell_tradable
+    import tour_level_maps_two_battles as supplies
 
     home_village()
+    sell_tradable.main(list(ROLES), "junk-stones-white")
+    supplies.top_up_scrolls_at_home()
+    supplies.top_up_master_sweets_at_home()
+    soda = w.item_count(w.read_bag(cs[LEADER].mem) or (), 8456)
+    say(f"回城清理/补给后队长劲爆汽水 {soda}")
+    if soda == 0:
+        raise t.Stop("队长劲爆汽水为0；全队已回城，须先到荒芜之地一区汉尼拔补给")
+    if soda < 599:
+        raise t.Stop(f"队长劲爆汽水 {soda}<599；须到荒芜之地一区汉尼拔补到1485后再飞鞋")
     for name, c in cs.items():
         st = c.world()
         if not st or st.map_id not in (1, 8) or st.in_battle or st.verification:

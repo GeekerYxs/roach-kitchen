@@ -31,7 +31,8 @@ def home_sell_and_report():
     home_village()
     items = sell_tradable.load_items()
     mode = 'junk-stones-white'
-    for name in APPRENTICES:
+    names = (LEADER,) + APPRENTICES
+    for name in names:
         c = t.Client(name)
         if c.world().map_id not in (1, 8) or c.world().in_battle:
             raise t.Stop(f'{name} 回城后状态不安全：{c.world()}')
@@ -40,9 +41,9 @@ def home_sell_and_report():
                     if s.item_id in items and items[s.item_id].tradable and
                     sell_tradable.wanted(items[s.item_id], mode)]
         say(f'[{name}] 待售物品（{len(selected)}格）：{selected}')
-    before = {name: w.read_gold(t.Client(name).mem) for name in APPRENTICES}
-    sell_tradable.main(APPRENTICES, mode)
-    for name in APPRENTICES:
+    before = {name: w.read_gold(t.Client(name).mem) for name in names}
+    sell_tradable.main(names, mode)
+    for name in names:
         after = w.read_gold(t.Client(name).mem)
         say(f'[{name}] 本次卖物金币：{before[name]} -> {after}，增加 {after - before[name]}')
 
@@ -75,8 +76,16 @@ def restock_scrolls():
 def main():
     os.environ.setdefault('SHITU_PLAYER_SKILL', '354')
     os.environ.setdefault('SHITU_PLAYER_SKILL_LEVEL', '7')
-    restock_scrolls()
     home_sell_and_report()
+    restock_scrolls()
+    import tour_level_maps_two_battles as supplies
+    supplies.top_up_master_sweets_at_home()
+    soda = w.item_count(w.read_bag(t.Client(LEADER).mem) or (), 8456)
+    say(f"回城检查队长劲爆汽水 {soda}")
+    if soda == 0:
+        raise t.Stop("队长劲爆汽水为0；全队已回城，须先到荒芜之地一区汉尼拔补给")
+    if soda < 599:
+        raise t.Stop(f"队长劲爆汽水 {soda}<599；须到荒芜之地一区汉尼拔补到1485")
 
     # User specified the PP鸡 route to 荒芜沙漠一区. The live menu is inspected at every hop;
     # if the server menu differs from the recorded graph, pp_chain stops and prints the options.

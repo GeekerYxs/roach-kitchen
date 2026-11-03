@@ -44,6 +44,18 @@ def verify_team_map(map_id, where):
 def main():
     m.CASTERS = (LEADER,)
     home_village()
+    import sell_tradable
+    import tour_level_maps_two_battles as supplies
+    sell_tradable.main(list(ROLES), "junk-stones-white")
+    supplies.top_up_scrolls_at_home()
+    supplies.top_up_master_sweets_at_home()
+    lead = t.Client(LEADER)
+    soda = w.item_count(w.read_bag(lead.mem) or (), 8456)
+    say(f"回城清理/补给后队长劲爆汽水 {soda}")
+    if soda == 0:
+        raise t.Stop("队长劲爆汽水为0；全队已回城，须先到荒芜之地一区汉尼拔补给")
+    if soda < 599:
+        raise t.Stop(f"队长劲爆汽水 {soda}<599；须到荒芜之地一区汉尼拔补到1485")
     pp_chain.main('荒芜之地1区', ['平静海岸2区', '龙之都', '恶人山', '苦无沙漠3区'])
     lead = t.Client(LEADER)
     if lead.world().map_id != DESERT_1:

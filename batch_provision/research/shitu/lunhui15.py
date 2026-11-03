@@ -86,6 +86,15 @@ class Caster:
                 if d.kind == 'none' and pet_ok and battle.enemies and now - self.pet.sent_at >= PET_SP_RETRY:
                     d = Decision('cast', '宠物仍有蓄力点，立即重放烈焰爆发', battle.enemies[0])
                     t.say(f'[{self.c.name}] 宠物蓄力点仍为 {battle.pet.sp}，重放烈焰爆发')
+                # This leveling team is configured for magic-only pet damage. The generic
+                # well-train policy can eventually return `attack` after repeated skill
+                # acknowledgements fail; never turn that fallback into a normal pet attack.
+                if d.kind == 'attack' and os.environ.get('SHITU_PET_MAGIC_ONLY') == '1':
+                    if pet_ok and battle.enemies and now - self.pet.sent_at >= PET_SP_RETRY:
+                        d = Decision('cast', '禁止宠物普攻；有蓄力点时重试烈焰爆发', battle.enemies[0])
+                        t.say(f'[{self.c.name}] 拦截宠物普攻，重试烈焰爆发（SP={battle.pet.sp}）')
+                    else:
+                        continue
             if who == 'me' and self.strict_skill and d.kind == 'attack':
                 raise t.Stop(f'{self.c.name} 指定技能 {self.skill_id} 多次未响应，停止，不退回普攻')
             if d.kind == 'none':
