@@ -74,7 +74,7 @@ def home_sell_and_restock():
     say(f"队长甜点总数={sweets}")
     if sweets < 250:
         from factory.supply import PETSHOP, ShopClient
-        import log as plog
+        from provisioner import log as plog
         plog.setup(t.HERE / "logs", prefix="level70_supply")
         shop = ShopClient(c.game, c.mem, plog.for_account(LEADER))
         try:

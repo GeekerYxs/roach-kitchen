@@ -11,7 +11,8 @@ sold at 花袭人 for +578 = half the ItemLib price, supplies and 重要物品 k
   宠物商人小美 NPC 329, map 1 at the village start (1338,1155) where a 回城卷 lands, shelf 13: 7 甜点 8573 (240);
       options 1 购买宠物道具, 3 出售物品
 Requests: open = 0x50 <I 0><I npc> + 0x51 <I 0><I option><I 0>; then ONE
-0x55 <I 0><I npc><B 1><B 0 buy | 1 sell><H 0><B shelf slot | bag slot><B qty>. Every buy needs a fresh open (a
+0x55 <I 0><I npc><B 1><B 0 buy | 1 sell><H 0><B shelf slot | bag slot><H qty> for buys. The client 2.100
+buy quantity is u16 (the older u8 body was rejected with 0x40c1); sell batches use their own u16 quantity list. Every buy needs a fresh open (a
 second 0x55 without one is ignored). A sell carries up to 20 (bag slot, u16 qty) entries after the count byte (sell_body; 2.100 format). A buy fills the existing stack first, then new bag slots. Afterwards the NPC
 dialog is closed (离开 = SelectNpcDialogEntry(0)): left open, the next NPC's dialog is misread (live 2026-10-20:
 小美's dialog was taken for PP鸡's).
@@ -48,7 +49,7 @@ HP_ITEM, MP_ITEM, PET_ITEM = 64002, 63954, 8573          # 萝卜糕, 胡萝卜�
 ITEM_KEYS = {'scroll': SCROLL_ITEM, 'hp': HP_ITEM, 'mp': MP_ITEM, 'pet': PET_ITEM}
 ITEM_NAMES = {SCROLL_ITEM: '回城卷', HP_ITEM: '萝卜糕', MP_ITEM: '胡萝卜汁', PET_ITEM: '甜点'}
 STACK = {SCROLL_ITEM: 50, HP_ITEM: 99, MP_ITEM: 99, PET_ITEM: 99}
-MAX_QTY = 99                    # one 0x55 buys at most this many (the qty byte; tested 99)
+MAX_QTY = 99                    # conservative per-request quantity; the 2.100 packet field itself is u16
 
 OP_CLICK_NPC, OP_DIALOG, OP_SHOP = 0x50, 0x51, 0x55
 CLOSE_WAIT = 2.0                # the NPC dialog must be gone this long after 离开
@@ -252,7 +253,9 @@ class ShopClient:
         return False
 
     def _request(self, shop, sell, slot, qty):
-        self.game.send(OP_SHOP, struct.pack('<IIBBHBB', 0, shop.npc, 1, int(sell), 0, slot, qty))
+        # Client 2.100's buy packet uses a u16 quantity. The older u8 body was
+        # rejected by the server (0x40c1), leaving the shop open and inventory unchanged.
+        self.game.send(OP_SHOP, struct.pack('<IIBBHBH', 0, shop.npc, 1, int(sell), 0, slot, qty))
 
     def _sell_request(self, shop, slots):
         self.game.send(OP_SHOP, sell_body(shop.npc, [(s.slot, s.quantity) for s in slots]))

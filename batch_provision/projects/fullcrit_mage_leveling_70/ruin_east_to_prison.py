@@ -111,9 +111,12 @@ def enter_prison(cs):
 
 
 def main():
-    training.main()
     cs = {n: t.Client(n) for n in ROLES}
     levels = {n: w.read_level(c.mem) for n, c in cs.items() if n != LEADER}
+    target = int(os.environ["SHITU_TARGET_LEVEL"])
+    if not all(level >= target for level in levels.values()):
+        training.main()
+        levels = {n: w.read_level(c.mem) for n, c in cs.items() if n != LEADER}
     if not all(level >= int(os.environ["SHITU_TARGET_LEVEL"]) for level in levels.values()):
         raise t.Stop(f"訓练未达到目标级别，拒绝切图: {levels}")
     say(f"四个小号达到 {os.environ['SHITU_TARGET_LEVEL']} 级: {levels}；回城并使用内城飞鞋")
