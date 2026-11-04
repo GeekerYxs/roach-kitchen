@@ -248,6 +248,7 @@ def main():
     patrol = Patrol(start)
     route_51_active = False
     reentry = Reentry()
+    sold_while_home = set()
     was_battle = False
     was_missing = False
     pickup_nav = False
@@ -313,7 +314,13 @@ def main():
                     if st.map_id != MAP_ID:
                         reentry.log_once(n, 'outside',
                             f'{n} 已离开监狱；队长保持停刷。按项目手册由队长单人回城接人，队友留在迷宫', now)
+                        if n in APPRENTICES and st.map_id in (1, 8) and n not in sold_while_home:
+                            import sell_tradable
+                            say(f'{n} 已回城，按要求清理背包杂物/技能石/配方/葫芦/白装')
+                            sell_tradable.main([n], 'junk-stones-white')
+                            sold_while_home.add(n)
                     elif n != LEADER and captain.map_id == MAP_ID:
+                        sold_while_home.discard(n)
                         if math.dist((captain.x, captain.y), (st.x, st.y)) <= INVITE_NEAR:
                             form_team(lead, [c])
                             say(f'队长走到 {n} 身边并邀请入队')
