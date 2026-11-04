@@ -1,11 +1,12 @@
-"""曾经不曾 five-person patrol in 惊魂监狱 (264), with strict party-presence recovery.
+"""Five-person patrol in 惊魂监狱 (264), with captain-led recovery after deaths.
 
 Starts at the prison landing (or the captain's current point on map 264), initially patrols to (1000, 2900).
 Once every apprentice reaches level 51, patrols between (1600, 500) and (1200, 700) until level 53.
 Only the 方士 captain uses 天之箭 354 lv7 and pet 烈焰爆发 1504. Apprentices issue no battle commands.
-If anyone leaves the prison or the five-person roster becomes incomplete, the captain stops the patrol and returns
-to (2369, 2000). A missing role may use its recorded map-24 shoe point, enter through NPC 1339, and rejoin there;
-shoe cooldowns are respected instead of repeatedly sending a return request.
+If anyone leaves the prison or the five-person roster becomes incomplete, the captain stops at (2369, 2000).
+Returned apprentices sell their bags; the captain leaves alone to meet them in the inner city, then leads the pickup
+party back into prison. Living apprentices remain in the maze and are re-invited by the captain approaching them.
+Recorded shoe cooldowns are respected, and an explicit ironman fee is checked before any paid fallback.
 """
 import _bootstrap  # noqa: F401
 import math
@@ -180,56 +181,142 @@ class Patrol:
 class Reentry:
     def __init__(self):
         self.last_log = {}
-        self.shoe_retry_after = {}
-        self.entrance_click = {}
         self.pickup_arrived_at = None
+        self.pickup_ready = False
+        self.captain_left_prison = False
 
     def log_once(self, name, key, msg, now):
         if now - self.last_log.get((name, key), -1e9) >= 30:
             say(msg)
             self.last_log[(name, key)] = now
 
-    def tick(self, c, now):
-        """Bring an absent role back through its map-24 shoe record and prison entrance; one observed step at a time."""
+    def to_city(self, c, now):
+        """Bring a recalled character to its recorded inner-city point; wait out the one-hour shoe cooldown."""
         st = c.world()
         if not st or st.in_battle or st.verification:
-            return
-        if st.map_id == PRISON_MAP:
-            return
-        if st.map_id != CITY_MAP:
-            if now < self.shoe_retry_after.get(c.name, 0):
-                left = int(self.shoe_retry_after[c.name] - now)
-                self.log_once(c.name, 'retry', f'{c.name} 飞鞋请求未到达，等待冷却约 {left // 60} 分钟', now)
-                return
-            rec = w.read_shoe_record(c.mem)
-            why = shoe_point.why_not(c.name, rec, shoe_point.used_at(c.name), time.time(), CITY_MAP, CITY_SHOE)
-            if why:
-                self.log_once(c.name, 'cooldown', f'{c.name} 暂不飞鞋：{why}', now)
-                return
-            try:
-                shoe_point.fly(CITY_MAP, CITY_SHOE, [c.name])
-                say(f'{c.name} 飞鞋回内城记录点，继续前往监狱入口')
-            except t.Stop as e:
-                self.shoe_retry_after[c.name] = now + 3600
-                say(f'{c.name} 飞鞋未能返回：{e}；停止重试，等待冷却')
-            return
+            return False
+        if st.map_id == CITY_MAP:
+            return True
+        if st.map_id not in (1, 8):
+            self.log_once(c.name, 'wait-home', f'{c.name} 当前在 map {st.map_id}，等其回到村里再接回', now)
+            return False
+        rec = w.read_shoe_record(c.mem)
+        if not shoe_point.record_ok(rec, CITY_MAP, CITY_SHOE):
+            say(f'{c.name} 没有可用的内城飞鞋记录，改走PP鸡与铁男入城兜底')
+            self.enter_city_by_paid_route(c)
+            return c.world().map_id == CITY_MAP
+        why = shoe_point.why_not(c.name, rec, shoe_point.used_at(c.name), time.time(), CITY_MAP, CITY_SHOE)
+        if why:
+            self.log_once(c.name, 'city-cooldown', f'{why}；角色留在城里等待，不重复请求', now)
+            return False
+        shoe_point.fly(CITY_MAP, CITY_SHOE, [c.name])
+        t.wait(lambda: (s := c.world()) and s.map_id == CITY_MAP and
+               math.dist((s.x, s.y), CITY_SHOE) <= shoe_point.ARRIVE,
+               10, f'{c.name} 飞鞋到龙之都内城记录点')
+        say(f'{c.name} 已到龙之都内城记录点，等队长接应')
+        return True
 
-        if st.nav_active or st.moving:
-            return
-        if math.dist((st.x, st.y), ENTRANCE_XY) > 80:
-            c.game.navigate(CITY_MAP, *ENTRANCE_XY)
-            self.log_once(c.name, 'entrance', f'{c.name} 从飞鞋点前往惊魂监狱入口', now)
-            return
-        d = c.dialog()
-        if not d:
-            c.game.click_npc(ENTRANCE_NPC)
-            self.log_once(c.name, 'click', f'{c.name} 对话 NPC {ENTRANCE_NPC} 申请回监狱', now)
-            return
-        hits = [(o, label) for o, label in d.options if o and ('确认' in label or '进入监狱' in label)]
-        if len(hits) != 1:
-            raise t.Stop(f'{c.name} 监狱入口选项不明确: {d.options}')
-        c.game.select_dialog(hits[0][0])
-        say(f'{c.name} 确认重新进入惊魂监狱')
+    def enter_city_by_paid_route(self, c):
+        """Recorded shoe missing: use the known PP -> 龙之都外城 -> 交叉口 -> 铁男 route.
+
+        The fee confirmation is accepted only when the live prompt says exactly 40,000 and the character can pay.
+        """
+        import re
+        import pp_chain
+        st = c.world()
+        if st.map_id not in (1, 8, 20, 25):
+            raise t.Stop(f'{c.name} 不能从 map {st.map_id} 启动铁男入城兜底')
+        via = ['平静海岸2区']
+        if c.world().map_id not in (20, 25):
+            for _ in range(8):
+                st = c.world()
+                if st.map_id == 20:
+                    break
+                pp_chain.hop(c, [c], '龙之都', via)
+            else:
+                if c.world().map_id != 20:
+                    raise t.Stop(f'{c.name} PP鸡路线没有到龙之都外城')
+        if c.world().map_id == 20:
+            c.game.navigate(20, 3863, 2027)
+            t.wait(lambda: (s := c.world()) and s.map_id == 20 and
+                   math.dist((s.x, s.y), (3863, 2027)) <= 120 and not s.moving and
+                   not s.in_battle and not s.verification,
+                   240, f'{c.name} 到外城安全路点')
+            c.game.navigate(20, 663, 166)
+            t.wait(lambda: (s := c.world()) and s.map_id == 25,
+                   180, f'{c.name} 从外城进入龙之都交叉口')
+        if c.world().map_id != 25:
+            if c.world().map_id == CITY_MAP:
+                return
+            raise t.Stop(f'{c.name} 铁男兜底前没有到交叉口：map={c.world().map_id}')
+        if c.team():
+            c.game.team_leave()
+            t.wait(lambda: not c.team(), 5, f'{c.name} 单独办理铁男入城')
+        c.game.navigate(25, 294, 171)
+        t.wait(lambda: (s := c.world()) and s.map_id == 25 and
+               math.dist((s.x, s.y), (294, 171)) <= 80 and not s.moving and
+               not s.in_battle and not s.verification,
+               180, f'{c.name} 到铁男 NPC 575')
+        c.game.click_npc(575)
+        d = t.wait(lambda: c.dialog(), 6, f'{c.name} 铁男入城菜单')
+        labels = [(o, t.plain(label)) for o, label in d.options if o]
+        free = [(o, label) for o, label in labels if '免费' in label and '内城' in label]
+        paid = [(o, label) for o, label in labels if '缴费进入内城' in label]
+        enter = [(o, label) for o, label in labels if label == '进入内城']
+        choices = free or paid or enter
+        if len(choices) != 1:
+            raise t.Stop(f'{c.name} 铁男入城选项不唯一：{labels}')
+        c.game.select_dialog(choices[0][0])
+        t.wait(lambda: c.world().map_id == CITY_MAP or
+               ((q := c.dialog()) and re.search(r'40000|40,000|4万|四万', t.plain(q.text))),
+               8, f'{c.name} 入城或40,000金币确认页')
+        if c.world().map_id != CITY_MAP:
+            d = c.dialog()
+            prompt = t.plain(d.text)
+            if not re.search(r'40000|40,000|4万|四万', prompt):
+                raise t.Stop(f'{c.name} 铁男费用不是已核验的40,000：{prompt}')
+            gold = w.read_gold(c.mem)
+            if gold < 40000:
+                raise t.Stop(f'{c.name} 金币不足40,000，拒绝确认铁男入城：{gold}')
+            confirm = [(o, label) for o, label in d.options
+                       if o and any(x in t.plain(label) for x in ('确认', '进入', '确定'))]
+            if len(confirm) != 1:
+                raise t.Stop(f'{c.name} 铁男付款确认选项不唯一：{d.options}')
+            say(f'{c.name} 铁男提示40,000金币；角色余额 {gold}，确认本人付费入城')
+            c.game.select_dialog(confirm[0][0])
+            t.wait(lambda: c.world().map_id == CITY_MAP, 12, f'{c.name} 铁男付费进入内城')
+        say(f'{c.name} 铁男入城成功')
+
+    def enter_prison_group(self, lead, group):
+        """Enter prison with only the city-side rescue party; dungeon survivors stay where they are."""
+        import re
+        if len(group) > 1:
+            form_team(lead, [c for c in group if c.name != lead.name])
+        expected = {c.char_id for c in group}
+        if len(group) > 1 and set(lead.team()) != expected:
+            raise t.Stop(f'接人小队未组完整，拒绝进监狱：{lead.team()}，期望 {expected}')
+        st = lead.world()
+        if st.map_id != CITY_MAP:
+            raise t.Stop(f'接人小队队长不在内城：map={st.map_id}')
+        lead.game.navigate(CITY_MAP, 5660, 3258)
+        t.wait(lambda: (s := lead.world()) and s.map_id == CITY_MAP and
+               math.dist((s.x, s.y), (5660, 3258)) <= 80 and not s.in_battle and not s.moving,
+               240, '队长到惊魂监狱入口')
+        lead.game.click_npc(1339)
+        d = t.wait(lambda: lead.dialog(), 6, '惊魂监狱入口确认页')
+        confirm = [(o, label) for o, label in d.options if o and '确认' in t.plain(label)]
+        if len(confirm) != 1:
+            raise t.Stop(f'惊魂监狱确认项不唯一：{[(o, t.plain(label)) for o, label in d.options]}')
+        prompt = t.plain(d.text)
+        say(f'接人小队监狱入口提示：{prompt.strip()}')
+        if re.search(r'回城卷', prompt) is None:
+            raise t.Stop('监狱入口提示未确认回城卷要求，停止入场')
+        lead.game.select_dialog(confirm[0][0])
+        t.wait(lambda: all(c.world() and c.world().map_id == PRISON_MAP for c in group),
+               15, '接人小队全部进入惊魂监狱')
+        if len(group) > 1:
+            t.wait(lambda: set(lead.team()) == expected, 5, '接人小队进监狱后名单完整')
+        say(f'接人小队已进入监狱：{[c.name for c in group]}；继续由队长靠近并接回幸存队员')
 
 
 def main():
@@ -286,62 +373,110 @@ def main():
                 if captain.nav_active or captain.moving:
                     lead.game.cancel_navigation()
                 pickup_nav = False
-                say(f'队伍缺员 {missing}，停止刷怪，队长回到接人点 {PICKUP}')
-            if captain.map_id == MAP_ID and math.dist((captain.x, captain.y), PICKUP) > ARRIVE:
+                reentry.pickup_ready = False
                 reentry.pickup_arrived_at = None
-                if not captain.nav_active and not captain.moving:
-                    lead.game.navigate(MAP_ID, *PICKUP)
-                    pickup_nav = True
-                    say(f'队长前往接人点 {PICKUP}')
-            else:
-                if pickup_nav:
-                    if captain.nav_active:
+                reentry.captain_left_prison = False
+                say(f'队伍缺员 {missing}，停止刷怪，队长回到接人点 {PICKUP}')
+            # First establish a safe rendezvous point. After the three-second settle, do not
+            # force the captain back here between each living follower pickup.
+            if captain.map_id == MAP_ID and not reentry.pickup_ready:
+                if math.dist((captain.x, captain.y), PICKUP) > ARRIVE:
+                    if not captain.nav_active and not captain.moving:
+                        lead.game.navigate(MAP_ID, *PICKUP)
+                        pickup_nav = True
+                        say(f'队长前往接人点 {PICKUP}')
+                else:
+                    if pickup_nav and captain.nav_active:
                         lead.game.cancel_navigation()
                     pickup_nav = False
-                    say(f'队长已到接人点 {PICKUP}，等待并重组')
-                if reentry.pickup_arrived_at is None:
-                    reentry.pickup_arrived_at = now
-                    say(f'队长已到接人点，原地稳定等待 {PICKUP_SETTLE_SECONDS:.0f} 秒')
-                    time.sleep(TICK)
-                    continue
-                if now - reentry.pickup_arrived_at < PICKUP_SETTLE_SECONDS:
-                    time.sleep(TICK)
-                    continue
-                # Never send living followers toward the captain; the captain approaches a stranded follower.
-                for n in missing:
-                    c = cs[n]
-                    st = c.world()
-                    if st.map_id != MAP_ID:
-                        reentry.log_once(n, 'outside',
-                            f'{n} 已离开监狱；队长保持停刷。按项目手册由队长单人回城接人，队友留在迷宫', now)
-                        if n in APPRENTICES and st.map_id in (1, 8) and n not in sold_while_home:
-                            import sell_tradable
-                            say(f'{n} 已回城，按要求清理背包杂物/技能石/配方/葫芦/白装')
-                            sell_tradable.main([n], 'junk-stones-white')
-                            sold_while_home.add(n)
-                    elif n != LEADER and captain.map_id == MAP_ID:
-                        sold_while_home.discard(n)
-                        if math.dist((captain.x, captain.y), (st.x, st.y)) <= INVITE_NEAR:
-                            form_team(lead, [c])
-                            say(f'队长走到 {n} 身边并邀请入队')
-                        elif not captain.nav_active and not captain.moving:
-                            lead.game.navigate(MAP_ID, round(st.x), round(st.y))
-                            say(f'队长前往 {n} 的当前位置接人；队员原地不动')
+                    if reentry.pickup_arrived_at is None:
+                        reentry.pickup_arrived_at = now
+                        say(f'队长已到接人点，原地稳定等待 {PICKUP_SETTLE_SECONDS:.0f} 秒')
+                    elif now - reentry.pickup_arrived_at >= PICKUP_SETTLE_SECONDS:
+                        reentry.pickup_ready = True
+                        say('接人点稳定完成；活着的迷宫队员保持原地，由队长逐个靠近')
+                time.sleep(TICK)
+                continue
+
+            outside_apprentices = [n for n in APPRENTICES if states[n].map_id != MAP_ID]
+            for n in outside_apprentices:
+                c, st = cs[n], states[n]
+                reentry.log_once(n, 'outside', f'{n} 已离开监狱；其余活队员留在迷宫原地', now)
+                if st.map_id in (1, 8) and not st.in_battle and n not in sold_while_home:
+                    import sell_tradable
+                    say(f'{n} 已回城，按要求清理背包杂物/技能石/配方/葫芦/白装')
+                    sell_tradable.main([n], 'junk-stones-white')
+                    sold_while_home.add(n)
+            for n in APPRENTICES:
+                if states[n].map_id == MAP_ID:
+                    sold_while_home.discard(n)
+
+            if outside_apprentices and captain.map_id == MAP_ID:
+                # The leader alone goes home to collect the recalled apprentice(s). The other
+                # living party members remain in the prison maze and do not walk toward him.
+                if not reentry.captain_left_prison:
+                    if lead.team():
+                        lead.game.team_leave()
+                        t.wait(lambda: not lead.team(), 5, '队长单独回城前离开监狱队伍')
+                    from quanshou import scroll
+                    say('队长单人回城接人；活着的队员留在监狱')
+                    scroll(lead)
+                    reentry.captain_left_prison = True
+                time.sleep(TICK)
+                continue
+
+            if captain.map_id != MAP_ID:
+                if outside_apprentices:
+                    # Return only the absent apprentices and captain to the recorded inner-city point.
+                    # Each apprentice is sold once while home; an unavailable shoe is never spammed.
+                    for n in outside_apprentices:
+                        reentry.to_city(cs[n], now)
+                    if all(cs[n].world().map_id == CITY_MAP for n in outside_apprentices):
+                        reentry.to_city(lead, now)
+                        if lead.world().map_id == CITY_MAP:
+                            group = [lead] + [cs[n] for n in outside_apprentices]
+                            form_team(lead, group[1:])
+                            reentry.enter_prison_group(lead, group)
+                            reentry.pickup_ready = False
+                            reentry.pickup_arrived_at = None
+                            reentry.captain_left_prison = False
+                            pickup_nav = False
+                else:
+                    # Captain died/returned alone: the followers are safe in the maze. Bring
+                    # him back through his city record, re-enter prison, then approach them.
+                    if reentry.to_city(lead, now):
+                        reentry.enter_prison_group(lead, [lead])
+                        reentry.pickup_ready = False
+                        reentry.pickup_arrived_at = None
+                        reentry.captain_left_prison = False
+                        pickup_nav = False
+                time.sleep(TICK)
+                continue
+
+            # Remaining missing roles are alive in the prison but not in the captain's party.
+            # Move the captain to each one and invite from nearby; do not make the fragile alt walk.
+            ungrouped = [n for n in missing if n != LEADER and states[n].map_id == MAP_ID]
+            if ungrouped:
+                n = min(ungrouped, key=lambda name: math.dist((captain.x, captain.y),
+                                                               (states[name].x, states[name].y)))
+                c, st = cs[n], states[n]
+                if math.dist((captain.x, captain.y), (st.x, st.y)) <= INVITE_NEAR:
+                    form_team(lead, [c])
+                    say(f'队长已靠近 {n} 并发起组队')
+                elif not captain.nav_active and not captain.moving:
+                    lead.game.navigate(MAP_ID, round(st.x), round(st.y))
+                    say(f'队长前往 {n} 的当前位置接人；队员原地不动')
             time.sleep(TICK)
             continue
 
         if was_missing:
             was_missing = False
             pickup_nav = False
+            reentry.pickup_ready = False
+            reentry.pickup_arrived_at = None
+            reentry.captain_left_prison = False
             patrol = Patrol(captain, PATROL_AT_51 if route_51_active else None)
             say('五人重新到齐，恢复巡逻')
-        if captain.map_id != MAP_ID:
-            # The captain himself may have returned to town. Treat him as missing and let Reentry bring him back.
-            was_missing = True
-            say('队长不在监狱，暂停巡逻并使用自己的飞鞋记录返回')
-            reentry.tick(lead, now)
-            time.sleep(TICK)
-            continue
         if roster != expected:
             time.sleep(TICK)
             continue
