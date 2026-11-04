@@ -1,0 +1,80 @@
+# 历史研究快照：路径和进程标识已脱敏，不可直接运行。
+import sys,time,json,struct
+from pathlib import Path
+from datetime import datetime
+from zoneinfo import ZoneInfo
+sys.path.insert(0,r'<WORKSPACE>\worktrees\auto_task_unlock\batch_provision')
+from expwatch.__main__ import module_base,game_window_titles
+from provisioner.memory import ProcessMemory
+from provisioner.world import read_world,read_bag,read_battle,read_team
+from provisioner import native
+from provisioner.game import Game
+sys.path.insert(0,r'<WORKSPACE>\research_output\vold2_encounter_3min_20261103')
+from long_monitor import get_fighters
+PID=<PROCESS_OR_CHARACTER_ID>; CHAR=<PROCESS_OR_CHARACTER_ID>; ROOT=Path(__file__).resolve().parent
+STOP=ROOT/'patrol_capture_stop.flag'; LOG=ROOT/'patrol_capture.log'; TAP=Path(r'<WORKSPACE>\output\runtime\tap_146948.jsonl')
+def stamp(): return datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(timespec='seconds')
+def log(f,**x): f.write(json.dumps({'time':stamp(),**x},ensure_ascii=False)+'\n');f.flush()
+def seen_capture(target,bag_slot):
+ if not TAP.exists(): return False
+ try:
+  for line in TAP.read_text(encoding='utf-8',errors='replace').splitlines()[-250:]:
+   e=json.loads(line)
+   if e.get('kind')=='request' and e.get('opcode')==0x1003:
+    b=bytes.fromhex(e.get('hex',''))
+    if len(b)>=8 and b[5]==target and b[7]==bag_slot:return True
+ except Exception: pass
+ return False
+def main():
+ base=module_base(PID); status=native.read_status(PID)
+ if status.get('stage')!=8: raise RuntimeError('DLL status not in world')
+ session=native.Session(PID,status['hwnd'],status['game_base'])
+ with ProcessMemory(PID,base) as mem, LOG.open('a',encoding='utf-8',buffering=1) as f:
+  game=Game(session,mem)
+  try:
+   w=read_world(mem); team=read_team(mem)
+   if not w or w.char_id!=CHAR: raise RuntimeError(f'character mismatch {w}')
+   if w.map_id!=81: raise RuntimeError(f'map changed before patrol {w.map_id}')
+   if team and len(team.members)>1: raise RuntimeError(f'party has {len(team.members)} members; solo patrol guard stopped')
+   a=(round(w.x),round(w.y)); b=(a[0]+160,a[1]); target=b
+   log(f,event='patrol_start',map=w.map_id,a=a,b=b,team=team.members if team else [],mode='same-map pathfinder A-B')
+   game.navigate(w.map_id,*target); last_nav=time.monotonic(); last_seen_battle=False
+   while not STOP.exists():
+    w=read_world(mem)
+    if not w or w.char_id!=CHAR or w.map_id!=81:
+     log(f,event='guard_stop',reason='character/map changed',map=(w.map_id if w else None));break
+    if w.in_battle:
+     if not last_seen_battle:
+      log(f,event='battle_start',fighters=get_fighters(mem,base))
+     last_seen_battle=True
+     fighters=get_fighters(mem,base)
+     bag=read_bag(mem) or ()
+     bait=next((x for x in bag if x.item_id==8703 and x.quantity>0),None)
+     prey=next((x for x in fighters if x.get('type')==1 and x.get('level') is not None and x['level']<=15 and x.get('hp',0)>0 and not x.get('dead')),None)
+     if prey and bait:
+      if seen_capture(prey['slot'],bait.slot):
+       log(f,event='capture_already_sent',target=prey,bag_slot=bait.slot,item_id=8703)
+      else:
+       body=bytes((prey['slot'],0,0,0,7,prey['slot'],0,bait.slot))
+       game.send(0x1003,body)
+       log(f,event='capture_sent',opcode='0x1003',target=prey,bag_slot=bait.slot,item_id=8703,body_hex=body.hex())
+      log(f,event='capture_attempt_complete',action='stop after one capture command')
+      break
+    else:
+     if last_seen_battle:
+      log(f,event='battle_end')
+      last_seen_battle=False
+      target=a if target==b else b
+      game.navigate(81,*target);last_nav=time.monotonic()
+     elif not w.nav_active and not w.moving and time.monotonic()-last_nav>2:
+      target=a if target==b else b
+      game.navigate(81,*target);last_nav=time.monotonic()
+    time.sleep(.20)
+   if STOP.exists():log(f,event='stopped_by_flag')
+  finally:
+   game.close()
+if __name__=='__main__':
+ try:main()
+ except Exception as e:
+  with LOG.open('a',encoding='utf-8') as f:log(f,event='fatal',error=repr(e))
+  raise

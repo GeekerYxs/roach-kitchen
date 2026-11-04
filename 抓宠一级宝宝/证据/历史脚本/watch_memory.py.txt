@@ -1,0 +1,28 @@
+# 历史研究快照：路径和进程标识已脱敏，不可直接运行。
+import sys,time,json,os,traceback
+from pathlib import Path
+from datetime import datetime
+from zoneinfo import ZoneInfo
+sys.path.insert(0,r'<WORKSPACE>\worktrees\auto_task_unlock\batch_provision')
+from expwatch.__main__ import module_base,game_window_titles
+from provisioner.memory import ProcessMemory
+from provisioner.world import read_world,read_bag,read_level
+sys.path.insert(0,r'<WORKSPACE>\research_output\vold2_encounter_3min_20261103')
+from long_monitor import get_fighters
+PID=<PROCESS_OR_CHARACTER_ID>; CHAR=<PROCESS_OR_CHARACTER_ID>; COUNTER=<COUNTER_ADDRESS>
+ROOT=Path(__file__).resolve().parent; LOG=ROOT/'memory_samples.jsonl'; STOP=ROOT/'STOP'
+def now():return datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(timespec='milliseconds')
+def main():
+ base=module_base(PID); n=0
+ with ProcessMemory(PID,base) as m, LOG.open('a',encoding='utf-8',buffering=1) as f:
+  while not STOP.exists():
+   t=time.time()
+   try:
+    w=read_world(m); bag=read_bag(m)
+    obj={'time':now(),'epoch':t,'pid':PID,'char_id':w.char_id if w else None,'map':w.map_id if w else None,'xy':[round(w.x,1),round(w.y,1)] if w else None,'in_battle':w.in_battle if w else None,'level':read_level(m),'counter':m.u32(COUNTER),'bag':[{'slot':x.slot,'item_id':x.item_id,'quantity':x.quantity} for x in (bag or [])],'fighters':get_fighters(m,base)}
+    f.write(json.dumps(obj,ensure_ascii=False)+'\n');n+=1
+   except Exception as e:
+    f.write(json.dumps({'time':now(),'error':repr(e)},ensure_ascii=False)+'\n');time.sleep(1)
+   time.sleep(max(0,0.25-(time.time()-t)))
+  print('stopped',n)
+if __name__=='__main__':main()

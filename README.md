@@ -9,3 +9,4 @@
 - 战斗记录（每场战斗一行：怪物等级和名字、经验 / 潜能 / 宠物经验、掉落、阵亡逃跑、四种双倍、金币背包答题；6.4 万场历史 + 等级差曲线和最快路线报表）：`docs/BATTLELOG.md`；技术细节 `batch_provision/battlelog/README.md`
 - 答题器（战斗题 + boss 题，顺带解锁游戏自带辅助工具的战斗辅助、自动采集和自动任务界面）：[功能、源码与编译说明](大冒险2_自动答题器_原生无感关窗版/src/README.md)
 - Boss 开打题：题号 2601～3000 共 400 题全齐，答案已并入答题器（正确下标 = (题号−2601)÷100，2026-10-30 两轮实测 31/31、29/29 通过）；规律和协议见 `batch_provision/research/shitu/BOSS_QUIZ.md`，采集记录见 [`docs/BOSS_QUESTION_COLLECTION_20261030.md`](docs/BOSS_QUESTION_COLLECTION_20261030.md)
+- 一级宝宝捕捉：独立的巡逻、目标位置识别、道具调用和脱敏研究证据，见 [抓宠一级宝宝](抓宠一级宝宝/README.md)。

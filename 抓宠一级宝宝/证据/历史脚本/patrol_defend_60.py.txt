@@ -1,0 +1,59 @@
+# 历史研究快照：路径和进程标识已脱敏，不可直接运行。
+import sys,time,json,math
+from pathlib import Path
+from datetime import datetime
+from zoneinfo import ZoneInfo
+sys.path.insert(0,r'<WORKSPACE>\worktrees\auto_task_unlock\batch_provision')
+from expwatch.__main__ import module_base,game_window_titles
+from provisioner.memory import ProcessMemory
+from provisioner.world import read_world,read_team
+from provisioner import native
+from provisioner.game import Game,FIGHT_ESCAPE
+sys.path.insert(0,r'<WORKSPACE>\research_output\vold2_encounter_3min_20261103')
+from long_monitor import get_fighters
+PID=<PROCESS_OR_CHARACTER_ID>; CHAR=<PROCESS_OR_CHARACTER_ID>; MAP=81
+ROOT=Path(__file__).resolve().parent; LOG=ROOT/'patrol_defend_60.jsonl'; STOP=ROOT/'patrol_defend_60.stop'
+def log(f,event,**kw):
+ f.write(json.dumps(dict(time=datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(timespec='seconds'),event=event,**kw),ensure_ascii=False,default=str)+'\n');f.flush()
+base=module_base(PID)
+if not any('伏地魔2' in x for x in game_window_titles().get(PID,[])):raise RuntimeError('role mismatch')
+st=native.read_status(PID)
+if st.get('stage')!=8:raise RuntimeError('client not ready')
+session=native.Session(PID,st['hwnd'],st['game_base'])
+with ProcessMemory(PID,base) as mem, LOG.open('a',encoding='utf-8',buffering=1) as f:
+ g=Game(session,mem)
+ try:
+  w=read_world(mem);team=read_team(mem)
+  if not w or w.char_id!=CHAR or w.map_id!=MAP or w.in_battle or (team and len(team.members)>1):raise RuntimeError('unexpected starting state')
+  points=[(900,3100),(300,3100)];idx=0;nav=0;inbattle=False;count=0;start=0;last_def=0;escape=False;defences=0
+  log(f,'started',goal=3,seconds=60,points=points)
+  while not STOP.exists():
+   w=read_world(mem);now=time.monotonic()
+   if not w or w.char_id!=CHAR or w.map_id!=MAP or w.verification:
+    log(f,'guard_stop',world=w);break
+   if w.in_battle:
+    if not inbattle:
+     inbattle=True;start=now;last_def=0;escape=False;defences=0;log(f,'battle_start',number=count+1)
+    fighters=get_fighters(mem,base); enemies=[x for x in fighters if x.get('type')==1 and x.get('hp',0)>0 and not x.get('dead')]
+    if any(x.get('level')==1 for x in enemies):
+     log(f,'level_one_found',fighters=enemies);g.cancel_navigation();break
+    elapsed=now-start
+    if elapsed>=60 and not escape and w.my_sp is not None and w.my_sp>=1:
+     result=g.fight_command(FIGHT_ESCAPE);escape=True;log(f,'escape_sent',elapsed=round(elapsed,2),sp=w.my_sp,result=result)
+    elif elapsed<60 and w.my_sp is not None and w.my_sp>=1 and now-last_def>=1.5:
+     result=g.fight_command(4);last_def=now;defences+=1;log(f,'defend_sent',elapsed=round(elapsed,2),sp=w.my_sp,result=result)
+    if elapsed>80:
+     log(f,'guard_stop',reason='battle timeout',elapsed=round(elapsed,2));g.cancel_navigation();break
+   else:
+    if inbattle:
+     elapsed=now-start;count+=1
+     log(f,'battle_end',number=count,duration=round(elapsed,2),defences=defences,escape_sent=escape,held_60=elapsed>=60)
+     inbattle=False
+     if count>=3: g.cancel_navigation();log(f,'complete',battles=count);break
+    pt=points[idx];dist=math.hypot(w.x-pt[0],w.y-pt[1])
+    if now-nav>=1 and not w.moving and (not w.nav_active or dist<45):
+     if dist<45:idx=1-idx;pt=points[idx]
+     g.navigate(MAP,*pt);nav=now
+   time.sleep(.1)
+  if STOP.exists():g.cancel_navigation();log(f,'stopped',battles=count)
+ finally:g.close()

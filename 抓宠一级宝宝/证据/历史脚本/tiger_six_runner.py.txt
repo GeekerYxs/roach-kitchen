@@ -1,0 +1,117 @@
+# 历史研究快照：路径和进程标识已脱敏，不可直接运行。
+import sys,time,json,math
+from pathlib import Path
+from datetime import datetime
+from zoneinfo import ZoneInfo
+sys.path.insert(0,r'<WORKSPACE>\worktrees\auto_task_unlock\batch_provision')
+from expwatch.__main__ import module_base,game_window_titles
+from provisioner.memory import ProcessMemory
+from provisioner.world import read_world,read_team,read_bag
+from provisioner import native
+from provisioner.game import Game,FIGHT_ESCAPE
+sys.path.insert(0,r'<WORKSPACE>\research_output\vold2_encounter_3min_20261103')
+from long_monitor import get_fighters
+ROLES={'伏地魔1':<PROCESS_OR_CHARACTER_ID>,'伏地魔2':<PROCESS_OR_CHARACTER_ID>,'伏地魔3':<PROCESS_OR_CHARACTER_ID>,'伏地魔4':<PROCESS_OR_CHARACTER_ID>,'伏地魔':<PROCESS_OR_CHARACTER_ID>,'欧皇':<PROCESS_OR_CHARACTER_ID>}
+role=sys.argv[1]
+if role not in ROLES:raise RuntimeError('unsupported role')
+CHAR=ROLES[role];MAP=181;ROOT=Path(__file__).resolve().parent
+LOG=ROOT/('six_tiger_'+role+'.jsonl');STOP=ROOT/('six_tiger_'+role+'.stop')
+matches=[]
+for pid in game_window_titles():
+ try:
+  with ProcessMemory(pid,module_base(pid)) as probe:
+   state=read_world(probe)
+   if state and state.char_id==CHAR:matches.append(pid)
+ except Exception:pass
+if len(matches)!=1:raise RuntimeError(f'role process count invalid: {matches}')
+PID=matches[0]
+def get_bait(mem):
+ bag=read_bag(mem) or ()
+ return next((x for x in bag if x.item_id==8713 and x.quantity>0),None)
+def log(f,event,**fields):
+ f.write(json.dumps(dict(time=datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(timespec='seconds'),event=event,**fields),ensure_ascii=False,default=str)+'\n');f.flush()
+base=module_base(PID)
+if not game_window_titles().get(PID):raise RuntimeError('role window missing')
+mapping=None
+if not native.has_dll(PID):
+ sys.path.insert(0,r'<WORKSPACE>\worktrees\auto_task_unlock\batch_provision\research\shitu')
+ import attach_tap
+ mapping=attach_tap.attach(role,PID,Path(r'<WORKSPACE>\worktrees\auto_task_unlock\batch_provision\bin\provision_native.dll'))
+st=native.read_status(PID)
+if st.get('stage')!=8:raise RuntimeError('client not ready')
+session=native.Session(PID,st['hwnd'],st['game_base'])
+with ProcessMemory(PID,base) as mem,LOG.open('a',encoding='utf-8',buffering=1) as f:
+ game=Game(session,mem)
+ try:
+  w=read_world(mem);team=read_team(mem)
+  if not w or w.char_id!=CHAR or w.map_id!=MAP or (team and len(team.members)>1):raise RuntimeError('unexpected world state')
+  bait=get_bait(mem)
+  if not bait:raise RuntimeError('bait missing')
+  points=[(3500,2700),(3000,2700)];idx=0;nav=0;count=0;inbattle=False;target=None;lastact=0;escape=False;escape_tries=0;attempts=0;stable=None;stable_at=0;started=0;last_roster=None;missing_since=None;had_target=False
+  log(f,'started',role=role,pid=PID,char_id=CHAR,policy='until 驯化地鼠 exhausted or stopped',points=points,bait_quantity_total=sum(x.quantity for x in (read_bag(mem) or ()) if x.item_id==8713),bait_slot=bait.slot,pet_items=[(x.slot,x.quantity) for x in (read_bag(mem) or ()) if x.item_id==40146])
+  while not STOP.exists():
+   now=time.monotonic();w=read_world(mem)
+   if not w or w.char_id!=CHAR or w.map_id!=MAP:
+    log(f,'guard_stop',reason='world or character changed',world=w);break
+   bait_current=get_bait(mem)
+   if not bait_current:
+    game.cancel_navigation();log(f,'bait_exhausted',battles=count,in_battle=w.in_battle,target=target,attempts=attempts);break
+   if w.in_battle:
+    if not inbattle:
+     inbattle=True;count+=1;started=now;target=None;lastact=0;escape=False;escape_tries=0;attempts=0;stable=None;stable_at=now;last_roster=None;missing_since=None;had_target=False;log(f,'battle_start',battle=count)
+    enemies=[x for x in get_fighters(mem,base) if x.get('type')==1 and x.get('hp',0)>0 and not x.get('dead')]
+    sig=tuple((x['slot'],x.get('name'),x.get('level')) for x in enemies)
+    if sig!=stable:stable=sig;stable_at=now
+    if sig!=last_roster and enemies:log(f,'roster',battle=count,enemies=enemies);last_roster=sig
+    if target is None:
+     candidates=[x for x in enemies if x.get('level')==1 and x.get('name')=='魔力布老虎']
+     if candidates:
+      target=dict(candidates[0]);had_target=True;missing_since=None;log(f,'target_locked',battle=count,target=target,candidates=candidates)
+    if target is not None:
+     cur=next((x for x in enemies if x['slot']==target['slot'] and x.get('name')==target['name'] and x.get('level')==1),None)
+     if not cur:
+      if missing_since is None:missing_since=now;log(f,'target_missing',battle=count,target=target,attempts=attempts,enemies=enemies)
+      if now-missing_since>10:
+       game.cancel_navigation();log(f,'target_missing_timeout',battle=count,target=target,attempts=attempts);break
+      if now-missing_since>=1 and enemies and all(x.get('name') and x.get('level') is not None for x in enemies):
+       log(f,'target_gone_continue',battle=count,target=target,attempts=attempts,enemies=enemies);target=None;missing_since=None;stable_at=now
+      time.sleep(.1);continue
+     missing_since=None
+     if attempts>=50:
+      game.cancel_navigation();log(f,'attempt_limit_pause',battle=count,target=target,attempts=attempts);break
+     if w.my_sp is not None and now-lastact>=1:
+      if w.my_sp>=3:
+       ret=game.fight_command(7);lastact=now;log(f,'defend',battle=count,sp=w.my_sp,result=ret)
+      elif w.my_sp>=1 and now-lastact>=3:
+       bait=get_bait(mem)
+       if not bait:
+        game.cancel_navigation();log(f,'bait_missing_pause',battle=count,target=target,attempts=attempts);break
+       ret=native.call(session,0x13310,cur['slot'],bait.slot);attempts+=1;lastact=now
+       log(f,'bait_use',battle=count,attempt=attempts,target=cur,item_id=bait.item_id,slot=bait.slot,quantity_before=bait.quantity,sp=w.my_sp,result=ret)
+    elif not escape and enemies and all(x.get('name') and x.get('level') is not None and not (x['level']==1 and x['name']=='魔力布老虎') for x in enemies) and now-stable_at>=1 and w.my_sp is not None and w.my_sp>=1:
+     ret=game.fight_command(FIGHT_ESCAPE);escape=True;escape_tries=1;lastact=now;log(f,'escape_sent',battle=count,sp=w.my_sp,result=ret,tries=escape_tries)
+    elif target is None and not had_target and not escape and now-started>20:
+     game.cancel_navigation();log(f,'roster_or_sp_timeout',battle=count,enemies=enemies,sp=w.my_sp);break
+    if escape and target is None and now-lastact>=4:
+     if enemies and all(x.get('name') and x.get('level') is not None and not (x['level']==1 and x['name']=='魔力布老虎') for x in enemies) and w.my_sp is not None and w.my_sp>=1:
+      ret=game.fight_command(FIGHT_ESCAPE);escape_tries+=1;lastact=now;log(f,'escape_retry',battle=count,sp=w.my_sp,result=ret,tries=escape_tries)
+     elif now-lastact>15:
+      lastact=now;log(f,'escape_wait',battle=count,tries=escape_tries,sp=w.my_sp,enemies=enemies)
+   else:
+    if inbattle:
+     log(f,'battle_end',battle=count,target=target,attempts=attempts,escape_sent=escape,bait=[(x.item_id,x.slot,x.quantity) for x in (read_bag(mem) or ()) if x.item_id==8713],pet_items=[(x.slot,x.quantity) for x in (read_bag(mem) or ()) if x.item_id==40146],elapsed_seconds=round(now-started,2));inbattle=False
+     if had_target:
+      log(f,'target_battle_finished',battle=count,attempts=attempts,reason='capture outcome requires verification')
+     elif not escape:
+      game.cancel_navigation();log(f,'unexpected_battle_end_pause',battle=count);break
+    pt=points[idx];dist=math.hypot(w.x-pt[0],w.y-pt[1])
+    if now-nav>=2 and not w.moving:
+     if dist<45:idx=1-idx;pt=points[idx]
+     game.navigate(MAP,*pt);nav=now
+   time.sleep(.1)
+  if STOP.exists():game.cancel_navigation();log(f,'stopped',battles=count)
+ except Exception as e:
+  try: game.cancel_navigation()
+  finally: log(f,'fatal',error=repr(e))
+  raise
+ finally:game.close()

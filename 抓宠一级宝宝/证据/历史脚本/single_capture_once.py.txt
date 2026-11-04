@@ -1,0 +1,114 @@
+# 历史研究快照：路径和进程标识已脱敏，不可直接运行。
+import csv
+import json
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+sys.path.insert(0, r'<WORKSPACE>\worktrees\auto_task_unlock\batch_provision')
+from expwatch.__main__ import module_base, game_window_titles
+from provisioner.memory import ProcessMemory
+from provisioner.world import read_world, read_bag, read_team
+from provisioner import native
+from provisioner.game import Game
+sys.path.insert(0, r'<WORKSPACE>\research_output\vold2_encounter_3min_20261103')
+from long_monitor import get_fighters
+
+PID, CHAR, MAP, ITEM_ID, OP = <PROCESS_OR_CHARACTER_ID>, <PROCESS_OR_CHARACTER_ID>, 81, 8703, 0x1003
+ROOT = Path(__file__).resolve().parent
+LOG = ROOT / 'single_capture_once.log'
+MONSTERS = Path(r'<WORKSPACE>\worktrees\auto_task_unlock\batch_provision\battlelog\monsters.csv')
+
+
+def log(f, event, **kw):
+    row = {'time': datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(timespec='seconds'), 'event': event, **kw}
+    f.write(json.dumps(row, ensure_ascii=False, default=str) + '\n')
+    f.flush()
+
+
+with MONSTERS.open(encoding='utf-8-sig', newline='') as f:
+    allowed = {r['name'] for r in csv.DictReader(f) if r.get('catchable') == '1'}
+
+base = module_base(PID)
+titles = game_window_titles().get(PID, [])
+if not any('伏地魔2' in t for t in titles):
+    raise RuntimeError(f'target title mismatch: {titles}')
+st = native.read_status(PID)
+if st.get('stage') != 8:
+    raise RuntimeError('DLL tap not in world')
+session = native.Session(PID, st['hwnd'], st['game_base'])
+
+with ProcessMemory(PID, base) as mem, LOG.open('a', encoding='utf-8', buffering=1) as f:
+    game = Game(session, mem)
+    try:
+        w = read_world(mem)
+        team = read_team(mem)
+        bag = read_bag(mem) or ()
+        bait = next((x for x in bag if x.item_id == ITEM_ID and x.quantity > 0), None)
+        if not w or w.char_id != CHAR or w.map_id != MAP or w.in_battle:
+            raise RuntimeError(f'not in expected out-of-battle state: {w}')
+        if team and len(team.members) > 1:
+            raise RuntimeError(f'not solo: {team.members}')
+        if not bait or bait.quantity != 65:
+            raise RuntimeError(f'expected 65 bait before one use, found {bait}')
+        start = (round(w.x), round(w.y))
+        points = [start, (start[0] + 160, start[1])]
+        target_idx = 1
+        last_nav = time.monotonic()
+        log(f, 'started', map=MAP, points=points, before_quantity=bait.quantity, item_slot=bait.slot,
+            policy='one native UseItemToFighter call when SP >= 1')
+        game.navigate(MAP, *points[target_idx])
+        deadline = time.monotonic() + 180
+        sent = False
+        battle_end_deadline = None
+        last_world = None
+        while time.monotonic() < deadline:
+            w = read_world(mem)
+            last_world = w
+            if not w or w.char_id != CHAR or w.map_id != MAP:
+                log(f, 'guard_stop', reason='process/character/map changed')
+                break
+            if w.in_battle and not sent:
+                fighters = get_fighters(mem, base)
+                prey = next((x for x in fighters if x.get('type') == 1 and x.get('name') in allowed and x.get('level') is not None and x['level'] <= 15 and x.get('hp', 0) > 0 and not x.get('dead')), None)
+                if prey and w.my_sp is not None and w.my_sp >= 1:
+                    bag = read_bag(mem) or ()
+                    bait = next((x for x in bag if x.item_id == ITEM_ID and x.quantity > 0), None)
+                    if not bait or bait.quantity != 65:
+                        log(f, 'guard_stop', reason='bait count changed before controlled send', quantity=(bait.quantity if bait else 0))
+                        break
+                    result = native.call(session, 0x13310, prey['slot'], bait.slot)
+                    log(f, 'native_item_call', native_return=result, target=prey, sp=w.my_sp,
+                        item_id=ITEM_ID, item_slot=bait.slot, before_quantity=bait.quantity)
+                    sent = True
+                    battle_end_deadline = time.monotonic() + 45
+            elif not w.in_battle and not sent:
+                point = points[target_idx]
+                dist = ((w.x - point[0]) ** 2 + (w.y - point[1]) ** 2) ** 0.5
+                now = time.monotonic()
+                if ((dist <= 45 and not w.moving and now - last_nav >= 1.0) or
+                        (not w.nav_active and not w.moving and dist > 70 and now - last_nav >= 2.0)):
+                    target_idx = 1 - target_idx
+                    point = points[target_idx]
+                    game.navigate(MAP, *point)
+                    last_nav = now
+                    log(f, 'patrol_leg', to=point, from_xy=[round(w.x, 1), round(w.y, 1)])
+            elif sent and not w.in_battle:
+                bag = read_bag(mem) or ()
+                bait = next((x for x in bag if x.item_id == ITEM_ID), None)
+                qty = bait.quantity if bait else 0
+                log(f, 'battle_ended', after_quantity=qty, consumed=(65 - qty), world=w)
+                game.cancel_navigation()
+                break
+            elif sent and battle_end_deadline and time.monotonic() > battle_end_deadline:
+                log(f, 'battle_timeout', world=w)
+                game.cancel_navigation()
+                break
+            time.sleep(0.1)
+        if not sent:
+            game.cancel_navigation()
+            log(f, 'no_capture_sent', reason='no eligible target appeared before timeout', world=last_world)
+    finally:
+        game.close()

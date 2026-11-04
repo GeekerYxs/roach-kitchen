@@ -1,0 +1,88 @@
+# 历史研究快照：路径和进程标识已脱敏，不可直接运行。
+import sys,time,json,csv,math
+from pathlib import Path
+from datetime import datetime
+from zoneinfo import ZoneInfo
+sys.path.insert(0,r'<WORKSPACE>\worktrees\auto_task_unlock\batch_provision')
+from expwatch.__main__ import module_base,game_window_titles
+from provisioner.memory import ProcessMemory
+from provisioner.world import read_world,read_bag,read_team
+from provisioner import native
+from provisioner.game import Game
+sys.path.insert(0,r'<WORKSPACE>\research_output\vold2_encounter_3min_20261103')
+from long_monitor import get_fighters
+PID=<PROCESS_OR_CHARACTER_ID>; CHAR=<PROCESS_OR_CHARACTER_ID>; MAP=81; ITEM_ID=8703; OP_ITEM_TO_FIGHTER=0x1003
+ROOT=Path(__file__).resolve().parent; STOP=ROOT/'patrol_capture_stop.flag'; LOG=ROOT/'patrol_capture.log'
+TAP=Path(r'<WORKSPACE>\output\runtime\tap_146948.jsonl')
+MONSTERS=Path(r'<WORKSPACE>\worktrees\auto_task_unlock\batch_provision\battlelog\monsters.csv')
+def stamp():return datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(timespec='seconds')
+def log(f,event,**kw):f.write(json.dumps({'time':stamp(),'event':event,**kw},ensure_ascii=False)+'\n');f.flush()
+def catchable_names():
+ with MONSTERS.open(encoding='utf-8-sig',newline='') as f:return {r['name'] for r in csv.DictReader(f) if r.get('catchable')=='1'}
+def tap_seen(offset,target,slot):
+ if not TAP.exists():return False
+ with TAP.open('rb') as f:
+  f.seek(offset)
+  for raw in f:
+   try:e=json.loads(raw.decode('utf-8'))
+   except Exception:continue
+   if e.get('kind')=='request' and e.get('opcode')==OP_ITEM_TO_FIGHTER:
+    try:b=bytes.fromhex(e.get('hex',''))
+    except ValueError:continue
+    if len(b)>=8 and b[5]==target and b[7]==slot:return True
+ return False
+def main():
+ if STOP.exists():STOP.unlink()
+ base=module_base(PID);titles=game_window_titles().get(PID,[])
+ if not any('伏地魔2' in t for t in titles):raise RuntimeError(f'target title mismatch: {titles}')
+ st=native.read_status(PID)
+ if st.get('stage')!=8:raise RuntimeError('DLL tap not in world')
+ session=native.Session(PID,st['hwnd'],st['game_base']);allowed=catchable_names()
+ with ProcessMemory(PID,base) as mem, LOG.open('a',encoding='utf-8',buffering=1) as f:
+  game=Game(session,mem)
+  try:
+   w=read_world(mem); team=read_team(mem)
+   if not w or w.char_id!=CHAR or w.map_id!=MAP:raise RuntimeError(f'character/map mismatch: {w}')
+   if team and len(team.members)>1:raise RuntimeError(f'party has {len(team.members)} members; not starting solo patrol')
+   a=(round(w.x),round(w.y));points=[a,(a[0]+160,a[1])];target=1;last_nav=time.monotonic()
+   game.navigate(MAP,*points[target])
+   log(f,'patrol_started',map=MAP,a=points[0],b=points[1],item_id=ITEM_ID,item_slot=next((x.slot for x in read_bag(mem) or () if x.item_id==ITEM_ID),None),team=team.members if team else [],policy='one capture request per battle; only catalogued catchable enemies <=15; item slot re-read every battle')
+   last_battle=False;battle_no=0;battle_since=0;tap_offset=0;capture_done=False;last_action=0
+   while not STOP.exists():
+    w=read_world(mem)
+    if not w or w.char_id!=CHAR or w.map_id!=MAP:
+     log(f,'guard_stop',reason='process/character/map changed',map=(w.map_id if w else None));break
+    now=time.monotonic()
+    if w.in_battle:
+     if not last_battle:
+      last_battle=True;battle_no+=1;battle_since=now;capture_done=False
+      tap_offset=TAP.stat().st_size if TAP.exists() else 0
+      log(f,'battle_start',battle_no=battle_no,fighters=get_fighters(mem,base))
+     fighters=get_fighters(mem,base);bag=read_bag(mem) or ()
+     bait=next((x for x in bag if x.item_id==ITEM_ID and x.quantity>0),None)
+     prey=next((x for x in fighters if x.get('type')==1 and x.get('name') in allowed and x.get('level') is not None and x['level']<=15 and x.get('hp',0)>0 and not x.get('dead')),None)
+     if prey and bait and not capture_done and now-battle_since>=0.55 and now-last_action>=1.0:
+      if tap_seen(tap_offset,prey['slot'],bait.slot):
+       log(f,'capture_request_observed',battle_no=battle_no,opcode='0x1003',target=prey,item_id=ITEM_ID,item_slot=bait.slot,source='client hook')
+      else:
+       body=bytes((prey['slot'],0,0,0,7,prey['slot'],0,bait.slot))
+       game.send(OP_ITEM_TO_FIGHTER,body)
+       log(f,'capture_request_sent',battle_no=battle_no,opcode='0x1003',target=prey,item_id=ITEM_ID,item_slot=bait.slot,body_hex=body.hex())
+      capture_done=True;last_action=now
+    else:
+     if last_battle:
+      log(f,'battle_end',battle_no=battle_no,item_slots=[(x.slot,x.quantity) for x in (read_bag(mem) or ()) if x.item_id==ITEM_ID])
+      last_battle=False
+     pt=points[target];dist=math.hypot(w.x-pt[0],w.y-pt[1])
+     if (dist<=45 and not w.moving and now-last_nav>=1.0) or (not w.nav_active and not w.moving and dist>70 and now-last_nav>=2.0):
+      target=1-target;pt=points[target]
+      game.navigate(MAP,*pt);last_nav=now
+      log(f,'patrol_leg',to=pt,from_xy=[round(w.x,1),round(w.y,1)])
+    time.sleep(.20)
+   if STOP.exists():log(f,'patrol_stopped',reason='stop flag')
+  finally:game.close()
+if __name__=='__main__':
+ try:main()
+ except Exception as e:
+  with LOG.open('a',encoding='utf-8') as f:log(f,'fatal',error=repr(e))
+  raise
