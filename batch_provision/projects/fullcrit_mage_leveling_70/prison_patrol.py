@@ -31,6 +31,7 @@ CITY_MAP, CITY_SHOE = 24, (2982, 3303)
 ENTRANCE_NPC, ENTRANCE_XY = 1339, (5660, 3258)
 PICKUP = (2369, 2000)
 PATROL_END = (1000, 2900)
+PATROL_START = (2369, 2000)
 PATROL_AT_51 = ((1600, 500), (1200, 700))
 PLAYER_SKILL, PLAYER_LEVEL = 354, 7
 PET_MAGIC, MIN_PET_MP = 1504, 100
@@ -146,9 +147,8 @@ class CaptainCombat:
 
 class Patrol:
     def __init__(self, start, points=None):
-        self.points = list(points) if points else [(round(start.x), round(start.y)), PATROL_END]
-        self.target = (min(range(len(self.points)), key=lambda i: math.dist((start.x, start.y), self.points[i]))
-                       if points else 1)
+        self.points = list(points) if points else [PATROL_START, PATROL_END]
+        self.target = min(range(len(self.points)), key=lambda i: math.dist((start.x, start.y), self.points[i]))
         self.progress_xy = (start.x, start.y)
         self.progress_at = time.monotonic()
         self.stalls = 0
