@@ -173,6 +173,43 @@ def form_team(lead, others):
     t.say(f'[{lead.name}] 队伍 {lead.team()}')
 
 
+WRENCH, WEAPON_SLOT, UNARM_LEVEL = 118, 2, 2     # 专打屁屁扳手 (every new role wears it), world.py equipment row 2
+
+
+class Unarm:
+    """User 2026-11-04: from level 2 the apprentices fight bare-handed (no gear = a much shorter 蓄力), so the 专打屁屁扳手
+    every new role starts with comes off into a free bag slot, out of battle, once. Checked on the worn list; tried
+    again after RETRY s, given up after TRIES (logged, the well goes on)."""
+    RETRY, TRIES = 5.0, 3
+
+    def __init__(self, c):
+        self.c, self.done, self.tries, self.sent_at = c, False, 0, None
+
+    def tick(self, st, level, now):
+        if self.done or level < UNARM_LEVEL or st.in_battle:
+            return
+        worn = w.read_equipment(self.c.mem) or ()
+        if not any(e.slot == WEAPON_SLOT and e.item_id == WRENCH for e in worn):
+            if self.sent_at is not None:
+                t.say(f'[{self.c.name}] {level} 级，脱下专打屁屁扳手')
+            self.done = True
+            return
+        if self.sent_at is not None and now - self.sent_at < self.RETRY:
+            return
+        if self.tries >= self.TRIES:
+            t.say(f'[{self.c.name}] 脱专打屁屁扳手 {self.TRIES} 次都没成，先不管')
+            self.done = True
+            return
+        used = {s.slot for s in w.read_bag(self.c.mem)}
+        free = next((i for i in range(w.read_bag_capacity(self.c.mem)) if i not in used), None)
+        if free is None:
+            t.say(f'[{self.c.name}] 背包没有空格，脱不下专打屁屁扳手')
+            self.done = True
+            return
+        self.c.game.unequip(WEAPON_SLOT, free)
+        self.sent_at, self.tries = now, self.tries + 1
+
+
 def main(target):
     cs = {n: t.Client(n) for n in APPRENTICES + HELPERS}
     lead = cs[LEADER]
@@ -186,6 +223,7 @@ def main(target):
     from lunhui15 import Caster                # lazy: lunhui15 imports this module
     casters = {n: Caster(cs[n]) for n in HELPERS}
     talents, eaters = {n: Talent() for n in APPRENTICES}, {n: Eater(cs[n]) for n in APPRENTICES}
+    unarms = {n: Unarm(cs[n]) for n in APPRENTICES}
     battles, in_battle, last_reason, last_levels = 0, False, None, None
     while True:
         now = time.monotonic()
@@ -215,6 +253,8 @@ def main(target):
                 tm.sent_at, tm.misses, tm.last_miss = None, tm.misses + 1, now
         for e in eaters.values():
             e.tick(sts[e.c.name], now)
+        for n, u in unarms.items():
+            u.tick(sts[n], levels[n], now)
         lw = sts[LEADER]
         if lw.in_battle != in_battle:
             in_battle = lw.in_battle
