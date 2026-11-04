@@ -325,12 +325,14 @@ def main():
     expected = {c.char_id for c in cs.values()}
     for c in cs.values():
         st = c.world()
-        if not st or st.map_id != MAP_ID or st.in_battle or st.verification:
+        if not st or st.map_id != MAP_ID or st.verification:
             raise t.Stop(f'{c.name} 开始前状态不符: {st}')
     if set(lead.team()) != expected or lead.team()[0] != lead.char_id:
         raise t.Stop(f'开始前不是曾经不曾带领的完整五人队: {lead.team()}')
     start = lead.world()
     say(f'五人队伍确认，地图 {MAP_ID}；巡逻 {round(start.x), round(start.y)} ↔ {PATROL_END}')
+    if start.in_battle:
+        say('启动时已在战斗中；接管当前战斗并继续施法')
     combat = CaptainCombat(lead)
     patrol = Patrol(start)
     route_51_active = False
