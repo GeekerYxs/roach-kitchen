@@ -2,8 +2,8 @@
 
 This wrapper composes the existing 43->48 route (target overridden by SHITU_TARGET_LEVEL) with the prison patrol.
 Existing characters need a valid map-24 shoe record. A fresh character without one must first use the user's
-new-account route: outer-city teleporter -> 龙之都交叉口 -> stand on (666,155) to enter the inner city ->
-talk to 铁男; if the 龙之都公民 quest is incomplete, pay 60,000 gold, then record the shoe before using this flow.
+new-account route: outer-city teleporter -> 龙之都交叉口 -> talk to 铁男; when prompted, confirm only the
+observed 40,000 fee, enter each character individually, and record its shoe before using this flow.
 We stop safely instead of sending a shoe-return request for a character without that prerequisite.
 """
 import _bootstrap  # noqa: F401
@@ -34,6 +34,108 @@ def say(msg):
     t.say(f"[{LEADER}] {msg}")
 
 
+def register_new_city_shoes(cs):
+    """A fresh character cannot use a map-24 shoe record it has never made.
+
+    Enter as a team through the established PP route, cross from the outer city to
+    龙之都交叉口, use 铁男 to enter map 24, then record the shoe at the known point.
+    The map transitions and each role's fee are verified before the shoe request.
+    """
+    import re
+    import maze_train as route
+    import pp_chain
+
+    lead = cs[LEADER]
+    states = {name: c.world() for name, c in cs.items()}
+    if not all(st and st.map_id in (CITY_MAP, 25) for st in states.values()):
+        if not all(st and st.map_id in (1, 8) for st in states.values()):
+            raise t.Stop(f"新号入城路线起点地图不一致: " +
+                         str({n: (s.map_id if s else None) for n, s in states.items()}))
+        say("发现新号没有龙之都内城飞鞋记录；先按新号路线进城并逐号登记")
+        pp_chain.main("龙之都", ["平静海岸2区"])
+
+        # The PP landing at (4050,303) is on the north side of the chain-shop door.
+        # Going directly to the crossroad exit makes this client's path-finder enter
+        # map 31 at (837,588). First use the verified safe outer-city waypoint.
+        lead.game.navigate(20, 3863, 2027)
+        t.wait(lambda: (st := lead.world()) and st.map_id == 20 and
+               math.dist((st.x, st.y), (3863, 2027)) <= 120 and not st.moving and
+               not st.in_battle and not st.verification,
+               240, "队长绕开连锁商店入口到外城安全路点")
+
+        route.STAGES = (dict(
+            name="新号龙之都交叉口",
+            goal=(25, None), maze=None, until=None, patrol_b=None,
+            legs={20: ("walk", 20, (663, 166))},
+        ),)
+        route.main()
+
+    def enter_one(c):
+        st = c.world()
+        if st.map_id == CITY_MAP:
+            return
+        if st.map_id != 25 or st.in_battle or st.verification:
+            raise t.Stop(f"{c.name} 不在可处理的交叉口状态: {st}")
+        if c.team():
+            c.game.team_leave()
+            t.wait(lambda: not c.team(), 5, f"{c.name} 单独办理内城入场")
+        d = c.dialog()
+        if not d:
+            c.game.navigate(25, 294, 171)
+            t.wait(lambda: (s := c.world()) and s.map_id == 25 and
+                   math.dist((s.x, s.y), (294, 171)) <= 80 and not s.moving and
+                   not s.in_battle and not s.verification,
+                   180, f"{c.name} 到铁男 NPC 575")
+            c.game.click_npc(575)
+            d = t.wait(lambda: c.dialog(), 6, f"{c.name} 铁男入城菜单")
+        labels = [(o, t.plain(label)) for o, label in d.options if o]
+        free = [(o, label) for o, label in labels if "免费" in label and "内城" in label]
+        paid = [(o, label) for o, label in labels if "缴费进入内城" in label]
+        enter = [(o, label) for o, label in labels if label == "进入内城"]
+        if len(free) == 1:
+            c.game.select_dialog(free[0][0])
+        elif len(paid) == 1:
+            c.game.select_dialog(paid[0][0])
+        elif len(enter) == 1:
+            c.game.select_dialog(enter[0][0])
+        else:
+            raise t.Stop(f"{c.name} 铁男选项无法安全判定: {labels}")
+
+        t.wait(lambda: c.world().map_id == CITY_MAP or
+               ((q := c.dialog()) and
+                re.search(r"40000|40,000|4万|四万", t.plain(q.text))),
+               8, f"{c.name} 内城切图或铁男费用确认")
+        if c.world().map_id != CITY_MAP:
+            d = c.dialog()
+            prompt = t.plain(d.text)
+            if not re.search(r"40000|40,000|4万|四万", prompt):
+                raise t.Stop(f"{c.name} 铁男费用不符合已核实的4万标准: {prompt}")
+            gold = w.read_gold(c.mem)
+            if gold < 40000:
+                raise t.Stop(f"{c.name} 金币不足4万，拒绝确认入城: {gold}")
+            confirm = [(o, t.plain(label)) for o, label in d.options
+                       if o and any(word in t.plain(label) for word in ("进入", "确认", "确定"))]
+            if len(confirm) != 1:
+                raise t.Stop(f"{c.name} 铁男付费确认项不唯一: {d.options}")
+            say(f"{c.name} 铁男确认页明确标价4万；当前金币 {gold}，确认入城")
+            c.game.select_dialog(confirm[0][0])
+            t.wait(lambda: c.world().map_id == CITY_MAP, 12, f"{c.name} 付费进入内城")
+            say(f"{c.name} 入城金币 {gold} -> {w.read_gold(c.mem)}")
+
+    for name, c in cs.items():
+        enter_one(c)
+        c.game.navigate(CITY_MAP, *CITY_SHOE)
+        t.wait(lambda: (s := c.world()) and s.map_id == CITY_MAP and
+               math.dist((s.x, s.y), CITY_SHOE) <= shoe_point.NEAR and
+               not s.in_battle and not s.moving and not s.verification,
+               240, f"{name} 到内城飞鞋登记点")
+        shoe_point.record(CITY_MAP, CITY_SHOE, [name])
+
+    form_team(lead, [cs[n] for n in APPRENTICES])
+    expected = {c.char_id for c in cs.values()}
+    t.wait(lambda: set(lead.team()) == expected, 10, "新号登记飞鞋后重组五人队")
+
+
 def home_and_fly(cs):
     from line.ops import home_village
     import sell_tradable
@@ -56,9 +158,12 @@ def home_and_fly(cs):
     missing_records = [n for n, c in cs.items()
                        if not shoe_point.record_ok(w.read_shoe_record(c.mem), CITY_MAP, CITY_SHOE)]
     if missing_records:
-        raise t.Stop("没有内城飞鞋记录，不能飞鞋: " + ", ".join(missing_records) +
-                     "。新号须先按外城传送员→交叉口→(666,155)→铁男路线进内城；未完成龙之都公民任务者交6万，"
-                     "到内城后先记录飞鞋。")
+        say("缺少内城飞鞋记录的角色: " + ", ".join(missing_records))
+        register_new_city_shoes(cs)
+        missing_records = [n for n, c in cs.items()
+                           if not shoe_point.record_ok(w.read_shoe_record(c.mem), CITY_MAP, CITY_SHOE)]
+        if missing_records:
+            raise t.Stop("新号入城后仍未登记成功，拒绝使用飞鞋: " + ", ".join(missing_records))
 
     while True:
         why = [shoe_point.why_not(n, w.read_shoe_record(c.mem), shoe_point.used_at(n),
@@ -120,8 +225,13 @@ def main():
     if not all(level >= int(os.environ["SHITU_TARGET_LEVEL"]) for level in levels.values()):
         raise t.Stop(f"訓练未达到目标级别，拒绝切图: {levels}")
     say(f"四个小号达到 {os.environ['SHITU_TARGET_LEVEL']} 级: {levels}；回城并使用内城飞鞋")
-    home_and_fly(cs)
-    enter_prison(cs)
+    expected = {c.char_id for c in cs.values()}
+    states = {name: c.world() for name, c in cs.items()}
+    if all(st and st.map_id == PRISON_MAP for st in states.values()) and set(cs[LEADER].team()) == expected:
+        say("检测到完整队伍已在惊魂监狱，原地续跑，保留当前地图与巡逻进度")
+    else:
+        home_and_fly(cs)
+        enter_prison(cs)
     import prison_patrol
     prison_patrol.main()
 

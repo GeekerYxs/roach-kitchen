@@ -1,6 +1,7 @@
 """曾经不曾 five-person patrol in 惊魂监狱 (264), with strict party-presence recovery.
 
-Starts at the prison landing (or the captain's current point on map 264), patrols to (1000, 2900) and back.
+Starts at the prison landing (or the captain's current point on map 264), initially patrols to (1000, 2900).
+Once every apprentice reaches level 51, patrols between (1600, 500) and (1200, 700) until level 53.
 Only the 方士 captain uses 天之箭 354 lv7 and pet 烈焰爆发 1504. Apprentices issue no battle commands.
 If anyone leaves the prison or the five-person roster becomes incomplete, the captain stops the patrol and returns
 to (2369, 2000). A missing role may use its recorded map-24 shoe point, enter through NPC 1339, and rejoin there;
@@ -8,6 +9,7 @@ shoe cooldowns are respected instead of repeatedly sending a return request.
 """
 import _bootstrap  # noqa: F401
 import math
+import os
 import time
 from pathlib import Path
 
@@ -19,14 +21,17 @@ from provisioner import world as w
 from factory.welltrain import Fight, Talent, decide_talent
 from well10 import form_team
 
-ROLES = ('曾经不曾', '元素使01', '元素使02', '元素使03', '元素使04')
-LEADER, APPRENTICES = ROLES[0], ROLES[1:]
+LEADER = os.environ.get('SHITU_LEADER', '曾经不曾')
+APPRENTICES = tuple(n for n in os.environ.get(
+    'SHITU_APPRENTICES', '元素使01,元素使02,元素使03,元素使04').split(',') if n)
+ROLES = (LEADER,) + APPRENTICES
 MAP_ID = 264
 PRISON_MAP = 264
 CITY_MAP, CITY_SHOE = 24, (2982, 3303)
 ENTRANCE_NPC, ENTRANCE_XY = 1339, (5660, 3258)
 PICKUP = (2369, 2000)
 PATROL_END = (1000, 2900)
+PATROL_AT_51 = ((1600, 500), (1200, 700))
 PLAYER_SKILL, PLAYER_LEVEL = 354, 7
 PET_MAGIC, MIN_PET_MP = 1504, 100
 TICK, ARRIVE, STALL = 0.15, 70, 8.0
@@ -140,9 +145,10 @@ class CaptainCombat:
 
 
 class Patrol:
-    def __init__(self, start):
-        self.points = [(round(start.x), round(start.y)), PATROL_END]
-        self.target = 1
+    def __init__(self, start, points=None):
+        self.points = list(points) if points else [(round(start.x), round(start.y)), PATROL_END]
+        self.target = (min(range(len(self.points)), key=lambda i: math.dist((start.x, start.y), self.points[i]))
+                       if points else 1)
         self.progress_xy = (start.x, start.y)
         self.progress_at = time.monotonic()
         self.stalls = 0
@@ -240,6 +246,7 @@ def main():
     say(f'五人队伍确认，地图 {MAP_ID}；巡逻 {round(start.x), round(start.y)} ↔ {PATROL_END}')
     combat = CaptainCombat(lead)
     patrol = Patrol(start)
+    route_51_active = False
     reentry = Reentry()
     was_battle = False
     was_missing = False
@@ -319,7 +326,7 @@ def main():
         if was_missing:
             was_missing = False
             pickup_nav = False
-            patrol = Patrol(captain)
+            patrol = Patrol(captain, PATROL_AT_51 if route_51_active else None)
             say('五人重新到齐，恢复巡逻')
         if captain.map_id != MAP_ID:
             # The captain himself may have returned to town. Treat him as missing and let Reentry bring him back.
@@ -336,6 +343,12 @@ def main():
         if levels != last_levels:
             say(f'等级 {levels}，惊魂监狱目标 {PRISON_TARGET_LEVEL}')
             last_levels = levels
+        if not route_51_active and all(v >= 51 for v in levels.values()):
+            if captain.nav_active or captain.moving:
+                lead.game.cancel_navigation()
+            patrol = Patrol(captain, PATROL_AT_51)
+            route_51_active = True
+            say(f'四个小号全部达到51级；切换巡逻点 {PATROL_AT_51[0]} ↔ {PATROL_AT_51[1]}，到53离开')
         for n in APPRENTICES:
             tm, pts = talents[n], w.read_talent_points(cs[n].mem)
             d = decide_talent(pts, tm, now)
