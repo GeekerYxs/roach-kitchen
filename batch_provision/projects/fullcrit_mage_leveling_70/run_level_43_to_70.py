@@ -68,24 +68,12 @@ def home_sell_and_restock():
         if total < 20 and total < 50:
             raise t.Stop(f"{name} 回城券补给核验失败")
 
-    # Keep the user's requested captain loyalty-item reserve when it falls below 250.
+    # Reuse the home supply helper so it navigates into the pet shop interaction range.
     c = t.Client(LEADER)
     sweets = w.item_count(w.read_bag(c.mem) or (), 8573)
     say(f"队长甜点总数={sweets}")
-    if sweets < 250:
-        from factory.supply import PETSHOP, ShopClient
-        from provisioner import log as plog
-        plog.setup(t.HERE / "logs", prefix="level70_supply")
-        shop = ShopClient(c.game, c.mem, plog.for_account(LEADER))
-        try:
-            need = 5 * 99 - sweets
-            while need > 0:
-                qty = min(99, need)
-                if not shop.buy(PETSHOP, PETSHOP.shelf[8573], 8573, qty):
-                    raise t.Stop("队长甜点购买未确认")
-                need -= qty
-        finally:
-            shop.close()
+    supplies.top_up_master_sweets_at_home()
+    say(f"队长甜点补给后总数={w.item_count(w.read_bag(c.mem) or (), 8573)}")
 
     soda = w.item_count(w.read_bag(c.mem) or (), 8456)
     say(f"队长劲爆汽水总数={soda}")
