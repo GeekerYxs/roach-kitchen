@@ -1,27 +1,28 @@
 """Return the five-person team to 荒芜之地一区, walk to 荒芜之地二区, then farm 禁锢之地 to level 70.
 
 The user supplied the transition coordinate (4120,2600), the patrol line, and the instruction to choose the first
-entry option at NPC 10184. Only the 方士 captain and its pet issue combat commands; an apprentice leaving map 1200
-stops the patrol once the captain is out of battle.
+entry option at NPC 10184. Only the 方士 captain and its pet issue combat commands. Anyone leaving map 1200 or an
+empty captain soda bag raises t.Stop once the captain is out of battle, so the supervisor counts it as a failure
+and recovers (it used to return normally, which the supervisor took for a finished stage and retried forever).
 """
 import _bootstrap  # noqa: F401
-import math
+import os
 
 import maze_train as m
-import pp_chain
 import trial_run as t
 from common import APPRENTICES
-from lunhui15 import LEADER
 from provisioner import world as w
-from well10 import form_team
-from line.ops import home_village
+
+import guards
+import home_supply
 
 DESERT_1, DESERT_2 = 180, 181
 TO_DESERT_2 = (4120, 2600)
 GATE_NPC, GATE_XY = 10184, (3123, 2630)
 FORBIDDEN_LAND, TARGET_LEVEL = 1200, 70
 PATROL_A, PATROL_B = (8898, 5985), (8500, 5750)
-ROLES = (LEADER,) + APPRENTICES
+LEADER = os.environ['SHITU_LEADER']
+ROLES = (LEADER,) + tuple(APPRENTICES)
 
 
 def say(msg):
@@ -41,22 +42,9 @@ def verify_team_map(map_id, where):
         str({n: w.read_level(t.Client(n).mem) for n in APPRENTICES}))
 
 
-def main():
-    m.CASTERS = (LEADER,)
-    home_village()
-    import sell_tradable
-    import tour_level_maps_two_battles as supplies
-    sell_tradable.main(list(ROLES), "junk-stones-white")
-    supplies.top_up_scrolls_at_home()
-    supplies.top_up_master_sweets_at_home()
-    lead = t.Client(LEADER)
-    soda = w.item_count(w.read_bag(lead.mem) or (), 8456)
-    say(f"回城清理/补给后队长劲爆汽水 {soda}")
-    if soda < 599:
-        from hannibal_soda import restock_at_home
-        soda = restock_at_home(ROLES)
-        say(f"汉尼拔补给并回城核验队长劲爆汽水 {soda}")
-    pp_chain.main('荒芜之地1区', ['平静海岸2区', '龙之都', '恶人山', '苦无沙漠3区'])
+def enter():
+    home_supply.home_and_restock(ROLES)
+    home_supply.pp_go('荒芜之地1区', ['平静海岸2区', '龙之都', '恶人山', '苦无沙漠3区'])
     lead = t.Client(LEADER)
     if lead.world().map_id != DESERT_1:
         raise t.Stop(f'PP鸡没有到荒芜之地一区：map={lead.world().map_id}')
@@ -74,16 +62,29 @@ def main():
     m.main()
     verify_team_map(FORBIDDEN_LAND, 'NPC 10184 第一选项')
 
+
+def main():
+    m.CASTERS = (LEADER,)
+    lead = t.Client(LEADER)
+    expected = {t.Client(n).char_id for n in ROLES}
+    if all((s := t.Client(n).world()) and s.map_id == FORBIDDEN_LAND for n in ROLES) and \
+            set(lead.team()) == expected:
+        say('完整队伍已在禁锢之地，原地续跑')
+    else:
+        enter()
+
     watchers = {n: t.Client(n) for n in ROLES}
     def someone_left_map():
         outside = {n: c.world().map_id for n, c in watchers.items()
                    if c.world() and c.world().map_id != FORBIDDEN_LAND}
         if outside:
-            say(f'有人离开禁锢之地，停止巡逻：{outside}')
-        return bool(outside)
+            raise t.Stop(f'有人离开禁锢之地，停止巡逻：{outside}')
+        return False
 
     m.STAGES = (dict(name='禁锢之地巡逻', maze=FORBIDDEN_LAND, until=TARGET_LEVEL,
-                     patrol_a=PATROL_A, patrol_b=PATROL_B, legs={}, done_when=someone_left_map),)
+                     patrol_a=PATROL_A, patrol_b=PATROL_B, legs={},
+                     done_when=guards.all_of(someone_left_map, guards.soda_guard)),)
+    guards.configure_revive()
     say(f'开始禁锢之地巡逻：{PATROL_A} ↔ {PATROL_B}，四个小号目标70级')
     m.main()
 

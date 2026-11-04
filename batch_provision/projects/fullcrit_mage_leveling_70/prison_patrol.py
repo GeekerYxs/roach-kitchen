@@ -6,7 +6,11 @@ Only the 方士 captain uses 天之箭 354 lv7 and pet 烈焰爆发 1504. Appren
 If anyone leaves the prison or the five-person roster becomes incomplete, the captain stops at (2369, 2000).
 Returned apprentices sell their bags; the captain leaves alone to meet them in the inner city, then leads the pickup
 party back into prison. Living apprentices remain in the maze and are re-invited by the captain approaching them.
-Recorded shoe cooldowns are respected, and an explicit ironman fee is checked before any paid fallback.
+Recorded shoe cooldowns are respected: a short one is waited out, a long one (team.toml shoe_wait_max_seconds)
+switches to the paid 铁男 entry; an apprentice short of the 40,000 fee first gets 60,000 from the captain.
+With the configured revive item in the captain's bag, a downed apprentice is revived in battle (pet defends).
+An empty captain soda bag stops the patrol out of battle with policy.SODA_EMPTY so the supervisor can restock.
+Reaching level 53 returns to the caller; the supervisor then starts 陷阱囚牢.
 """
 import _bootstrap  # noqa: F401
 import math
@@ -22,9 +26,13 @@ from provisioner import world as w
 from factory.welltrain import Fight, Talent, decide_talent
 from well10 import form_team
 
-LEADER = os.environ.get('SHITU_LEADER', '曾经不曾')
-APPRENTICES = tuple(n for n in os.environ.get(
-    'SHITU_APPRENTICES', '元素使01,元素使02,元素使03,元素使04').split(',') if n)
+import guards
+import home_supply
+from common import APPRENTICES
+from policy import SODA_EMPTY, shoe_plan
+
+LEADER = os.environ['SHITU_LEADER']
+SHOE_WAIT_MAX = int(os.environ.get('SHITU_SHOE_WAIT_MAX', '600'))
 ROLES = (LEADER,) + APPRENTICES
 MAP_ID = 264
 PRISON_MAP = 264
@@ -41,7 +49,7 @@ INVITE_NEAR = 130
 PICKUP_SETTLE_SECONDS = 3.0
 PET_ACTION_FALLBACK = 3.2   # used only if this already-running client has no live packet tap
 MAX_PET_CASTS = 30
-PRISON_TARGET_LEVEL = int(__import__('os').environ.get('SHITU_PRISON_TARGET_LEVEL', '53'))
+PRISON_TARGET_LEVEL = int(os.environ.get('SHITU_PRISON_TARGET_LEVEL', '53'))
 
 
 def say(msg):
@@ -60,6 +68,9 @@ class CaptainCombat:
         self.pet_blocked_sp = None
         self.pet_casts = 0
         self.last_battle = False
+        # revive.Reviver reads/records the caster's last acted SP through .me / .pet (lunhui15.Caster layout).
+        self.me, self.pet = self.player, Fight()
+        self.reviver = None
         pet = w.read_fighting_pet(lead.mem)
         if pet:
             self.pet_level = pet.abilities.get(PET_MAGIC, 0)
@@ -67,6 +78,10 @@ class CaptainCombat:
             raise t.Stop(f'队长没有出战宠物或宠物未学烈焰爆发 {PET_MAGIC}')
         # The learned-skill reader does not expose 354 on this role; level 7 was confirmed by the user.
         say(f'战斗配置：方士天之箭 {PLAYER_SKILL} lv{PLAYER_LEVEL}，宠物烈焰爆发 {PET_MAGIC} lv{self.pet_level}')
+        import revive
+        if revive.ITEM:
+            self.reviver = revive.Reviver(lead, APPRENTICES)
+            say(f'倒地复活已启用：道具 {revive.ITEM}，复活回合宠物防御')
 
         self.tap = None
         dll = next((Path(path) for _, path in modules(lead.pid) if 'provision_native' in path.lower()), None)
@@ -88,6 +103,9 @@ class CaptainCombat:
 
     def reset(self):
         self.player = Fight()
+        self.me, self.pet = self.player, Fight()
+        if self.reviver:
+            self.reviver.tick(None, self, 0.0)
         self.pet_memo_sp = None
         self.pet_pending = False
         self.pet_sent_at = 0.0
@@ -99,6 +117,14 @@ class CaptainCombat:
         battle = w.read_battle(self.c.mem)
         if not battle:
             return
+        if self.reviver:
+            pet_sent = self.pet.sent_at
+            blocked = self.reviver.tick(battle, self, now)
+            if self.pet.sent_at != pet_sent and battle.pet:
+                # The reviver made the pet defend: that is this round's pet action; wait for it to settle.
+                self.pet_memo_sp, self.pet_sent_at, self.pet_pending = battle.pet.sp, now, True
+            if blocked:
+                return
         live_pet = w.read_fighting_pet(self.c.mem)
         pet_ok = bool(live_pet and live_pet.mp >= MIN_PET_MP)
         if not battle.me or battle.me.dead or not battle.enemies:
@@ -138,6 +164,7 @@ class CaptainCombat:
         if not self.pet_pending and pet.sp > 0 and pet.sp != self.pet_blocked_sp and \
                 self.pet_casts < MAX_PET_CASTS:
             self.c.game.cast_pet_magic(target, PET_MAGIC, self.pet_level)
+            self.pet.record(pet.sp, now)
             self.pet_memo_sp, self.pet_sent_at, self.pet_pending = pet.sp, now, True
             self.pet_casts += 1
             self.pet_warned = False
@@ -190,8 +217,11 @@ class Reentry:
             say(msg)
             self.last_log[(name, key)] = now
 
-    def to_city(self, c, now):
-        """Bring a recalled character to its recorded inner-city point; wait out the one-hour shoe cooldown."""
+    def to_city(self, c, now, lead=None):
+        """Bring a recalled character to its recorded inner-city point.
+
+        Shoe ready: fly. Short cooldown: wait (never re-send). Missing record or a cooldown longer than
+        SHOE_WAIT_MAX: the paid 铁男 entry, funded by the captain when the apprentice cannot pay 40,000."""
         st = c.world()
         if not st or st.in_battle or st.verification:
             return False
@@ -201,8 +231,15 @@ class Reentry:
             self.log_once(c.name, 'wait-home', f'{c.name} 当前在 map {st.map_id}，等其回到村里再接回', now)
             return False
         rec = w.read_shoe_record(c.mem)
-        if not shoe_point.record_ok(rec, CITY_MAP, CITY_SHOE):
-            say(f'{c.name} 没有可用的内城飞鞋记录，改走PP鸡与铁男入城兜底')
+        has_record = shoe_point.record_ok(rec, CITY_MAP, CITY_SHOE)
+        left = shoe_point.cooldown_left(shoe_point.used_at(c.name), time.time())
+        plan = shoe_plan(left, SHOE_WAIT_MAX, has_record)
+        if plan == 'paid':
+            say(f'{c.name} ' + ('没有可用的内城飞鞋记录' if not has_record else
+                                f'飞鞋还要冷却 {left // 60} 分，超过 {SHOE_WAIT_MAX // 60} 分钟上限') +
+                '，改走PP鸡与铁男入城兜底')
+            if lead is not None and c is not lead:
+                home_supply.fund_city_fee(lead, c)
             self.enter_city_by_paid_route(c)
             return c.world().map_id == CITY_MAP
         why = shoe_point.why_not(c.name, rec, shoe_point.used_at(c.name), time.time(), CITY_MAP, CITY_SHOE)
@@ -333,6 +370,7 @@ def main():
     say(f'五人队伍确认，地图 {MAP_ID}；巡逻 {round(start.x), round(start.y)} ↔ {PATROL_END}')
     if start.in_battle:
         say('启动时已在战斗中；接管当前战斗并继续施法')
+    guards.configure_revive()          # also when this script is started on its own
     combat = CaptainCombat(lead)
     patrol = Patrol(start)
     route_51_active = False
@@ -432,7 +470,7 @@ def main():
                     # Return only the absent apprentices and captain to the recorded inner-city point.
                     # Each apprentice is sold once while home; an unavailable shoe is never spammed.
                     for n in outside_apprentices:
-                        reentry.to_city(cs[n], now)
+                        reentry.to_city(cs[n], now, lead)
                     if all(cs[n].world().map_id == CITY_MAP for n in outside_apprentices):
                         reentry.to_city(lead, now)
                         if lead.world().map_id == CITY_MAP:
@@ -482,6 +520,13 @@ def main():
         if roster != expected:
             time.sleep(TICK)
             continue
+        if captain.verification:
+            time.sleep(TICK)
+            continue
+        if guards.count(lead, guards.SODA_ID) == 0:
+            if captain.nav_active or captain.moving:
+                lead.game.cancel_navigation()
+            raise t.Stop(f'{SODA_EMPTY}，五人都在监狱，停止巡逻交给监督程序全队回城补给')
 
         levels = {n: w.read_level(cs[n].mem) for n in APPRENTICES}
         if levels != last_levels:
@@ -511,9 +556,7 @@ def main():
                 all(w.read_talent_points(cs[n].mem) == 0 for n in APPRENTICES):
             if captain.nav_active or captain.moving:
                 lead.game.cancel_navigation()
-            say(f'四个小号全部到 {PRISON_TARGET_LEVEL} 级，停止惊魂监狱巡逻：{levels}')
-            import trap_cage_53_58
-            trap_cage_53_58.main()
+            say(f'四个小号全部到 {PRISON_TARGET_LEVEL} 级，停止惊魂监狱巡逻：{levels}；下一段由监督程序启动')
             return
         patrol.tick(lead, captain, now)
         time.sleep(TICK)

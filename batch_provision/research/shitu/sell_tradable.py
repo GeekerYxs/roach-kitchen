@@ -19,6 +19,7 @@ one request (up to 20 slots per 0x55, factory.supply.SELL_BATCH) instead of tryi
 Evidence (02:55 十万1): of 35 slots, all 13 tradable ones sold and all 22 不可交易 ones (the (御) gift items,
 新手洗点卡, 神秘的金属) were refused, so the ItemLib trade flag (factory/data/items.csv) is the rule.
 """
+import os
 import sys
 
 import trial_run as t
@@ -88,7 +89,9 @@ def one(n, mode, items, nm):
     c = t.Client(n)
     if mode in ('all', 'tidy'):
         unequip_weapon(c, nm)
-    elif mode == 'junk-stones-white':
+    elif mode == 'junk-stones-white' and os.environ.get('SHITU_SELL_WORN_WHITE', '1') == '1':
+        # fullcrit_mage_leveling_70 turns this off by default (team.toml sell_worn_white): taking the worn white
+        # gear off low-level apprentices made them fight the next map without armour.
         unequip_quality(c, 1, items, nm)
     walk(c, 1, (1338, 1155), '宠物商人小美')
     bag = w.read_bag(c.mem)
