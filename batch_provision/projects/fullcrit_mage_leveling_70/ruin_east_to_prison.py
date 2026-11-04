@@ -19,11 +19,15 @@ os.environ.setdefault("SHITU_PLAYER_SKILL_LEVEL", "7")
 import ruin_east_43_48 as training
 import shoe_point
 import trial_run as t
-from common import APPRENTICES, MASTERS
+from common import APPRENTICES
 from provisioner import world as w
 from well10 import form_team
 
-LEADER = os.environ.get("SHITU_LEADER", MASTERS[0])
+import home_supply
+from policy import shoe_plan
+
+LEADER = os.environ["SHITU_LEADER"]
+SHOE_WAIT_MAX = int(os.environ.get("SHITU_SHOE_WAIT_MAX", "600"))
 ROLES = (LEADER,) + APPRENTICES
 CITY_MAP, CITY_SHOE = 24, (2982, 3303)
 PRISON_MAP, PRISON_NPC, PRISON_XY = 264, 1339, (5660, 3258)
@@ -51,7 +55,10 @@ def register_new_city_shoes(cs):
         if not all(st and st.map_id in (1, 8) for st in states.values()):
             raise t.Stop(f"新号入城路线起点地图不一致: " +
                          str({n: (s.map_id if s else None) for n, s in states.items()}))
-        say("发现新号没有龙之都内城飞鞋记录；先按新号路线进城并逐号登记")
+        say("走铁男入城路线（没有内城飞鞋记录，或飞鞋冷却太久）；逐号进城并登记飞鞋")
+        for c in cs.values():
+            if c.name != LEADER:
+                home_supply.fund_city_fee(lead, c)
         pp_chain.main("龙之都", ["平静海岸2区"])
 
         # The PP landing at (4050,303) is on the north side of the chain-shop door.
@@ -137,20 +144,7 @@ def register_new_city_shoes(cs):
 
 
 def home_and_fly(cs):
-    from line.ops import home_village
-    import sell_tradable
-    import tour_level_maps_two_battles as supplies
-
-    home_village()
-    sell_tradable.main(list(ROLES), "junk-stones-white")
-    supplies.top_up_scrolls_at_home()
-    supplies.top_up_master_sweets_at_home()
-    soda = w.item_count(w.read_bag(cs[LEADER].mem) or (), 8456)
-    say(f"回城清理/补给后队长劲爆汽水 {soda}")
-    if soda < 599:
-        from hannibal_soda import restock_at_home
-        soda = restock_at_home(tuple(cs))
-        say(f"汉尼拔补给并回城核验队长劲爆汽水 {soda}")
+    home_supply.home_and_restock(tuple(cs))
     for name, c in cs.items():
         st = c.world()
         if not st or st.map_id not in (1, 8) or st.in_battle or st.verification:
@@ -165,14 +159,23 @@ def home_and_fly(cs):
         if missing_records:
             raise t.Stop("新号入城后仍未登记成功，拒绝使用飞鞋: " + ", ".join(missing_records))
 
+    # Everybody flew in on the shoe at the last prison entry, so a recovery within the hour finds all shoes
+    # cooling. Wait for a short cooldown; for a long one pay 铁男 (40,000 each) instead of idling up to an hour.
     while True:
-        why = [shoe_point.why_not(n, w.read_shoe_record(c.mem), shoe_point.used_at(n),
-                                  time.time(), CITY_MAP, CITY_SHOE) for n, c in cs.items()]
-        cooling = [x for x in why if x and "飞鞋还要" in x]
-        if not cooling:
+        left = max(shoe_point.cooldown_left(shoe_point.used_at(n), time.time()) for n in cs)
+        plan = shoe_plan(left, SHOE_WAIT_MAX, has_record=True)
+        if plan == "fly":
             break
-        say("飞鞋冷却中，留在村里等冷却结束：" + "；".join(cooling))
-        time.sleep(60)
+        if plan == "paid":
+            say(f"飞鞋最长还要冷却 {left // 60} 分，超过 {SHOE_WAIT_MAX // 60} 分钟上限，改走铁男付费入城")
+            register_new_city_shoes(cs)
+            return
+        say(f"飞鞋还要冷却 {left // 60} 分 {left % 60} 秒，留在村里等待")
+        time.sleep(min(60, max(5, left)))
+    why = [x for x in (shoe_point.why_not(n, w.read_shoe_record(c.mem), shoe_point.used_at(n),
+                                         time.time(), CITY_MAP, CITY_SHOE) for n, c in cs.items()) if x]
+    if why:
+        raise t.Stop("内城飞鞋不可用：" + "；".join(why))
     shoe_point.fly(CITY_MAP, CITY_SHOE, list(ROLES))
 
 
@@ -223,7 +226,7 @@ def main():
         training.main()
         levels = {n: w.read_level(c.mem) for n, c in cs.items() if n != LEADER}
     if not all(level >= int(os.environ["SHITU_TARGET_LEVEL"]) for level in levels.values()):
-        raise t.Stop(f"訓练未达到目标级别，拒绝切图: {levels}")
+        raise t.Stop(f"训练未达到目标级别，拒绝切图: {levels}")
     say(f"四个小号达到 {os.environ['SHITU_TARGET_LEVEL']} 级: {levels}；回城并使用内城飞鞋")
     expected = {c.char_id for c in cs.values()}
     states = {name: c.world() for name, c in cs.items()}
