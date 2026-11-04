@@ -428,6 +428,23 @@ def _yuansu():
 ROUTE_YUANSU = _yuansu()
 
 
+def _yongzhe(steps):
+    """The 勇者 lines (v5, B+; not the 元素使 one, built above from the B+ steps as they were): the apprentices own no
+    weapon (user 2026-11-04: bare hands = a shorter 蓄力; well10.Unarm takes the 专打屁屁扳手 off at 2). Every sale
+    takes the worn weapon off and sells all weapons (sell_tradable --weapons, never a master's), wear_best puts on
+    no weapon (--no-weapon)."""
+    add = {'sell_tradable.py': '--weapons', 'wear_best.py': '--no-weapon'}
+
+    def cmd(c):
+        flag = add.get(c.args[0])
+        return Cmd(c.args + (flag,), c.when, c.soft) if flag and flag not in c.args else c
+    return tuple(Step(s.name, s.stage, tuple(cmd(c) for c in s.cmds), s.retry, s.unless, s.env) for s in steps)
+
+
+ROUTE, ROUTE_BPLUS = _yongzhe(ROUTE), _yongzhe(ROUTE_BPLUS)
+ROUTES = {'v5': ROUTE, 'bplus': ROUTE_BPLUS}
+
+
 def route_of(b):
     """The steps a batch runs (its team's line.toml route; B+ unless the team says route = "v5"). A team with
     job = "术士" runs the 元素使 line (B+ based); every other team runs exactly what it ran before."""

@@ -97,8 +97,12 @@ def run(name, items, req, weapon=True, novice=True):
 if __name__ == '__main__':
     table, req = load_items(), need_level()
     plain = os.environ.get('SHITU_TIDY') != '1'        # tidy teams (元素使): no weapon, no 新手装 (tidy.py)
+    # --no-weapon: the 勇者 line's apprentices wear no weapon (user 2026-11-04, sell_tradable --weapons sells them);
+    # the rest of the gear as before
+    no_weapon = '--no-weapon' in sys.argv
+    names = [a for a in sys.argv[1:] if a != '--no-weapon']
     try:
-        t.each(sys.argv[1:], lambda n: run(n, table, req, weapon=plain, novice=plain))      # each its own bag, at once (user 2026-11-01)
+        t.each(names, lambda n: run(n, table, req, weapon=plain and not no_weapon, novice=plain))      # each its own bag, at once (user 2026-11-01)
     except t.Stop as e:
         t.say(f'停止: {e}')
         raise SystemExit(1)

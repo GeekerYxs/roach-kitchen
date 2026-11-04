@@ -52,7 +52,7 @@ class Each(unittest.TestCase):
 PARALLEL = {        # file -> the code that must run through t.each
     'yongzhe_take.py': 't.each(sys.argv[1:], take)',
     'drop_prank.py': 't.each(args,', 'eat_items.py': 't.each(args,', 'open_packs.py': 't.each(sys.argv[1:],',
-    'wear_best.py': 't.each(sys.argv[1:],', 'mail_sell.py': 't.each(args,', 'sell_tradable.py': 't.each(names,',
+    'wear_best.py': 't.each(names,', 'mail_sell.py': 't.each(args,', 'sell_tradable.py': 't.each(names,',
     'pp_unlock.py': 't.each([n for n in names',
 }
 SERIAL = ('bai_shi.py', 'trial_run.py', 'trial3_run.py', 'chushi.py', 'give_gold.py')   # the master / a trade
@@ -65,7 +65,7 @@ class Scripts(unittest.TestCase):
 
     def test_r4_util_and_ops_loops(self):
         for f, funcs in (('r4_util.py', ('restock', 'double', 'space', 'home')),
-                         ('line/ops.py', ('home_village', 'q94', 'fairy'))):
+                         ('line/ops.py', ('q94', 'fairy'))):
             tree = ast.parse((HERE / f).read_text(encoding='utf-8'))
             defs = {n.name: n for n in tree.body if isinstance(n, ast.FunctionDef)}
             for name in funcs:
@@ -73,6 +73,13 @@ class Scripts(unittest.TestCase):
                 self.assertIn('t.each(', src, f'{f} {name}')
                 top_for = [n for n in defs[name].body if isinstance(n, ast.For)]
                 self.assertFalse(any('APPRENTICES' in ast.unparse(n.iter) for n in top_for), f'{f} {name}')
+
+    def test_home_village_apprentices_before_the_master(self):
+        """91e7959: a scroll-less apprentice borrows from the master on its map (a trade), so they go one by one and
+        the master last."""
+        src = (HERE / 'line' / 'ops.py').read_text(encoding='utf-8')
+        body = src[src.index('def home_village'):src.index('def q94')]
+        self.assertLess(body.index('for c in cs[1:]:'), body.index('one(cs[0])'))
 
     def test_master_bound_steps_stay_serial(self):
         for f in SERIAL:
