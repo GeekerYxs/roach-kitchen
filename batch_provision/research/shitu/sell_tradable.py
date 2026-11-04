@@ -22,20 +22,24 @@ Evidence (02:55 十万1): of 35 slots, all 13 tradable ones sold and all 22 不�
 import sys
 
 import trial_run as t
-from common import APPRENTICES
+from common import APPRENTICES, MASTERS
 from factory.items import EQUIP_TYPES, load_items
 from factory.supply import PETSHOP, ShopClient
 from provisioner import log, world as w
 from zhuanzhi_finish import walk
 
-WEAPON_SLOT = 2
+WEAPON_SLOT, WEAPON = 2, 0x103          # 0x103 = 武器 (factory/items.py TYPE_NAMES; 0x113 宠物武器 is not one)
+WEAPONS = False                         # --weapons (勇者 apprentices, user 2026-11-04): every weapon off and sold
 
 
 def unequip_weapon(c, nm):
     for e in w.read_equipment(c.mem) or ():
         if e.slot == WEAPON_SLOT:
             used = {s.slot for s in w.read_bag(c.mem)}
-            free = next(i for i in range(w.read_bag_capacity(c.mem)) if i not in used)
+            free = next((i for i in range(w.read_bag_capacity(c.mem)) if i not in used), None)
+            if free is None:
+                t.say(f'[{c.name}] 背包没有空格，武器 {nm(e.item_id)} 先不脱')
+                return
             c.game.unequip(WEAPON_SLOT, free)
             t.wait(lambda: not any(x.slot == WEAPON_SLOT for x in w.read_equipment(c.mem)), 5, f'{c.name} 脱下武器')
             t.say(f'[{c.name}] 脱下 {nm(e.item_id)} -> 背包第 {free} 格')
@@ -86,13 +90,22 @@ def main(names, mode='all'):
 
 def one(n, mode, items, nm):
     c = t.Client(n)
-    if mode in ('all', 'tidy'):
+    # --weapons: the 勇者 line's apprentices own no weapon (user 2026-11-04: 「小号的武器都卖掉，别动大号！」)
+    weapons = WEAPONS and n not in MASTERS
+    if WEAPONS and n in MASTERS:
+        t.say(f'[{n}] 是大号（师傅），武器不脱、不卖')
+    if mode in ('all', 'tidy') or weapons:
         unequip_weapon(c, nm)
     elif mode == 'junk-stones-white':
         unequip_quality(c, 1, items, nm)
     walk(c, 1, (1338, 1155), '宠物商人小美')
     bag = w.read_bag(c.mem)
-    sell = [s for s in bag if s.item_id in items and items[s.item_id].tradable and wanted(items[s.item_id], mode)]
+    sell = [s for s in bag if s.item_id in items and items[s.item_id].tradable
+            and (wanted(items[s.item_id], mode) or (weapons and items[s.item_id].type == WEAPON))]
+    if weapons:
+        stuck = [nm(s.item_id) for s in bag if (it := items.get(s.item_id)) and it.type == WEAPON and not it.tradable]
+        if stuck:
+            t.say(f'[{n}] 不可交易的武器卖不掉: {stuck}')
     keep = [nm(s.item_id) for s in bag if s not in sell]
     gold = w.read_gold(c.mem)
     t.say(f'[{n}] 模式 {mode}：卖 {len(sell)} 格: {[nm(s.item_id) for s in sell]}；留 {len(keep)} 格: {keep}')
@@ -122,6 +135,9 @@ def unequip_quality(c, quality, items, nm):
 
 
 if __name__ == '__main__':
+    if '--weapons' in sys.argv:
+        WEAPONS = True
+        sys.argv.remove('--weapons')
     flags = {'--junk': 'junk', '--safe': 'safe', '--tidy': 'tidy', '--zawu': 'zawu', '--stones': 'stones',
              '--noorange': 'noorange', '--junk-stones-white': 'junk-stones-white'}
     argv = sys.argv[1:]
