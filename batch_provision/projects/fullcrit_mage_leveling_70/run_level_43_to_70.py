@@ -89,10 +89,10 @@ def home_sell_and_restock():
 
     soda = w.item_count(w.read_bag(c.mem) or (), 8456)
     say(f"队长劲爆汽水总数={soda}")
-    if soda == 0:
-        raise t.Stop("队长劲爆汽水为0；已回城，须到荒芜之地一区汉尼拔补给后才能续跑")
     if soda < 599:
-        raise t.Stop(f"队长劲爆汽水 {soda}<599；已回城，须到荒芜之地一区汉尼拔补到1485后才能续跑")
+        from hannibal_soda import restock_at_home
+        soda = restock_at_home(ROLES)
+        say(f"汉尼拔补给并回城核验：队长劲爆汽水={soda}")
 
 
 def run_stage(min_level):

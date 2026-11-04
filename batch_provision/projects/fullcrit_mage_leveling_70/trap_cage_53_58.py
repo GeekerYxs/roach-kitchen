@@ -82,10 +82,10 @@ def main():
     supplies.top_up_master_sweets_at_home()
     soda = w.item_count(w.read_bag(t.Client(LEADER).mem) or (), 8456)
     say(f"回城检查队长劲爆汽水 {soda}")
-    if soda == 0:
-        raise t.Stop("队长劲爆汽水为0；全队已回城，须先到荒芜之地一区汉尼拔补给")
     if soda < 599:
-        raise t.Stop(f"队长劲爆汽水 {soda}<599；须到荒芜之地一区汉尼拔补到1485")
+        from hannibal_soda import restock_at_home
+        soda = restock_at_home((LEADER,) + tuple(APPRENTICES))
+        say(f"汉尼拔补给并回城核验队长劲爆汽水 {soda}")
 
     # User specified the PP鸡 route to 荒芜沙漠一区. The live menu is inspected at every hop;
     # if the server menu differs from the recorded graph, pp_chain stops and prints the options.

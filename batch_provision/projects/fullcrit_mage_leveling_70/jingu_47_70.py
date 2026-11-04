@@ -52,10 +52,10 @@ def main():
     lead = t.Client(LEADER)
     soda = w.item_count(w.read_bag(lead.mem) or (), 8456)
     say(f"回城清理/补给后队长劲爆汽水 {soda}")
-    if soda == 0:
-        raise t.Stop("队长劲爆汽水为0；全队已回城，须先到荒芜之地一区汉尼拔补给")
     if soda < 599:
-        raise t.Stop(f"队长劲爆汽水 {soda}<599；须到荒芜之地一区汉尼拔补到1485")
+        from hannibal_soda import restock_at_home
+        soda = restock_at_home(ROLES)
+        say(f"汉尼拔补给并回城核验队长劲爆汽水 {soda}")
     pp_chain.main('荒芜之地1区', ['平静海岸2区', '龙之都', '恶人山', '苦无沙漠3区'])
     lead = t.Client(LEADER)
     if lead.world().map_id != DESERT_1:

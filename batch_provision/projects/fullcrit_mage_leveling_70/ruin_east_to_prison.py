@@ -147,10 +147,10 @@ def home_and_fly(cs):
     supplies.top_up_master_sweets_at_home()
     soda = w.item_count(w.read_bag(cs[LEADER].mem) or (), 8456)
     say(f"回城清理/补给后队长劲爆汽水 {soda}")
-    if soda == 0:
-        raise t.Stop("队长劲爆汽水为0；全队已回城，须先到荒芜之地一区汉尼拔补给")
     if soda < 599:
-        raise t.Stop(f"队长劲爆汽水 {soda}<599；须到荒芜之地一区汉尼拔补到1485后再飞鞋")
+        from hannibal_soda import restock_at_home
+        soda = restock_at_home(tuple(cs))
+        say(f"汉尼拔补给并回城核验队长劲爆汽水 {soda}")
     for name, c in cs.items():
         st = c.world()
         if not st or st.map_id not in (1, 8) or st.in_battle or st.verification:

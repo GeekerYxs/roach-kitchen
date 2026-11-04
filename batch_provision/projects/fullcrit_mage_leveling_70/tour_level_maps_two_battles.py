@@ -6,6 +6,7 @@ remain silent; only the 方士 captain and its pet fight. A captain with zero �
 returns the party to town.
 """
 import _bootstrap  # noqa: F401
+import math
 import maze_train as m
 import pp_chain
 import trial_run as t
@@ -68,6 +69,15 @@ def top_up_master_sweets_at_home():
         raise t.Stop(f'队长甜点少于250但未回村：map={c.world().map_id}')
     from factory.supply import PETSHOP, ShopClient
 
+    # Buying scrolls can leave the captain at the village return point (1110,1173),
+    # outside the pet shop's 120-unit interaction range.
+    st = c.world()
+    if math.dist((st.x, st.y), PETSHOP.spot) > 120:
+        c.game.navigate(TOWN, *PETSHOP.spot)
+        t.wait(lambda: (s := c.world()) and s.map_id == TOWN and
+               math.dist((s.x, s.y), PETSHOP.spot) <= 120 and not s.nav_active,
+               120, '队长到宠物商人小美附近')
+
     plog.setup(t.HERE / 'logs', prefix='tour_supply')
     shop = ShopClient(c.game, c.mem, plog.for_account(LEADER))
     try:
@@ -89,11 +99,11 @@ def home_between_maps():
     top_up_scrolls_at_home()
     top_up_master_sweets_at_home()
     soda = count(t.Client(LEADER), SODA_ID)
-    say(f'回城检查：队长劲爆汽水 {soda}（0必须回城；低于599需在 map180 汉尼拔补到1485）')
-    if soda == 0:
-        raise t.Stop('队长劲爆汽水为0，已全队回城；等待处理 map180 汉尼拔补给')
+    say(f'回城检查：队长劲爆汽水 {soda}（低于599时前往汉尼拔补至1485）')
     if soda < 599:
-        raise t.Stop(f'队长劲爆汽水 {soda}<599；必须去荒芜之地一区汉尼拔补到1485，先停下核验商店货架')
+        from hannibal_soda import restock_at_home
+        soda = restock_at_home(ROLES)
+        say(f'汉尼拔购买并回城核验：队长劲爆汽水 {soda}')
 
 
 def install_stage(name, maze, legs, patrol_a=None, patrol_b=None):
