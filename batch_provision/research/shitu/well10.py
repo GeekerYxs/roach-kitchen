@@ -8,9 +8,9 @@ level; stop (in the well) once every apprentice is at the target level and wait 
 Every tick decides from what is read, so a restart continues:
   team     十万1 invites whoever is not in its team yet (0x30), they accept
   route    factory.welltrain.decide_route: village -> 夕阳草原 entrance -> NPC 10152 -> 651 -> patrol A <-> B
-  battle   every apprentice normal-attacks the first live enemy whenever its SP changes (welltrain.decide_fighter);
-           the masters cast like lunhui15 (pet 烈焰爆发, 2026-10-30: the client's 战斗辅助 is off after a relog);
-           the apprentices' pets are left alone
+  battle   the masters cast like lunhui15 (pet 烈焰爆发, 2026-10-30: the client's 战斗辅助 is off after a relog);
+           the apprentices send nothing (user 2026-11-05: they had normal-attacked here since 10-27 and, unequipped
+           with the fastest charge, acted first; every other map already leaves them out); their pets are left alone
   talent   welltrain.decide_talent -> 0x0070 all points on 体质 (apprentices only)
   eat      in 651, out of battle, one item at a time; done items go to state.json (the bag count is the proof)
 No UI clicks (game functions via DLL command 106).
@@ -23,8 +23,7 @@ import time
 import trial_run as t
 from bai_shi import done, mark
 from factory.phase import WELL_MAP
-from factory.welltrain import Fight, Route, Talent, decide_fighter, decide_route, decide_talent
-from provisioner.game import FIGHT_ATTACK
+from factory.welltrain import Route, Talent, decide_route, decide_talent
 from provisioner import world as w
 
 from common import APPRENTICES, MASTERS, TALENT_STAT  # noqa: E402
@@ -216,7 +215,7 @@ def main(target):
     for n, c in cs.items():
         t.say(f'[{n}] pid {c.pid} char {c.char_id} 等级 {w.read_level(c.mem)} 天赋 {w.read_talent_points(c.mem)}')
     form_team(lead, [cs[n] for n in APPRENTICES + HELPERS if n != LEADER])
-    route, fights = Route(), {n: Fight() for n in cs}
+    route = Route()
     # 2026-10-30 user: in the well the masters' pets did not cast 烈焰爆发 unless the client's own 战斗辅助 was ticked
     # (a relogged client has it off). The masters now fight like in every other leveling step: lunhui15.Caster
     # (pet 1504, skill 803 if learned, else normal attack); the apprentices keep the plain attack.
@@ -269,23 +268,12 @@ def main(target):
                 lead.game.cancel_navigation()
             t.say(f'全部到 {target} 级 {levels}，共 {battles} 场；停在地图 {lw.map_id} ({lw.x:.0f},{lw.y:.0f})，等下一步')
             return
-        # battle: every member, normal attack
-        for n, c in cs.items():
-            if not sts[n].in_battle:
-                fights[n] = Fight()
-                if n in casters:
-                    casters[n].reset()
-                continue
-            if n in casters:
+        # battle: the masters only (user 2026-11-05: the apprentices send nothing, as on every other map)
+        for n in casters:
+            if sts[n].in_battle:
                 casters[n].tick(now)
-                continue
-            b = w.read_battle(c.mem)
-            if not b or not b.enemies:
-                continue
-            d = decide_fighter(b.me, fights[n], now, False, n)
-            if d.kind == 'attack':
-                c.game.fight_command(FIGHT_ATTACK, target=b.enemies[0])
-                fights[n].record(b.me.sp, now)
+            else:
+                casters[n].reset()
         # route (leader)
         member_maps = [sts[n].map_id for n in cs if n != LEADER]
         route.observe(lw, now)

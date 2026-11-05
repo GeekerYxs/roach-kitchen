@@ -17,5 +17,13 @@ class WellMastersCast(unittest.TestCase):
         self.assertIn('casters[n].reset()', body)
 
 
+class ApprenticesSendNothing(unittest.TestCase):
+    def test_no_member_attack_in_the_well(self):
+        # user 2026-11-05: in the well only the masters fight; the apprentices send nothing (as on every other map)
+        src = (Path(__file__).resolve().parent.parent / 'research' / 'shitu' / 'well10.py').read_text(encoding='utf-8')
+        self.assertNotIn('fight_command(', src)
+        self.assertNotIn('FIGHT_ATTACK', src)
+
+
 if __name__ == '__main__':
     unittest.main()
