@@ -76,3 +76,45 @@ class EveryStep(unittest.TestCase):
                         bad.append((s.name, a[0]))
                         break
         self.assertEqual(bad, [])
+
+
+class InPlaceRerun(unittest.TestCase):
+    """user 2026-11-05: a step that fails is rerun in place (cleanup 'leave'); a team split over maps goes home first,
+    and the maze step stops in 八阵图 (no walk to 大个王 a rerun past 23 could not find from 81)."""
+    def test_runner_cleanup_leave_asks_home_if_split(self):
+        from line.runner import Runner
+        got = []
+        r = Runner.__new__(Runner)
+        r.execute = lambda argvs, env: got.append(argvs[0][3:])
+        r.env = lambda step: {}
+        r.cleanup('leave', None)
+        r.cleanup('home', None)
+        r.cleanup('none', None)
+        self.assertEqual(got, [['r4_util.py', 'leave', '--home-if-split'], ['r4_util.py', 'home']])
+
+    def test_leave_goes_home_only_when_split(self):
+        from types import SimpleNamespace as NS
+        from unittest import mock
+        import r4_util
+        for maps, want in (((280, 280, 280), 0), ((600, 1, 600), 1)):
+            cs = [NS(name=f'r{i}', game=NS(cancel_navigation=lambda: None, team_leave=lambda: None),
+                     team=lambda: (), world=(lambda m=m: NS(map_id=m))) for i, m in enumerate(maps)]
+            homes = []
+            it = iter(cs)
+            with mock.patch.object(r4_util, 'MASTERS', ('r0',)), mock.patch.object(r4_util, 'APPRENTICES', ('r1', 'r2')), \
+                    mock.patch.object(r4_util.t, 'Client', lambda n: next(c for c in cs if c.name == n)), \
+                    mock.patch.object(r4_util.t, 'wait', lambda cond, timeout, what: cond()), \
+                    mock.patch.object(r4_util.t, 'say', lambda s: None), \
+                    mock.patch.object(r4_util, 'home', lambda: homes.append(1)):
+                r4_util.leave(home_if_split=True)
+                r4_util.leave()
+            self.assertEqual(len(homes), want, maps)
+
+    def test_maze_step_stays_in_bazhen(self):
+        for route in (R.ROUTE, R.ROUTE_BPLUS, R.ROUTE_YUANSU):
+            maze = next(c for s in route if s.name == 'maze' for c in s.cmds if c.args[0] == 'maze_train.py')
+            self.assertIn('--stay', maze.args)
+        import maze_train
+        self.assertTrue(any(s.get('goal') for s in maze_train.STAGES))      # the walk --stay leaves out
+        src = Path(maze_train.__file__).read_text(encoding='utf-8')
+        self.assertIn("STAGES = tuple(s for s in STAGES if s.get('goal') is None)", src)

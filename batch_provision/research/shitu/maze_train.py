@@ -345,6 +345,11 @@ def main():
 
 
 if __name__ == '__main__':
+    if '--stay' in sys.argv:
+        # the line's maze step (user 2026-11-05): stop in 八阵图 at the level. The old walk to 大个王 was wasted (the
+        # next step scrolls home) and a rerun past 23 from 81 had no way there (「在意外的地图 81」)
+        sys.argv.remove('--stay')
+        STAGES = tuple(s for s in STAGES if s.get('goal') is None)
     for st, lv in zip(STAGES, sys.argv[1:3]):      # only when run itself: bazhen25 / cave_train import this module
         st['until'] = int(lv)
     try:
