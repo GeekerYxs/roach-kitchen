@@ -296,6 +296,7 @@ class Batch:
             'SHITU_JOB': TEAMS[self.team].job,
             'SHITU_REVIVE': str(TEAMS[self.team].revive),
             'SHITU_TIDY': '1' if TEAMS[self.team].tidy else '0',
+            'SHITU_TRASH': '1',          # trash.py: drop 葫芦 / 特赦令 / 整人道具, 勇者 sell weapons at home (2026-11-05)
             'SHITU_SCROLLS': str(SCROLLS),
             'LOGID': self.logid,
             'PAIRS': ' '.join(self.pairs),

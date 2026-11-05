@@ -43,9 +43,15 @@ def home():
         if c.world().map_id != 1:
             scroll(c)
     t.each(cs, one)
+    # user 2026-11-05: at home the apprentices drop the 葫芦 / 特赦令 / 整人道具 and (勇者 line) sell their weapons
+    import trash
+    try:
+        trash.at_home(cs[1:], masters=MASTERS)
+    except t.Stop as e:                 # selling is a convenience: the trip home itself is done
+        t.say(f'回城清背包没做完: {e}')
     # the master pays one 回城卷 per home() (2026-10-28 伏地魔2 ran dry in the 古迹); and its pet's mp drinks: user
-    # 2026-10-30「蓝低于50个就回城去补」, every home() checks (1980 胡萝卜汁 at 50 mp each lasted 伏地魔1 ~2.5 h)
-    if buy_scroll.count(cs[0]) < 10 or buy_scroll.juice_needed(cs[0]):
+    # (胡萝卜汁 no longer bought here, user 2026-11-05: the master's mp gets its own logic)
+    if buy_scroll.count(cs[0]) < 10:
         restock_master(max(60, buy_scroll.count(cs[0])))
     # 2026-11-03 元素使01: out of 回城卷 in 葵花魔穴 (the line only restocks before the late quests), the next home()
     # could not bring it back. Whoever is home with fewer than SCROLL_LOW buys up to 20 right away
@@ -88,18 +94,16 @@ def restock(n):
 
 
 def restock_master(n):
-    """The master: 回城卷 up to n at 铁公鸡 (free portal 逍遥村 <-> 自由市场), for the next batch's supply; and the pet's
-    胡萝卜汁 up to 20 x 99 when below 50 (user 2026-10-30)."""
+    """The master: 回城卷 up to n at 铁公鸡 (free portal 逍遥村 <-> 自由市场), for the next batch's supply. The pet's
+    胡萝卜汁 (2026-10-30 .. 11-05) is not bought any more: user 2026-11-05, a new mp logic for the master comes instead
+    (buy_scroll.juice_needed is left for it)."""
     c = t.Client(MASTERS[0])
-    juice = buy_scroll.juice_needed(c)          # 2026-10-30: the pet's mp drinks (胡萝卜汁) too, < 50 -> 20 x 99
-    if buy_scroll.count(c) >= n and not juice:
+    if buy_scroll.count(c) >= n:
         return
     if c.world().map_id != 1:
         scroll(c)
     gate(c, 10213, (1338, 1053), 1, '自由市场', MARKET)
     buy_scroll.buy(c, n)
-    if juice:
-        buy_scroll.buy(c, juice, buy_scroll.JUICE, buy_scroll.JUICE_SHELF, '胡萝卜汁')
     gate(c, 24, (1781, 1268), MARKET, '逍遥村西区', 1)
 
 
