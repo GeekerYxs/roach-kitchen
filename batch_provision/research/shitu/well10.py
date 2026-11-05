@@ -226,12 +226,15 @@ def main(target):
     unarms = {n: Unarm(cs[n]) for n in APPRENTICES}
     battles, in_battle, last_reason, last_levels = 0, False, None, None
     gone = t.Gone()                      # a dropped client: fail after 30 s, not the 15-min watchdog (2026-11-05)
+    import trash
+    trasher = trash.Trasher([cs[n] for n in APPRENTICES if n in cs])     # 葫芦 / 特赦令 / 整人道具 every 20 min
     while True:
         now = time.monotonic()
         sts = {n: c.world() for n, c in cs.items()}
         if gone.tick(sts):
             time.sleep(TICK)
             continue
+        trasher.tick(sts, now)
         missing = [n for n, c in cs.items() if c.char_id not in lead.team()]
         if missing:
             raise t.Stop(f'{missing} 不在 {LEADER} 的队里了（掉线或死亡？）')

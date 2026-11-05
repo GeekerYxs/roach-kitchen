@@ -239,12 +239,15 @@ def main():
     battles, stage_battles, in_battle, last_levels, t0 = 0, 0, False, None, time.monotonic()
     fallen, falls = set(), {}
     gone = t.Gone()                      # a dropped client: fail after 30 s, not the 15-min watchdog (2026-11-05)
+    import trash
+    trasher = trash.Trasher([cs[n] for n in APPRENTICES if n in cs])     # 葫芦 / 特赦令 / 整人道具 every 20 min
     while True:
         now = time.monotonic()
         sts = {n: c.world() for n, c in cs.items()}
         if gone.tick(sts):
             time.sleep(TICK)
             continue
+        trasher.tick(sts, now)
         for n in APPRENTICES:
             if sts[n].in_battle and n not in fallen:
                 b = w.read_battle(cs[n].mem)
