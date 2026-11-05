@@ -1,7 +1,9 @@
 """The 师徒 route of one batch as data: make -> early -> mid -> late, one Step per restart point.
 
-This is the single source of truth the runner executes (it replaces r4_batch.sh + r4_early/mid/late.sh, which stay
-in the repo as the round-4 fallback). Step names are the old FROM names, so docs and logs keep meaning the same.
+This is the single source of truth the runner executes. Two lines run (user 2026-11-05: only the best one is kept):
+ROUTE_BPLUS (勇者, every team by default; ROUTE is the same tuple) and ROUTE_YUANSU (元素使, job = "术士"). Both are
+built from BASE, the old v5 route kept only as their building blocks: it is not runnable by itself any more (route =
+"v5" is refused by line/plan.py). Step names are the old FROM names, so docs and logs keep meaning the same.
 
 A Step is a list of Cmds run in order; any Cmd that exits non-zero (and is not soft) fails the step, the runner then
 cleans up (step.retry: 'home' = everybody scrolls to 逍遥村, 'leave' = leave the team where they stand) and reruns
@@ -63,7 +65,8 @@ PP_HOME = C('pp_chain.py', '龙之都', '平静海岸2区', when='master_on 1') 
 PP_COAST = C('pp_chain.py', '平静海岸2区', when='master_on 1')
 HOME, DOUBLE = C('U', 'home'), C('U', 'double')
 
-ROUTE = (
+# The old v5 route (2026-10-28): B+ and 元素使 are made from it below (_bplus, _yuansu). Not run as it stands.
+BASE = (
     # ---- make: the batch's roles (slot BATCH of the team's accounts), tap armed, master's 回城卷
     Step('close_prev', 'make', (C('ops', 'close', '{PREV}'),), retry='none'),
     Step('make', 'make', (C('make_apprentices.py', '{PAIRS}'),), retry='none'),
@@ -91,8 +94,6 @@ ROUTE = (
     Step('maze', 'early', (PP_COAST, C('maze_train.py', '{LV:maze1}', '{LV:maze2}', '--stay')), retry='leave'),
 
     # ---- mid: 考验一二 -> 八阵图 25 -> 遗忘洞穴 25->28 (+采集) -> 224 -> 地头蛇 -> 通天一 28->33 -> 考验三 -> 二区 ->40
-    Step('start', 'mid', (HOME, C('sell_tradable.py', '--safe', '{APPS}'),
-                          C('trial_run.py', '--armor', '3', '--master', '{M}', '{APPS}')), retry='leave'),
     Step('bazhen', 'mid', (HOME, C('pp_chain.py', '平静海岸2区'), C('bazhen25.py', '{LV:bazhen}')),
          retry='leave', unless='lv_ge {LV:bazhen}'),
     Step('cave', 'mid', (
@@ -253,7 +254,7 @@ def shoe(op, door, **kw):
 
 
 def _bplus():
-    steps = {s.name: s for s in ROUTE}
+    steps = {s.name: s for s in BASE}
 
     def before(name, script, *new):          # the step's cmds with `new` inserted before its first `script` cmd
         cmds = steps[name].cmds
@@ -322,9 +323,7 @@ def _bplus():
         C('U', 'home'),
         C('master_bag.py', 'clean', '{M}', soft=True)))
     out = []
-    for s in ROUTE:
-        if s.name == 'start':
-            continue
+    for s in BASE:
         if s.name == 'fairy':        # 2026-10-30 live: 神仙姐姐「等你40级了再来找我吧…勇者就职礼」at 39
             out.append(topup)
         out.append({'end': end, 'tower2': tower2, 'q224': q224, 'quan': quan, 'q181': q181, 'q183': q183, 'cave': cave, 'snake': snake,
@@ -343,7 +342,6 @@ def _bag_check(s):
 
 
 ROUTE_BPLUS = _bplus()
-ROUTES = {'v5': ROUTE, 'bplus': ROUTE_BPLUS}
 
 
 # ---- 元素使 (user 2026-11-03: optional, a team with job = "术士"; the default stays 勇者 and ROUTE / ROUTE_BPLUS are
@@ -437,7 +435,7 @@ ROUTE_YUANSU = _yuansu()
 
 
 def _yongzhe(steps):
-    """The 勇者 lines (v5, B+; not the 元素使 one, built above from the B+ steps as they were): the apprentices own no
+    """The 勇者 line (B+; not the 元素使 one, built above from the B+ steps as they were): the apprentices own no
     weapon (user 2026-11-04: bare hands = a shorter 蓄力; well10.Unarm takes the 专打屁屁扳手 off at 2). Every sale
     takes the worn weapon off and sells all weapons (sell_tradable --weapons, never a master's), wear_best puts on
     no weapon (--no-weapon)."""
@@ -449,16 +447,16 @@ def _yongzhe(steps):
     return tuple(Step(s.name, s.stage, tuple(cmd(c) for c in s.cmds), s.retry, s.unless, s.env) for s in steps)
 
 
-ROUTE, ROUTE_BPLUS = _yongzhe(ROUTE), _yongzhe(ROUTE_BPLUS)
-ROUTES = {'v5': ROUTE, 'bplus': ROUTE_BPLUS}
+ROUTE_BPLUS = _yongzhe(ROUTE_BPLUS)
+ROUTE = ROUTE_BPLUS                 # the 勇者 line; R.step / R.NAMES (r5_compare, tests) look steps up in it
+ROUTES = {'bplus': ROUTE_BPLUS}
 
 
 def route_of(b):
-    """The steps a batch runs (its team's line.toml route; B+ unless the team says route = "v5"). A team with
-    job = "术士" runs the 元素使 line (B+ based); every other team runs exactly what it ran before."""
+    """The steps a batch runs: job = "术士" -> the 元素使 line, every other team the 勇者 line (B+)."""
     if getattr(b, 'job', '战士') == '术士':
         return ROUTE_YUANSU
-    return ROUTES[getattr(b, 'route', 'bplus')]
+    return ROUTE_BPLUS
 
 
 NAMES = [s.name for s in ROUTE]

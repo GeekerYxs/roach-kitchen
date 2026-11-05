@@ -1,4 +1,4 @@
-"""师徒产线 v5 总控：每个师傅一条线程，一批接一批跑 route.ROUTE（建号 -> 前段 -> 中段 -> 后段 -> 出师）。
+"""师徒产线总控：每个师傅一条线程，一批接一批跑这一队的路线（route.route_of：勇者 B+ 或元素使；建号 -> 前段 -> 中段 -> 后段 -> 出师）。
 
     cd batch_provision/research/shitu
     python -X utf8 -m line                          按 line.toml 跑全部队

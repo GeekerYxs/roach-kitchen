@@ -46,7 +46,7 @@
 | | chushi | 40→41 | 出师（一个一个，徒弟当队长和师傅两人组队） |
 | | finish | 41 | 开礼包、卖东西、取宝箱邮件卖掉、金币全部交给师傅、清师傅背包 |
 
-**老路线 v5**（`route = "v5"`）：轮回 15、迷城 19、八阵图 25（23 级回村考验一二）、洞穴 28、通天一 33、通天二 40，作对照用。
+**只有这一条勇者路线**：老路线 v5（轮回 15、迷城 19、八阵图 25、23 级回村考验一二、通天一 33、通天二 40）和它的对照实验队 oa / ob / oc 2026-11-05 已删除（用户：只留最优的 B+）。元素使线也是在 B+ 上改出来的。
 
 **飞鞋**（1 小时一次，迷宫里记不了）：cave 在洞口记 → snake 飞；corpse 在遗址入口记 → king 飞。冷却记在 `logs/shoe_used.json`。
 
@@ -55,7 +55,7 @@
 ```
 line/__main__.py   总控：每队一条线程，按 line.toml 一批接一批；LINE_STOP；--status / --dry-run / 手动补跑
    └─ line/runner.py   跑一队一批：逐步执行路线；健康检查、卡死检测、重试阶梯、排除、断点
-        ├─ line/route.py   路线表（ROUTE = v5，ROUTE_BPLUS = B+，ROUTE_YUANSU = 元素使），唯一的流程定义
+        ├─ line/route.py   路线表（ROUTE_BPLUS = 勇者 B+，ROUTE_YUANSU = 元素使；两条都从内部底稿 BASE 改出来），唯一的流程定义
         ├─ line/plan.py    谁：师傅、徒弟名、账号、LOGID、每批的环境变量；通天二出塔点（tower2_auto）
         └─ line/ops.py     小操作：close / arm / home_village / q94 / take224_master / gather / fairy / exp_note / when 条件
 各步调用 research/shitu/ 下的脚本（按文件名），共用能力见 ARCHITECTURE.md 第 3 节。
@@ -84,7 +84,7 @@ line/__main__.py   总控：每队一条线程，按 line.toml 一批接一批�
 | `slot` | 第几组账号和徒弟名（0–3：账号 cap(21+4·slot)…+3，第 N 批徒弟 亿万(16(N−1)+4·slot+1)…+4） | 0 |
 | `accounts` / `names` | 不用 slot 时自己指定：第一个账号号码、角色名前缀 | — |
 | `gold` | 师傅给每个徒弟的启动金 | 10000 |
-| `route` | `bplus` / `v5` | bplus |
+| `route` | 只能是 `bplus`（写 `v5` 会报错；不写就行） | bplus |
 | `job` | `战士`（勇者）/ `术士`（元素使） | 战士 |
 | `tower1` | 通天一练到几级 | 35 |
 | `tower2` | 通天二出塔点：`auto`、`40` 或 `39+150000` | auto |
@@ -154,5 +154,5 @@ line/__main__.py   总控：每队一条线程，按 line.toml 一批接一批�
 
 - 第 1–3 轮（10-26 ~ 10-27）：手动一段一段跑，记录在 `research/shitu/notes/`、`ANALYSIS.md`、`GATHER.md`。
 - 第 4 轮（10-27 夜）：shell 版无人值守（`r4_line.py` + `r4_*.sh`），记录在 `ROUND4_NOTES.md`。**2026-11-05 已删除**，被 `line/` 取代。
-- v5（10-28）：`python -m line`，第 5、6 轮实跑（`ROUND5_NOTES.md`、`ROUND6_NOTES.md`）。
+- v5（10-28）：`python -m line`，第 5、6 轮实跑（`ROUND5_NOTES.md`、`ROUND6_NOTES.md`）。v5 这条路线 2026-11-05 删除，总控保留。
 - B+（10-30 起默认）、六队整夜 54 人出师（10-31，`BPLUS_NOTES.md`）、经验地图对照（`EXP_MAP_TRIAL.md`）、元素使（11-02，`YUANSU_NOTES.md`）。
