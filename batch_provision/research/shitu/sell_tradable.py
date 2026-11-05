@@ -61,9 +61,11 @@ def wanted(it, mode):
         return any(k in it.name for k in NAMES)
     if mode == 'noorange':
         return it.type == ZAWU or (it.type in EQUIP_TYPES and it.quality < 4)
-    if mode == 'junk-stones-white':
+    if mode in ('junk-stones-white', 'bag-white'):
         # Apprentice cleanup: include all skill stones and weapon/armor recipes as well as the three
         # named gourd consumables. The user explicitly asked these to be cleared before entering 1150.
+        # bag-white = the same list for the trips home of the 1-70 line (fullcrit70 line70.py): white gear that is
+        # WORN stays on (the apprentices wear the 白装 bought for 通天塔二区), only white gear in the bag is sold
         return (it.type in (ZAWU, RELIC, STONE, RECIPE) or
                 (it.type in EQUIP_TYPES and it.quality == 1) or
                 '图纸' in it.name or '配方' in it.name or '葫芦' in it.name)
@@ -123,7 +125,7 @@ def unequip_quality(c, quality, items, nm):
 
 if __name__ == '__main__':
     flags = {'--junk': 'junk', '--safe': 'safe', '--tidy': 'tidy', '--zawu': 'zawu', '--stones': 'stones',
-             '--noorange': 'noorange', '--junk-stones-white': 'junk-stones-white'}
+             '--noorange': 'noorange', '--junk-stones-white': 'junk-stones-white', '--bag-white': 'bag-white'}
     argv = sys.argv[1:]
     if '--name' in argv:
         i = argv.index('--name')

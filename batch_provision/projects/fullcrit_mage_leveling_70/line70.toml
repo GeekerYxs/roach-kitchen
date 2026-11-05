@@ -1,0 +1,20 @@
+# 满爆小法 1 带 4 练到 70（line70.py）的队伍和补给规则。账号这里只写账号名，密码不进仓库：
+# 队长用 research/shitu/line/line.toml 的 master_accounts 文件（master_login.py），小号用 local.toml [accounts] 的密码。
+leader = "曾经不曾"
+apprentices = ["yss01:元素使01", "yss02:元素使02", "yss03:元素使03", "yss04:元素使04"]
+stat = "敏捷"                 # 小号天赋全加敏捷（元素使队规则）
+player_skill = 354            # 方士 天之箭
+player_skill_level = 7
+
+# 每一项的意思见 line70_policy.Rules；不写 = 默认值
+[rules]
+scroll_low = 20               # 回城时回城卷少于 20 张……
+scroll_full = 50              # ……补到 50 张（全队同一趟一起补）
+bag_free_min = 3              # 野外：任何一人空格少于 3（且有能卖的东西）-> 五人一起回城卖
+bag_free_home = 10            # 反正回城了：空格少于 10 就顺手卖
+soda_field = 100              # 野外：队长劲爆汽水少于 100 -> 回城
+soda_low = 599                # 回城时汽水少于 599 -> 队长单人去荒芜之地一区汉尼拔补到 1485
+soda_full = 1485
+sweet_field = 50
+sweet_low = 250               # 回城时甜点少于 250 -> 小美补到 495
+sweet_full = 495

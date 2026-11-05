@@ -52,6 +52,7 @@ CLICK_WAIT = 8.0
 
 
 MAX_FALLS = 5      # one apprentice knocked out this often in one stage = the map is too hard for it: stop
+OFFLINE_AFTER = 30.0   # s without a readable world state = offline (a map change takes ~1-3 s)
 
 class Route:
     def __init__(self, stage):
@@ -231,12 +232,24 @@ def main():
     t.say(f'当前段: {STAGES[stage_i]["name"]}' + (f'（刷到 {STAGES[stage_i]["until"]} 级）' if STAGES[stage_i]['until'] else ''))
     battles, stage_battles, in_battle, last_levels, t0 = 0, 0, False, None, time.monotonic()
     fallen, falls = set(), {}            # round 3 (user 12:3x) stopped at the first death; now after MAX_FALLS
+    blind = {}                           # name -> since when its world state cannot be read
     while True:
         now = time.monotonic()
         sts = {n: c.world() for n, c in cs.items()}
         if any(s is None for s in sts.values()):
+            # a map change blanks the state for a moment; a dropped connection blanks it for good (2026-11-05: the
+            # loop used to wait here forever) -> after OFFLINE_AFTER seconds stop, the caller relogs
+            for n, s in sts.items():
+                if s is None:
+                    blind.setdefault(n, now)
+                else:
+                    blind.pop(n, None)
+            lost = [n for n, at in blind.items() if now - at >= OFFLINE_AFTER]
+            if lost:
+                raise t.Stop(f'{lost} {OFFLINE_AFTER:.0f}s 读不到游戏状态（掉线？）')
             time.sleep(TICK)
             continue
+        blind.clear()
         for n in APPRENTICES:
             if sts[n].in_battle and n not in fallen:
                 b = w.read_battle(cs[n].mem)
