@@ -39,11 +39,11 @@ class BraveUntouched(unittest.TestCase):
 
 
 class Tower2Exit(unittest.TestCase):
-    def test_mage_teams_leave_erqu_at_39_180000_brave_teams_unchanged(self):
+    def test_mage_teams_leave_erqu_at_40_70000_brave_teams_unchanged(self):
         from line import plan
         mage = plan.Team('m', 0, 10000, job='术士', names='x', accounts=1)
         self.assertEqual(mage.tower2, plan.TOWER2_YUANSU)
-        self.assertEqual(plan.TOWER2_YUANSU, '39+180000')
+        self.assertEqual(plan.TOWER2_YUANSU, '40+70000')     # 2026-11-05: 出师 gives gold, not exp
         self.assertEqual(plan.Team('m', 0, 10000).tower2, 'auto')
         self.assertEqual(plan.Team('m', 0, 10000, job='术士', tower2='39+50000').tower2, '39+50000')
 
@@ -73,6 +73,15 @@ class Yuansu(unittest.TestCase):
                                                      'y_fire', 'y_water', 'y_wind1', 'y_doll', 'y_wind2', 'y_fifth',
                                                      'topup', 'fairy', 'chushi', 'finish'])
         self.assertEqual(self.route[n.index('fairy')].env, {'SHITU_QID': '189'})
+
+    def test_finish_keeps_the_gold_and_sends_out_the_jiong_pet(self):
+        # user 2026-11-05: an 元素使 keeps its gold; the line ends with the 囧盒仔 opened and fighting
+        f = [c.args for c in self.route[self.names.index('finish')].cmds]
+        self.assertNotIn('give_gold.py', [a[0] for a in f])
+        self.assertEqual(f[f.index(('U', 'home')) + 1], ('jiong.py', '{APPS}'))
+        brave = [c.args[0] for c in R.ROUTE_BPLUS[[s.name for s in R.ROUTE_BPLUS].index('finish')].cmds]
+        self.assertIn('give_gold.py', brave)
+        self.assertNotIn('jiong.py', brave)
 
     def test_every_quest_step_but_wind1_ends_with_a_gate(self):
         for s in R.YUANSU_LATE:

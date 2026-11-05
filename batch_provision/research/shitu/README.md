@@ -81,6 +81,7 @@
 | 任务 183 勇者的考验 | `yongzhe_take.py`、`scorpion_water.py`、`scorpion_king.py`、`line.ops fairy` |
 | 任务 187 术士的试炼 / 189 元素使的考验（元素使） | `stones.py`、`yaodao.py`、`bird.py`、`fire.py`、`mole.py`、`rooms.py`、`fifth.py`、`buy_gear.py` |
 | 出师 | `chushi.py` |
+| 元素使结尾：打开囧盒仔、囧盒仔出战（金币不交给师傅） | `jiong.py` |
 
 ## 只读工具 / 分析
 

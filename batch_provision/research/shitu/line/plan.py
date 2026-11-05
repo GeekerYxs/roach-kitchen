@@ -37,11 +37,13 @@ TOWER1 = 35                      # user 2026-10-30: masters differ in strength, 
 # bp's 19.2万 left a 2% margin) -> 'auto' (user: test, record, optimize): ops exp_note writes the exp where 二区 was
 # left and after 蝎子王 (logs/tower2_exp.csv); tower2_auto takes this master's smallest earning of its last batches
 TOWER2 = {'bplus': 'auto'}
-# 元素使 (job 术士) leaves 二区 at 39 + 180000: round 2 (2026-11-03 ys2, 元素使06-08) earned 539,450 after 二区 (battles
-# 265,805 + 187 27,491 + 189 46,154 + 出师 200,000); 39+0 -> 41 is 671,221, so 131,771 is the least, ~48k kept as margin
-# (two to three 二区 minutes). User 2026-11-05: an 元素使 should be 41 after 出师 (it goes on to 70 and leads teams).
+# 元素使 (job 术士) leaves 二区 at 40 + 70000. 2026-11-05 (ys3): the first rule (39 + 180000) counted 出师 as 200,000
+# exp, but 出师 gives 200,000 GOLD (logs: 等级 40 -> 40, 金币 +200,000 both rounds), so the 元素使 ended at 40 + ~340k.
+# What came after 二区 was 339,450 exp in round 2 (ys2) and ~467,000 in round 3 (ys3: 5 火之烈焰 rounds); 39+0 -> 41 is
+# 671,221, so the smaller earning needs 40 + 19,323 at the exit; ~50k kept as margin.
+# User 2026-11-05: an 元素使 should be 41 after 出师 (it goes on to 70 and leads teams).
 # 'auto' fits the 勇者 line only (it measures 二区 -> 蝎子王), so it is not the 术士 default.
-TOWER2_YUANSU = '39+180000'
+TOWER2_YUANSU = '40+70000'
 TOWER2_FIRST = '39+170000'       # no history for the master yet: ~26% margin on bp's earning
 TOWER2_MARGIN = 25000            # exp kept over the smallest earning seen (one 二区 minute is 2.2-3.9万); user 2026-11-02 (was 40000)
                                  # w1: the same master earned 23.4万 then 19.6万 (25000 left it 1万 short -> topup)

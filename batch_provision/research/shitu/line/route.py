@@ -425,6 +425,12 @@ def _yuansu():
             out.extend(YUANSU_LATE)
         elif s.name == 'fairy':
             s = Step(s.name, s.stage, s.cmds, s.retry, s.unless, {'SHITU_QID': '189'})
+        elif s.name == 'finish':
+            # user 2026-11-05: an 元素使 keeps its gold (it goes on to 70 and leads a team), and the line ends with
+            # the bag's 囧盒仔 opened and that pet sent out to fight (jiong.py)
+            cmds = tuple(c for c in s.cmds if c.args[0] != 'give_gold.py')
+            i = next(k for k, c in enumerate(cmds) if c.args == ('U', 'home'))
+            s = Step(s.name, s.stage, cmds[:i + 1] + (C('jiong.py', '{APPS}'),) + cmds[i + 1:], s.retry, s.unless, s.env)
         if s.name in BRAVE:
             continue
         out.append(s)
