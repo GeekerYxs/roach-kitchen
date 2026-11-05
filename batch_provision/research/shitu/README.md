@@ -63,7 +63,7 @@
 
 **背包和钱**
 - `sell_tradable.py`：在小美那里按规则卖（`--safe`、`--stones`、`--zawu`、`--noorange`、`--tidy`、`--name 词…`、`--weapons` 卖光徒弟武器）。
-- `buy_scroll.py`：铁公鸡买回城卷 / 胡萝卜汁。`supply_go.py`：交易工具 `trade_until`、到平静海岸2区。
+- `buy_scroll.py`：铁公鸡买回城卷 / 胡萝卜汁。`master_supply.py`：师傅每批补给额定值（按回复量算，`data/potions.csv` 由 `data/make_potions.py` 从 ResLib 生成；设计见 `SUPPLY_DESIGN.md`；第 1 阶段只有判断，还没接进产线）。`supply_go.py`：交易工具 `trade_until`、到平静海岸2区。
 - `trash.py`：丢葫芦 / 特赦令 / 整人道具（定时、开包后、回城），勇者线回城卖武器。`tidy.py`：元素使回城整理。
 - `open_packs.py`、`wear_best.py`（`--no-weapon`）、`eat_items.py`、`drop_prank.py`、`mail_sell.py`、`heal.py`、`unequip_all.py`、
   `master_bag.py`（师傅背包清理）、`give_gold.py`（徒弟金币交给师傅）、`give_box.py`（橙装和金币交给收货号）。

@@ -177,3 +177,13 @@ stat = "敏捷"
 job = "术士"
 revive = 0                    # 大号强（第 2 轮同一个师傅没死人）
 tidy = true
+
+# 师傅补给额定值（用户 2026-11-05，SUPPLY_DESIGN.md §4.0）：每批徒弟启动前补到这些量，按"总共能回多少"算，
+# 借来的师傅背包里别的红 / 蓝药也算进去。mp = 15 组健康果汁 × 99 × 310；hp = 3 组心情便当 × 99 × 310；
+# loyal = 4 组甜点 × 99 × 150；回城卷 少于等于 scroll_low 张就补到 scroll_full 张。
+[supply]
+mp = 460350
+hp = 92070
+loyal = 59400
+scroll_low = 30
+scroll_full = 100
