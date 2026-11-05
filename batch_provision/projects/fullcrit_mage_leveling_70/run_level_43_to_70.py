@@ -32,6 +32,7 @@ ROLES = (LEADER,) + tuple(APPRENTICES)
 RUNTIME = Path(__file__).with_name("runtime")
 RUNTIME.mkdir(exist_ok=True)
 LOG = RUNTIME / f"level_43_to_70_{datetime.now():%Y%m%d_%H%M%S}.log"
+MAX_STAGE_RECOVERIES = int(os.environ.get("SHITU_MAX_STAGE_RECOVERIES", "10"))
 
 
 def say(message):
@@ -130,7 +131,8 @@ def main():
             say(f"阶段异常：{label}: {exc}; maps={maps}; party_missing={sorted(expected-party)}")
             if fallen_or_missing and 264 not in maps.values():
                 retries[label] = retries.get(label, 0) + 1
-                if retries[label] > 3:
+                if retries[label] > MAX_STAGE_RECOVERIES:
+                    say(f"阶段 {label} 第 {retries[label]} 次异常，已超过自动恢复上限 {MAX_STAGE_RECOVERIES} 次，停止等待处理")
                     raise
                 home_sell_and_restock()
                 say(f"全队恢复后重走阶段 {label}（第 {retries[label]} 次）")
