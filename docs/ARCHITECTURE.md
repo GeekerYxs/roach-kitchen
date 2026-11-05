@@ -73,7 +73,7 @@
 | **队伍** | 组队（同时邀请、远的队长走过去、失败再走到脚下） | `well10.form_team`、`well10.invite_near`、`teamwalk.regroup` | 全部带队的 |
 | | 解散前等全队站稳、打完这场 | `teamwalk.settle`、`teamwalk.fight_out` | 师徒 |
 | | 全员离队、全员回队 | `teamwalk.leave_all`、`teamwalk.regroup_all` | 师徒 |
-| **战斗** | 队长放技能 + 宠物技能 | `lunhui15.Caster` | 师徒、满爆方士 |
+| **战斗** | 队长放技能 + 宠物技能：人物按 猎人扫射 803 → 方士天之箭 354 → 魔法槽里的技能（元素使魔法火焰 206）→ 普攻 的顺序；宠物烈焰爆发同一时间只挂一个，等服务器结算包（0x4111）后，还有蓄力点就立即再放；看到"轮到你"的包（0x4105）就立即出手，不等内存；战斗中每 0.03 秒检查一次（`BATTLE_TICK`）。说明见 [PET_MAGIC_CONTINUOUS_CASTING_AND_TIANZHIJIAN.md](PET_MAGIC_CONTINUOUS_CASTING_AND_TIANZHIJIAN.md) | `lunhui15.Caster` | 师徒（勇者 / 元素使）、满爆方士 |
 | **战斗** | 走路途中遇到战斗：队长（或单人）用 Caster 打完，宠物开场就放烈焰爆发、有蓄力点立刻再放；队员只等 | `lunhui15.fight_out` / `lunhui15.BattleHand` | 师徒（采花、走去大个王、PP鸡链、飞鞋记点、补给交易） |
 | | 只逃跑 | `teamwalk.Escaper`、`quanshou.flee` | 师徒、满爆方士 |
 | | 复活道具 | `revive.py` | 师徒、满爆方士 |

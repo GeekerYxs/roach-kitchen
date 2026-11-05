@@ -20,7 +20,8 @@ import time
 
 import trial_run as t
 from factory.welltrain import Talent, decide_talent
-from lunhui15 import APPRENTICES, ARRIVE, CASTERS, HELPERS, LEADER, MEMBERS, NAV_RETRY, NEAR, STALL, TICK, Caster
+from lunhui15 import (APPRENTICES, ARRIVE, BATTLE_TICK, CASTERS, HELPERS, LEADER, MEMBERS, NAV_RETRY, NEAR,
+                      STALL, TICK, Caster)
 from provisioner import world as w
 from common import TALENT_STAT
 from well10 import form_team
@@ -345,7 +346,7 @@ def main():
             t.say(f'到 {stage["name"]}：地图 {lw.map_id} ({lw.x:.0f},{lw.y:.0f})，等级 {levels}，'
                   f'共 {battles} 场，{(now - t0) / 60:.1f} 分；停下等下一步')
             return
-        time.sleep(TICK)
+        time.sleep(BATTLE_TICK if any(s.in_battle for s in sts.values()) else TICK)
 
 
 if __name__ == '__main__':

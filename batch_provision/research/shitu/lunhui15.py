@@ -11,6 +11,9 @@ Route: 81 -> 轮回之城 entrance NPC 10158 (1635,3041) -> click (a menu option
 Every tick decides from what is read, so a restart continues.
 """
 import math
+from dataclasses import is_dataclass, replace
+from pathlib import Path
+from types import SimpleNamespace
 import sys
 import time
 
@@ -35,14 +38,34 @@ ENTRANCE, ENTRANCE_NPC = (1635, 3041), 10158
 PATROL = ((2754, 291), (2550, 616))     # user 2026-10-27: the landing point <-> (2550,616); the 路标 NPCs are behind
                                         # walls the path-finder cannot cross from the landing area (live 00:52-00:54)
 SKILL, SCHOLAR_SKILL, PET_MAGIC, PET_MP_MIN = 803, 354, 1504, 100
-PET_SP_RETRY = 0.6       # same positive SP after a cast can mean 完美施法 did not spend it; retry promptly
+# user 2026-11-05: the 元素使 master itself casts its F1 magic: 206 魔法火焰 (the game's own F1 cast sent 0x1005 skill
+# 206 lv12; 1504 烈焰爆发 is the pet's, the player got 「无此魔法」). Magic goes out in the manually captured layout
+# (game.cast_magic_skill_captured), 扫射 through cast_skill
+PLAYER_MAGIC = 206
+MAGIC_SKILLS = (SCHOLAR_SKILL, PLAYER_MAGIC)
+SKILL_NAMES = {SKILL: '扫射', SCHOLAR_SKILL: '天之箭', PLAYER_MAGIC: '魔法火焰'}
+# Pet 烈焰爆发 loop (user 2026-11-05, docs/PET_MAGIC_CONTINUOUS_CASTING_AND_TIANZHIJIAN.md, the 70 project's
+# prison_patrol rule): one cast pending at a time; it settles on the server's 0x4111 for the pet's position (tap),
+# an SP change, or (no tap) a drop of the pet's MP (the cast ran); then SP > 0 (完美施法 kept the point, or points left) ->
+# cast again at once. Replaces the old blind 0.6 s resend (91e7959), which the server ignored while the cast was
+# still pending. PET_SETTLE_FALLBACK only when none of the signals comes (no tap).
+PET_SETTLE_FALLBACK, PET_TAP_FALLBACK, PET_MAX_CASTS = 3.2, 6.0, 30
+# user 2026-11-05: act the moment the server says it is our turn. 0x4105 <u8 pos> = this position just got a
+# charge point (live timelines: the command is only taken after it, a command sent at SP 0 is ignored); the
+# memory SP follows a little later. SHITU_TURN_PACKET=0 turns this off (A/B test).
+TURN_PACKET = os.environ.get('SHITU_TURN_PACKET', '1') != '0'
+TURN_HOLD = 0.6
 NEAR, ARRIVE = 80, 40
 STALL, NAV_RETRY, CLICK_WAIT = 6.0, 2.0, 8.0
 TICK = 0.15
+# user 2026-11-05: poll every 30 ms while in a battle (A/B on 自由三号, 25 battles each at 0.03 s: 0x4105 -> our
+# command median 28 ms player / 32 ms pet, vs ~45 ms reading memory only; the old 0.15 s loop added ~75 ms on top)
+BATTLE_TICK = 0.03
 
 
 class Caster:
-    """Choose a learned player attack (hunter 扫射 / scholar 天之箭) and pet 烈焰爆发."""
+    """Choose a learned player attack (猎人 扫射 / 方士 天之箭 / else the first magic slot, 元素使 魔法火焰 206; none of
+    them -> 普攻) and pet 烈焰爆发."""
 
     def __init__(self, c):
         self.c = c
@@ -54,6 +77,11 @@ class Caster:
             if level:
                 self.skill_id, self.skill = skill_id, level
                 break
+        if not self.skill and not requested:
+            # 2026-11-05: 元素使 魔法火焰 is not in the skill vectors; the magic slot holds it with its level
+            assist = w.read_assist_skill(c.mem)
+            if assist and assist[0] in SKILL_NAMES:
+                self.skill_id, self.skill = assist
         self.strict_skill = bool(requested)
         if requested and not self.skill:
             # The user confirmed 354 天之箭 is this 方士's cycle skill, but this build's learned-skill
@@ -65,45 +93,44 @@ class Caster:
         self.pet_level = pet.abilities.get(PET_MAGIC, 0) if pet else 0
         self.me, self.pet = Fight(), Fight()
         self.casts = 0
+        self.tap = pet_tap(c)
+        self.reset()
         self.reviver = None
         if c.name in MASTERS and revive.ITEM:          # 2026-11-02 元素使 team: revive downed apprentices
             self.reviver = revive.Reviver(c, APPRENTICES)
-        skill_name = {SKILL: '扫射', SCHOLAR_SKILL: '天之箭'}.get(self.skill_id, '无人物技能')
+        skill_name = SKILL_NAMES.get(self.skill_id, '无人物技能（普攻）') if self.skill else '无人物技能（普攻）'
         level_note = '（技能等级内存未读到，按配置级别尝试）' if requested and not w.read_skill_level(c.mem, requested) else ''
         t.say(f'[{c.name}] {skill_name} lv{self.skill}{level_note}，宠物烈焰爆发 lv{self.pet_level}' +
               (f'，魔力 {pet.mp}' if pet else '，没有出战宠物'))
 
     def tick(self, now):
         battle = w.read_battle(self.c.mem)
-        if self.reviver and self.reviver.tick(battle, self, now):
+        if self.reviver:
+            pet_sent = self.pet.sent_at
+            blocked = self.reviver.tick(battle, self, now)
+            if self.pet.sent_at != pet_sent and battle and battle.pet:
+                self._pet_sent(battle.pet.sp, None, now)    # the reviver made the pet defend: that is its action
+            if blocked:
+                return
+        if battle is None:
             return
         pet = w.read_fighting_pet(self.c.mem)
         pet_ok = bool(self.pet_level) and pet is not None and pet.mp >= PET_MP_MIN
+        packets = self.tap.poll() if self.tap else []
+        if TURN_PACKET:
+            battle = self.with_turns(battle, packets, now)
+        if pet_ok and battle.pet and not battle.pet.dead and battle.enemies:
+            self.pet_tick(battle, pet, packets, now)
         for who, d in decide_battle(battle, self.me, self.pet, now, bool(self.skill), pet_ok):
-            if who == 'pet':
-                if not battle.pet or battle.pet.sp <= 0:
-                    continue
-                if d.kind == 'none' and pet_ok and battle.enemies and now - self.pet.sent_at >= PET_SP_RETRY:
-                    d = Decision('cast', '宠物仍有蓄力点，立即重放烈焰爆发', battle.enemies[0])
-                    t.say(f'[{self.c.name}] 宠物蓄力点仍为 {battle.pet.sp}，重放烈焰爆发')
-                # This leveling team is configured for magic-only pet damage. The generic
-                # well-train policy can eventually return `attack` after repeated skill
-                # acknowledgements fail; never turn that fallback into a normal pet attack.
-                if d.kind == 'attack' and os.environ.get('SHITU_PET_MAGIC_ONLY') == '1':
-                    if pet_ok and battle.enemies and now - self.pet.sent_at >= PET_SP_RETRY:
-                        d = Decision('cast', '禁止宠物普攻；有蓄力点时重试烈焰爆发', battle.enemies[0])
-                        t.say(f'[{self.c.name}] 拦截宠物普攻，重试烈焰爆发（SP={battle.pet.sp}）')
-                    else:
-                        continue
+            if who == 'pet' and (pet_ok or os.environ.get('SHITU_PET_MAGIC_ONLY') == '1' or d.kind != 'attack'):
+                continue                    # the pet casts in pet_tick; a normal attack only once its MP is out
             if who == 'me' and self.strict_skill and d.kind == 'attack':
                 raise t.Stop(f'{self.c.name} 指定技能 {self.skill_id} 多次未响应，停止，不退回普攻')
             if d.kind == 'none':
                 continue
             is_pet = who == 'pet'
-            if d.kind == 'cast' and is_pet:
-                self.c.game.cast_pet_magic(d.arg, PET_MAGIC, self.pet_level)
-            elif d.kind == 'cast':
-                if self.skill_id == SCHOLAR_SKILL:
+            if d.kind == 'cast':
+                if self.skill_id in MAGIC_SKILLS:
                     self.c.game.cast_magic_skill_captured(d.arg, self.skill_id, self.skill)
                 else:
                     self.c.game.cast_skill(d.arg, self.skill_id, self.skill)
@@ -113,8 +140,117 @@ class Caster:
             f = battle.pet if is_pet else battle.me
             (self.pet if is_pet else self.me).record(f.sp, now)
 
+    def pet_tick(self, battle, pet, packets, now):
+        """One 烈焰爆发 pending at a time; recast at once when it settled with SP left."""
+        f = battle.pet
+        if self.pet_pending:
+            why = pet_settled(f, pet.mp, packets, self.pet_sent, self.tap is not None, now)
+            if not why:
+                if not self.pet_warned and now - self.pet_sent[2] >= 1.0:
+                    self.pet_warned = True
+                    t.say(f'[{self.c.name}] 等宠物这次出手结算，不重复发（SP={f.sp}）')
+                return
+            self.pet_pending = False
+            server_sp = server_pet_sp(packets, f.pos)
+            if server_sp == 0 and f.sp > 0:
+                self.pet_stale_sp = f.sp      # 2026-11-05 自由三号: 0x4111 said 0 while memory still showed 1
+            elif f.sp > 0:
+                t.say(f'[{self.c.name}] 宠物出手结算（{why}），蓄力还剩 {f.sp}：立即再放烈焰爆发')
+        if self.pet_stale_sp is not None:
+            if f.sp == self.pet_stale_sp and not server_pet_sp(packets, f.pos):
+                return                        # memory not moved, and no new point from the server either
+            self.pet_stale_sp = None
+        if f.sp > 0 and self.pet_casts < PET_MAX_CASTS:
+            self.c.game.cast_pet_magic(battle.enemies[0], PET_MAGIC, self.pet_level)
+            self.pet.record(f.sp, now)
+            self.pet_casts += 1
+            self._pet_sent(f.sp, pet.mp, now)
+
+    def with_turns(self, battle, packets, now):
+        """battle with SP >= 1 for our fighters whose 0x4105 turn packet came, held TURN_HOLD s or until their 0x4111
+        settle: the memory SP follows later, and a 0 read in between must not count as a spent point."""
+        for _, d, op, body, _ in packets:
+            if d != 'S->C' or not body:
+                continue
+            if op == 0x4105 and len(body) == 1:
+                self.turn_hold[body[0]] = now + TURN_HOLD
+            elif op == 0x4111 and len(body) == 2:
+                self.turn_hold.pop(body[0], None)
+        held = {pos for pos, until in self.turn_hold.items() if until > now}
+        if not held:
+            return battle
+
+        def bump(f):
+            return replace(f, sp=1) if f is not None and f.pos in held and f.sp == 0 and not f.dead else f
+        if is_dataclass(battle):
+            return replace(battle, me=bump(battle.me), pet=bump(battle.pet))
+        return SimpleNamespace(**{**vars(battle), 'me': bump(battle.me), 'pet': bump(battle.pet)})
+
+    def _pet_sent(self, sp, mp, now):
+        self.pet_sent, self.pet_pending, self.pet_warned = (sp, mp, now), True, False
+
     def reset(self):
         self.me, self.pet = Fight(), Fight()
+        self.pet_pending, self.pet_warned, self.pet_sent, self.pet_casts = False, False, (None, None, 0.0), 0
+        self.pet_stale_sp = None
+        self.turn_hold = {}
+
+
+def server_pet_sp(packets, pos):
+    """The pet's SP from the newest 0x4111 <u8 pos><u8 sp> for its position in packets, or None."""
+    sp = None
+    for _, d, op, body, _ in packets:
+        if d == 'S->C' and op == 0x4111 and len(body) == 2 and body[0] == pos:
+            sp = body[1]
+    return sp
+
+
+def pet_settled(f, mp, packets, sent, has_tap, now):
+    """Why the pending pet cast counts as done, or None. sent = (sp, pet mp, time) when it was sent."""
+    sp0, mp0, at = sent
+    # packets are the ones polled after the send (each tick polls before it may cast); tap stamps are wall time
+    if any(d == 'S->C' and op == 0x4111 and len(body) == 2 and body[0] == f.pos for _, d, op, body, _ in packets):
+        return '服务器结束包'
+    if has_tap:
+        # with a tap the memory SP lags the packets (a 0 read before it catches up is not a settle)
+        if f.sp > sp0:
+            return f'蓄力 {sp0} -> {f.sp}'
+        if now - at >= PET_TAP_FALLBACK:
+            return f'{PET_TAP_FALLBACK:.0f}s 没等到结束包'
+        return None
+    if f.sp != sp0:
+        return f'蓄力 {sp0} -> {f.sp}'
+    # MP drops when the cast runs (0x4106), before the server settles it (0x4111, 2026-11-05 自由三号 ~60 ms later):
+    # only a no-tap client goes by it, else a second recast follows for the same action
+    if not has_tap and mp0 is not None and mp < mp0:
+        return f'宠物蓝 {mp0} -> {mp}'
+    if not has_tap and now - at >= PET_SETTLE_FALLBACK:
+        return f'{PET_SETTLE_FALLBACK:.1f}s 兜底'
+    return None
+
+
+def pet_tap(c):
+    """monitor.Tap on this client's packet log (our DLL or the BattleAssist one: the folder beside the loaded DLL
+    that holds tap_<pid>_codec.json), or None."""
+    import monitor
+    from common import modules
+    pid = getattr(c, 'pid', None)
+    if not pid:
+        return None
+    try:
+        for _, path in modules(pid):
+            p = Path(path)
+            if p.suffix.lower() != '.dll':
+                continue
+            for root in (p.parent.parent / 'runtime', p.parent.parent.parent / 'runtime'):
+                if (root / f'tap_{pid}_codec.json').is_file():
+                    monitor.RUNTIME = root
+                    tap = monitor.Tap(pid, from_end=True)
+                    if tap.ready():
+                        return tap
+    except (OSError, ValueError):
+        return None
+    return None
 
 
 def leads(c):
@@ -149,7 +285,7 @@ def fight_out(c, timeout=120, why=None):
         if time.monotonic() > end:
             raise t.Stop(f'{why or c.name + " 战斗结束"} 超时 {timeout}s')
         hand.tick()
-        time.sleep(0.15)
+        time.sleep(BATTLE_TICK)
     hand.done()
 
 

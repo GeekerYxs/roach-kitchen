@@ -12,7 +12,7 @@ import sys
 import time
 
 import trial_run as t
-from lunhui15 import LEADER, MEMBERS, BattleHand
+from lunhui15 import BATTLE_TICK, LEADER, MEMBERS, BattleHand
 from provisioner import world as w
 from well10 import form_team
 
@@ -44,7 +44,7 @@ def walk(c, map_id, xy, why):
         elif time.monotonic() - last_t > 5:
             c.game.navigate(map_id, *xy)
             last_t = time.monotonic()
-        time.sleep(0.2)
+        time.sleep(BATTLE_TICK if s.in_battle else 0.2)
     raise t.Stop(f'{c.name} 没走到{why}')
 
 

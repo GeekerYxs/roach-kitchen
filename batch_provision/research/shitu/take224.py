@@ -62,7 +62,7 @@ def walk(c, xy, why):
         elif time.monotonic() - last_t > 5:
             c.game.navigate(MAP, *xy)
             last_t = time.monotonic()
-        time.sleep(0.2)
+        time.sleep(0.03 if st.in_battle else 0.2)  # lunhui15.BATTLE_TICK while fighting (user 2026-11-05)
     raise t.Stop(f'{c.name} 120s 没走到{why}')
 
 

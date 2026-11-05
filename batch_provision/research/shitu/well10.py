@@ -148,7 +148,7 @@ def form_team(lead, others):
                     lead.game.navigate(cst.map_id, round(cst.x), round(cst.y))
                 if time.monotonic() > end:
                     raise t.Stop(f'{lead.name} 180s 没走到 {c.name} 旁')
-                time.sleep(0.15)
+                time.sleep(0.03 if s.in_battle else 0.15)  # lunhui15.BATTLE_TICK while fighting (user 2026-11-05)
             t.wait(lambda: not c.world().in_battle, 120, f'{c.name} 战斗结束')
         t.say(f'[{lead.name}] 邀请 {c.name} 入队')
         lead.game.team_invite(c.char_id, w.read_level(lead.mem), w.read_invite_byte(lead.mem), lead.name)
@@ -305,7 +305,7 @@ def main(target):
             lead.game.select_dialog(d.arg)
         if d.kind in ('navigate', 'cancel_nav', 'click', 'select'):
             route.record(d, lw, now)
-        time.sleep(TICK)
+        time.sleep(0.03 if any(x.in_battle for x in sts.values()) else TICK)  # lunhui15.BATTLE_TICK (user 2026-11-05)
 
 
 if __name__ == '__main__':

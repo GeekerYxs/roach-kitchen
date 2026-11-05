@@ -146,7 +146,7 @@ def _master_walks_to(c, mc):
             caster.reset()
             mc.game.navigate(cs.map_id, round(cs.x), round(cs.y))
             last = time.monotonic()
-        time.sleep(0.2)
+        time.sleep(0.03 if s.in_battle else 0.2)  # lunhui15.BATTLE_TICK while fighting (user 2026-11-05)
     return False
 
 

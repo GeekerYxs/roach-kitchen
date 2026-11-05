@@ -471,6 +471,23 @@ def read_skill_level(mem, skill_id):
     return 0
 
 
+# 2026-11-05 live (2.101): P+0x1C518 = i32 1, magic id, level: 欧皇丨花花乀 (206 魔法火焰, 12), 自由三号 (206, 10);
+# the user's F1 cast in battle sent 0x1005 with skill 206 lv12 from 欧皇 (tap_408488 21:05). read_skill_level gives 0
+# for magic (not in the skill vectors, like 354 天之箭). A second slot at +0x1C548 held (1504, 9): not the player's.
+ASSIST_SKILL = 0x1C518
+
+
+def read_assist_skill(mem):
+    """(magic id, level) of the player's first magic slot, or None (no session / slot empty)."""
+    p = _player_data(mem)
+    if not p:
+        return None
+    on, sid, level = struct.unpack('<3i', mem.read(p + ASSIST_SKILL, 12))
+    if on != 1 or sid <= 0 or not 0 < level <= 30:
+        return None
+    return sid, level
+
+
 @dataclass(frozen=True)
 class Pet:
     index: int

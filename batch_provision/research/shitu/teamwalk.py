@@ -106,7 +106,7 @@ def past(lead, caster, xy):
             end = time.monotonic() + 6
         elif math.dist((st.x, st.y), goal) <= 30 and not st.moving:
             break
-        time.sleep(0.15)
+        time.sleep(0.03 if st.in_battle else 0.15)  # lunhui15.BATTLE_TICK while fighting (user 2026-11-05)
     if lead.world().nav_active:
         lead.game.cancel_navigation()
     time.sleep(0.8)
@@ -166,7 +166,7 @@ def fight_out(lead, caster=None, timeout=120):
         if time.monotonic() > end:
             raise t.Stop(f'{lead.name} {timeout}s 战斗没打完')
         caster.tick(time.monotonic())
-        time.sleep(0.15)
+        time.sleep(0.03)  # lunhui15.BATTLE_TICK while fighting (user 2026-11-05)
 
 
 SETTLE_STILL, SETTLE_MAX = 1.0, 8.0

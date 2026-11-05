@@ -59,7 +59,7 @@ def fight(leader, npc, words, master, apps):
             caster.tick(time.monotonic())
         elif started:
             break
-        time.sleep(0.15)
+        time.sleep(0.03 if started else 0.15)  # lunhui15.BATTLE_TICK while fighting (user 2026-11-05)
     time.sleep(2)
     t.say(f'[{leader}] NPC {npc} 战斗{"打完" if started else "没开始"}')
     return started

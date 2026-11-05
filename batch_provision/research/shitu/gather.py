@@ -122,7 +122,7 @@ def wait_battle(me):
     while me.world().in_battle:
         if me.caster:                                    # env SHITU_GATHER_CAST=1 (round 3: 欧皇 gathers alone)
             me.caster.tick(time.monotonic())
-        time.sleep(0.15 if me.caster else 0.3)
+        time.sleep(0.03 if me.caster else 0.3)  # lunhui15.BATTLE_TICK while fighting (user 2026-11-05)
     if me.caster:
         me.caster.reset()
         if time.monotonic() - t0 > 600:

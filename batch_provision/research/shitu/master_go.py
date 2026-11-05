@@ -24,7 +24,7 @@ def go(c, caster, map_id, xy, why):
         if s.in_battle:
             caster.tick(now)
             at = now
-            time.sleep(0.15)
+            time.sleep(0.03)  # lunhui15.BATTLE_TICK while fighting (user 2026-11-05)
             continue
         if s.map_id == map_id and math.dist((s.x, s.y), xy) <= NEAR and not s.moving:
             t.say(f'[{c.name}] 到了{why} map {s.map_id} ({s.x:.0f},{s.y:.0f})')
