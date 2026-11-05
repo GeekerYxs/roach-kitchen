@@ -27,6 +27,7 @@ STOP = LOGS / 'LINE_STOP'
 CONFIG = Path(__file__).with_name('line.toml')
 QUIZBOT = ('启动答题器.exe', 'quizbot.exe')
 _lock = threading.Lock()
+_quiz_lock = threading.Lock()   # ensure_quizbot only: a start may take 20 s, alerts / saves must not wait
 
 
 def say(msg):
@@ -89,6 +90,12 @@ def process_names():
     finally:
         k.CloseHandle(snap)
     return '\n'.join(names)
+
+
+def ensure_quizbot():
+    from provisioner import quizbot
+    with _quiz_lock:                # the teams' threads: one check / start at a time (other lines: quizbot's lock)
+        return quizbot.ensure(say=say)
 
 
 def quizbot_running(tries=3, list_procs=None):
@@ -165,8 +172,9 @@ class Team(threading.Thread):
                 alert(self.team, f'排除的徒弟 {self.data["stuck"]} 占满了师傅名额，这一队停摆')
                 self.data.update(parked=True, reason='master slots full')
                 break
-            if not quizbot_running():
-                alert(self.team, '启动答题器 没在运行：战斗里的题没人答（boss 题脚本会自己答）。请启动它')
+            # user 2026-11-05: not running -> start it (one per computer serves every line, provisioner.quizbot)
+            if not quizbot_running() and ensure_quizbot() == 'failed':
+                alert(self.team, '启动答题器 没在运行、自动启动也没成：战斗里的题没人答（boss 题脚本会自己答）。请手动启动它')
             self.data.update(batch=batch, parked=False, reason='')
             self.save()
             r = self.runner(batch)

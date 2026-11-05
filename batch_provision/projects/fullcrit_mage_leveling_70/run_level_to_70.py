@@ -194,6 +194,8 @@ def main():
     book = RetryBook(base=BACKOFF_BASE, cap=BACKOFF_CAP, fallback_after=FALLBACK_AFTER)
     fallback = None            # (ladder index, target level): one easier-map level before retrying
     say(f"启动 1→{FINAL_LEVEL} 练级监督；队长 {LEADER}，小号 {list(APPRENTICES)}；日志 {LOG}")
+    from provisioner import quizbot          # user 2026-11-05: every line makes sure 启动答题器 runs (one per PC)
+    quizbot.ensure(say=say)
     while True:
         try:
             lv = levels()

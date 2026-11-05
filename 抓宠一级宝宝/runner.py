@@ -25,6 +25,8 @@ parser.add_argument('--bait-id', type=int, default=8713, help='捕捉道具物�
 parser.add_argument('--pet-item-id', type=int, required=True, help='目标宠物物品 ID，用于战后快照')
 parser.add_argument('--attach', action='store_true', help='需要时注入仓库 DLL 并开启本地网络 tap')
 args = parser.parse_args()
+from provisioner import quizbot  # noqa: E402  user 2026-11-05: every line makes sure 启动答题器 runs (one per PC)
+quizbot.ensure()
 if not re.fullmatch(r'[\w\u4e00-\u9fff-]{1,40}', args.role):
     parser.error('角色标签只能包含字母、数字、中文、下划线及短横线')
 role, CHAR, MAP, TARGET = args.role, args.char_id, args.map, args.target
