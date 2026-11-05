@@ -15,8 +15,8 @@ from line import ops  # noqa: E402
 # A change to the 勇者 line itself must update these on purpose; adding the 元素使 line must not.
 # Updated on purpose 2026-11-05: PR #20 (勇者 apprentices own no weapon: sell_tradable --weapons, wear_best
 # --no-weapon) and PP_COAST before lunhui / maze (a team scrolled home got 「在意外的地图 1」 for ever); then
-# maze_train --stay (no walk to 大个王 after 八阵图).
-BRAVE_FINGERPRINTS = {'v5': '5702dbd09b6a5f47', 'bplus': '6b8730af7998692c'}
+# maze_train --stay (no walk to 大个王 after 八阵图); then U space before zhuanzhi's supply and q183.
+BRAVE_FINGERPRINTS = {'v5': '0c8761c25e20f8cc', 'bplus': '9dcbba79996aea83'}
 
 
 def fp(route):

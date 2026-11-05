@@ -74,6 +74,9 @@ ROUTE = (
     Step('well', 'early', (C('well10.py'),), retry='leave', unless='lv_ge 10'),
     Step('zhuanzhi', 'early', (
         C('ops', 'home_village'),
+        # user 2026-11-05: the 古井 loot is still in the bags; the master's 回城卷 (a trade) and the 24 / 94 rewards
+        # (新手洗点卡 ...) need room (round 2: 「物品栏已满」)
+        C('U', 'space', '3'),
         C('U', 'supply'),
         C('zhuanzhi_take.py', '{A}'),
         C('quanshou.py', when='kills5'),
@@ -184,6 +187,7 @@ ROUTE = (
         C('U', 'need', '181', '99'),
     ), env={'SHITU_QID': '181'}),
     Step('q183', 'late', (
+        C('U', 'space', '3'),          # 紧急物资 + 5 蝎子药 after the 古迹 battles since pour's space (user 2026-11-05)
         PP_HOME,
         C('yongzhe_take.py', '{APPS}'),
         C('pp_chain.py', '恶人山', '平静海岸2区', '龙之都'),
@@ -406,7 +410,8 @@ YUANSU_LATE = (
                              C('U', 'have', '10732', '1'), HOME, DRAGON, tn(*LADY, '元素使的考验|给你吧', 189),
                              C('U', 'need', '189', '9')), env={'SHITU_QID': '189'}),
 )
-GEAR = Step('gear', 'mid', (HOME, DRAGON, C('buy_gear.py', '{APPS}')), retry='leave')   # 乐乐姐 35 级 恶魔白装
+# 乐乐姐 35 级 恶魔白装: 5 pieces, each checked in the bag, right after packs filled it (user 2026-11-05: room first)
+GEAR = Step('gear', 'mid', (HOME, C('U', 'space', '6'), DRAGON, C('buy_gear.py', '{APPS}')), retry='leave')
 BRAVE = ('q181', 'quan', 'wulong', 'tree', 'crystal', 'dew', 'pour', 'q183', 'corpse', 'king')
 
 
