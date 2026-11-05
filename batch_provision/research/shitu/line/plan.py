@@ -1,7 +1,7 @@
 """Who is in a batch: masters, apprentice names, accounts, log ids, the env every script gets.
 
-Teams come from line.toml [team.<name>] (master, slot, gold). Same rules as r4_env.sh for slots 0..3 (tests/test_line.py
-checks the two agree for teams a..d), so old logs / state files keep their names:
+Teams come from line.toml [team.<name>] (master, slot, gold). The naming rules are round 4's (its r4_env.sh is gone since
+2026-11-05; tests/test_line.py Plan.test_batch_names_accounts_logids pins them), so old logs / state files keep their names:
   batch N, slot k (0..3) = 亿万(16(N-1)+4k+1 .. +4); team slot i uses account cap(21+4k+i), role slot N.
   LOGID r4<team> for batch 1, r4<team>_b<N> after (the team name, not the slot: a new master = a new name).
 A team may instead name its own accounts and role names (2026-10-29 exp-map trial: cap37.. and Opus55A1..):
@@ -286,7 +286,7 @@ class Batch:
         return f'state_{self.logid}.json'
 
     def env(self):
-        """SHITU_* for the stage scripts (common.py reads them), LOGID / PAIRS like r4_env.sh."""
+        """SHITU_* for the stage scripts (common.py reads them), LOGID / PAIRS (round 4's names)."""
         return {
             'SHITU_STATE': self.state_file,
             'SHITU_MASTERS': self.master,

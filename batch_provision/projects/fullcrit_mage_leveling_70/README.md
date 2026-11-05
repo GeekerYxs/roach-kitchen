@@ -82,6 +82,14 @@
 - `return_by_pp.py`、`rescue_scrollless_apprentice.py 小号名`：回城/路线恢复辅助。
 - `_bootstrap.py`：将共享 `shitu` 和 `batch_provision` 模块加入导入路径，确保本目录可独立启动而仍复用公用实现。
 
+## 和师徒产线重复的能力（待合并，见 ../../../docs/ARCHITECTURE.md 第 4 节）
+
+- `rescue_scrollless_apprentice.py` 和师徒线的 `research/shitu/quanshou.fetch`（2026-11-05）都在做「小号没回城卷，队长去接」。
+- `hannibal_soda.py`（劲爆汽水补蓝，三轮实测）是师徒线以后补蓝要用的做法：师徒线 2026-11-05 取消了胡萝卜汁，准备改用它。
+- `home_supply.py` 的回城卖物 / 补给，和师徒线 `r4_util.home`、`sell_tradable.py`、`trash.py`，以及料理线 `factory/supply.py` 是同一类事。
+- 本项目直接用到的共用模块被师徒线改动时，行为也会跟着变：2026-11-05 起 `r4_util.home` 不再买胡萝卜汁，没回城卷的小号会先等队长来接
+  （`quanshou.scroll`）；徒弟丢葫芦 / 卖武器只在师徒产线打开（`SHITU_TRASH`），本项目不受影响。
+
 ## 运行前检查
 
 1. 确认实际在线角色、职业、队伍首位、地图权限、飞鞋记录和背包补给；本项目文档不保存账号口令。

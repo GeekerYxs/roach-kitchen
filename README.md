@@ -1,12 +1,24 @@
 # roach-kitchen
 
-什么什么大冒险2「美味小强料理」自动生产线（工位化：调度员、古井队长、海岸队长、收货人 + 小号流水）。
+《什么什么大冒险2》（客户端 2.101，Windows）自动化。几条产品线共用一套游戏能力，结构见 **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**。
+接手的 AI 先读 **[AGENTS.md](AGENTS.md)**。
 
-- 代码与一键工具：`batch_provision/`（说明见 `batch_provision/README.md`）
-- 部署到新电脑（照着做即可：准备哪些大号、16 核 32 GB 怎么配、启动顺序）：`docs/DEPLOY.md`
-- 设计：`docs/FACTORY_DESIGN.md`
-- 师徒产线（1 级新号 → 41 级出师，约 48 万金币/号）：`docs/SHITU_LINE.md`；新架构 v5 一键 `python -X utf8 -m line`（在 `batch_provision/research/shitu/` 下，第 8 节）
-- 战斗记录（每场战斗一行：怪物等级和名字、经验 / 潜能 / 宠物经验、掉落、阵亡逃跑、四种双倍、金币背包答题；6.4 万场历史 + 等级差曲线和最快路线报表）：`docs/BATTLELOG.md`；技术细节 `batch_provision/battlelog/README.md`
-- 答题器（战斗题 + boss 题，顺带解锁游戏自带辅助工具的战斗辅助、自动采集和自动任务界面）：[功能、源码与编译说明](大冒险2_自动答题器_原生无感关窗版/src/README.md)
-- Boss 开打题：题号 2601～3000 共 400 题全齐，答案已并入答题器（正确下标 = (题号−2601)÷100，2026-10-30 两轮实测 31/31、29/29 通过）；规律和协议见 `batch_provision/research/shitu/BOSS_QUIZ.md`，采集记录见 [`docs/BOSS_QUESTION_COLLECTION_20261030.md`](docs/BOSS_QUESTION_COLLECTION_20261030.md)
-- 一级宝宝捕捉：独立的巡逻、目标位置识别、道具调用和脱敏研究证据，见 [抓宠一级宝宝](抓宠一级宝宝/README.md)。
+## 产品线
+
+| 做什么 | 怎么启动 | 说明 |
+|---|---|---|
+| **小强料理**：工位化生产「美味小强料理」（调度员、古井队长、海岸队长、收货人 + 小号流水） | `batch_provision/一键总大脑.cmd` | [FACTORY_DESIGN.md](docs/FACTORY_DESIGN.md)、[batch_provision/README.md](batch_provision/README.md) |
+| **师徒 → 勇者**：师傅每批带 4 个新号，1 级 → 41 级出师，每号约 48 万金币 | `cd batch_provision/research/shitu && python -X utf8 -m line` | [SHITU_LINE.md](docs/SHITU_LINE.md)、[师傅要准备什么](docs/SHITU_MASTER_GUIDE.md) |
+| **师徒 → 元素使**：同一条产线，`line.toml` 里写 `job = "术士"` 的队 | 同上 | `batch_provision/research/shitu/YUANSU_NOTES.md` |
+| **满爆方士带到 70 级**：无任务练级 | `batch_provision/projects/fullcrit_mage_leveling_70/run_level_to_70.py` | [该项目 README](batch_provision/projects/fullcrit_mage_leveling_70/README.md) |
+| **抓一级宝宝** | `抓宠一级宝宝/runner.py` | [抓宠一级宝宝](抓宠一级宝宝/README.md) |
+
+## 工具
+
+- 部署到新电脑（准备哪些大号、16 核 32 GB 怎么配、启动顺序）：[DEPLOY.md](docs/DEPLOY.md)
+- 答题器（战斗题 + boss 题，自动注入每个新开的游戏窗口，顺带解锁游戏自带辅助工具）：[功能、源码与编译](大冒险2_自动答题器_原生无感关窗版/src/README.md)
+- Boss 开打题：题号 2601～3000 共 400 题全齐，答案已并入答题器；规律和协议见 `batch_provision/research/shitu/BOSS_QUIZ.md`，
+  采集记录 [BOSS_QUESTION_COLLECTION_20261030.md](docs/BOSS_QUESTION_COLLECTION_20261030.md)
+- 战斗记录（每场一行：怪物、经验 / 潜能、掉落、阵亡逃跑、双倍；报表）：[BATTLELOG.md](docs/BATTLELOG.md)
+
+所有文档的索引：[docs/ARCHITECTURE.md 第 7 节](docs/ARCHITECTURE.md#7-文档地图)。

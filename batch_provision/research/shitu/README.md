@@ -1,136 +1,93 @@
-# research/shitu — 师徒「大带小」流水线工具箱
+# research/shitu — 师徒产线（勇者 / 元素使）+ 现在放在这里的共用能力
 
-一句话：70 级师傅（第 4 轮起 伏地魔1–4 四个）各带 4 个新建小号，从 1 级做到 41 级出师。每个小号最后约 **46–50 万金币**。
+更新：2026-11-05。
 
-- **新架构 v5（2026-10-28，接手先看这个）**：`python -X utf8 -m line`（`line/` 包：plan / route / ops / runner / 总控），
-  路线是 `line/route.py` 一张表，恢复全在 `line/runner.py`。说明见 docs/SHITU_LINE.md 第 8 节；第 4 轮 shell 版保留作退路。
-- **无人值守产线（第 4 轮定型，v5 的退路）**：[docs/SHITU_LINE.md](../../../docs/SHITU_LINE.md) —— 一键 `python -X utf8 r4_line.py`，
-  停 = `touch logs/LINE_STOP`。三层：总控 `r4_line.py` → 一批 `r4_batch.sh` → 监管器 `r4_supervise.sh` → 三段 `r4_early/mid/late.sh`。
-- 游戏事实、协议、坑：[docs/SHITU_PIPELINE.md](../../../docs/SHITU_PIPELINE.md)；第 4 轮的问题和经验数据：[ROUND4_NOTES.md](ROUND4_NOTES.md)。
-- 这一页只是代码地图和命令清单。
-
-- 所有脚本都在这个目录里运行：`python -X utf8 <脚本> ...`。
-- 也可以从 `batch_provision/` 运行：`python -X utf8 research/shitu/<脚本>`。
-- `common.py` 会把 `batch_provision/` 加进 `sys.path`，所以能直接用 `provisioner` 和 `factory`。
+- **怎么跑**：`python -X utf8 -m line`（在这个目录下），说明见 [docs/SHITU_LINE.md](../../../docs/SHITU_LINE.md)。
+- **路线**只看 `line/route.py`（`ROUTE` = v5、`ROUTE_BPLUS` = B+ 默认、`ROUTE_YUANSU` = 元素使）。
+- 这里的很多模块**别的产品线也在用**（满爆方士项目复用了大半），改之前先看 [docs/ARCHITECTURE.md](../../../docs/ARCHITECTURE.md) 第 3 节，
+  `grep -rn <模块名> ../..` 查谁在用。
+- 所有脚本都在这个目录里运行：`python -X utf8 <脚本> ...`；`common.py` 会把 `batch_provision/` 加进 `sys.path`。
 
 ## 目录
 
 | 路径 | 内容 | 进仓库？ |
 |---|---|---|
-| `*.py` / `r3_*.sh` | 工具和每一步的脚本 | 是 |
-| `r4_*.sh` / `r4_*.py` / `r4_line.toml` | 第 4 轮产线：总控、批次、监管器、三段流程、工具、统计（见 docs/SHITU_LINE.md 第 6 节） | 是 |
-| `ROUND4_NOTES.md`、`BOSS_QUIZ.md` | 第 4 轮运行记录；boss 开打答题 | 是 |
-| `ANALYSIS.md` | 考验一二三、拜师、10 级转职、解除师徒的协议分析（第 1 轮） | 是 |
-| `GATHER.md` | 遗忘洞穴采集、地头蛇、任务 224（第 1 轮） | 是 |
-| `notes/` | 第 2、3 轮的逐条流水和报告 | 是 |
-| `bank.json` | 考验一二的题库（题目 → 正确答案） | 是 |
-| `logs/` | `mem_<角色>.jsonl`、`net_<角色>.jsonl`（monitor.py 录的）和各步日志 | 否（几百 MB） |
-| `runtime/` | DLL 录包 `tap_<pid>.jsonl` | 否 |
-| `bin/` | attach_tap.py 复制过来的 DLL | 否 |
-| `state*.json` | 每队的进度文件（拜师 / 考验一二三 / 双倍 / 拳手做过没有） | 否 |
-| `logs/line_state.json`、`logs/line_alert.log`、`logs/LINE_STOP` | 产线总控的进度、报警、停止开关 | 否 |
+| `line/` | 产线总控、路线表、批次计划、小操作（`__main__` / `runner` / `route` / `plan` / `ops`）、`line.toml` 设置 | 是 |
+| `*.py` | 共用能力和每一步的脚本（见下） | 是 |
+| `bank.json` | 考验一二的题库 | 是 |
+| `*_NOTES.md`、`notes/`、`ANALYSIS.md`、`GATHER.md`、`BOSS_QUIZ.md`、`EXP_MAP_TRIAL.md`、`GPT_REVIEW.md` | 历次实跑记录、协议分析、实验数据（参考用，不是操作手册） | 是 |
+| `logs/` | 产线日志、进度（`line_state.json`、`<LOGID>_line.json`）、报警、`LINE_STOP`、飞鞋冷却 `shoe_used.json`、改名记录 `name_alias.json`、通天二收入 `tower2_exp.csv` | 否 |
+| `runtime/`、`bin/`、`state*.json` | DLL 录包、复制的 DLL、每批进度 | 否 |
 
-## 环境变量（一队一套）
+## 环境变量（产线 `line/plan.py` 每批设好，单独跑脚本时自己设）
 
-| 变量 | 意思 | 例子 |
-|---|---|---|
-| `SHITU_MASTERS` | 这一队的师傅（第一个当队长） | `伏地魔1` |
-| `SHITU_APPRENTICES` | 这一队的徒弟 | `千万1,千万2,千万3,千万4` |
-| `SHITU_STATE` | 进度文件，两队同时跑时必须分开 | `state_r3a.json` |
-| `SHITU_SCROLLS` | supply_go 给每个徒弟几张回城卷 | `10` |
-| `SHITU_QID` | talk_chain.py 读哪个任务的步骤 | `183` |
-| `SHITU_GATHER_CAST` | 采集者自己出手 | `1` |
-| `BATCH`、`SKIP` | 第 4 轮：第几批（= 账号的角色位）、不带哪些徒弟；`r4_env.sh TEAM` 据此算出上面几个变量和 `PAIRS`、`LOGID` | `2`、`亿万13` |
-| `FROM`、`UNTIL` | 第 4 轮三段脚本：从哪一步开始、跑完哪一步停 | `corpse` |
+| 变量 | 意思 |
+|---|---|
+| `SHITU_MASTERS` / `SHITU_APPRENTICES` | 这一队的师傅（第一个当队长）/ 徒弟 |
+| `SHITU_STATE` | 这一批的进度文件 |
+| `SHITU_GOLD` / `SHITU_SCROLLS` | 启动金 / 每个徒弟的回城卷 |
+| `SHITU_JOB` | `战士`（勇者）/ `术士`（元素使） |
+| `SHITU_TIDY` | `1` = 元素使：每次回城 `tidy.py` 整理背包 |
+| `SHITU_TRASH` | `1` = 师徒产线：丢葫芦 / 特赦令 / 整人道具，勇者线回城卖武器（`trash.py`） |
+| `SHITU_REVIVE` | 复活道具的物品 id（`revive.py`） |
+| `SHITU_QID` | `talk_chain.py` / `tower1_go.py` 看哪个任务 |
+| `BATCH`、`PAIRS`、`LOGID` | 第几批（建角槽的上限）、`账号:角色名` 列表、日志名 |
 
-## 模块地图（按职责分层）
+## 共用能力（别的产品线也能用，分类和 ARCHITECTURE.md 第 3 节一致）
 
-**第 0 层：读和看（只读）**
-- `common.py`：按窗口标题找角色、模块基址、路径和环境变量。
-- `trial_run.py`：`Client`（一个窗口：内存 + 发请求）、`wait`、`say`、对话工具 `pick` / `choose` / `body`。
-- `monitor.py`：只读录制器，每 0.2 秒记一次内存变化，同时记录所有收发的封包，写到 `logs/mem_*.jsonl`、`logs/net_*.jsonl`。
-- `attach_tap.py`：给已经进游戏的窗口挂上录包。
-- `boss_quiz_peek.py`：只读，看两块答题面板（战斗题 / boss 题）。
-- `boss_quiz.py`：boss「开打」时的答题（0x46f5）静默自动答，`dts.py`、`scorpion_king.py` 在用；单独运行 = 只读，打印会选哪项。详见 `BOSS_QUIZ.md`。
-- `r2_status.py`、`check_rosters.py`：状态和角色列表，只读。
+**连接窗口**
+- `trial_run.py`：`Client`（一个窗口：内存 + 发命令）、`wait`、`say`、`each`（几个号同时做各自的事）、`Gone`（30 秒读不到人物 = 掉线）；
+  对话工具 `pick` / `choose` / `body`；也是考验一二的脚本（见下）。
+- `common.py`：按窗口标题找角色、模块基址、环境变量。`attach_tap.py`：给已在游戏里的窗口挂录包。`monitor.py`：只读录制器。
+- `make_apprentices.py`：建角 / 进角色 / 新手出村（`slot_problem`：第 N 批的槽是上限）；`master_login.py`：师傅自动登录。
 
-**第 1 层：移动**
-- `pp_chain.py`：`PP` 表记录每个地图上的 PP 鸡；`hop()` 坐一次 PP 鸡，`walk()` 在城里走路。菜单里没有目标时，先走中转站。
-- `maze_train.py`：带队主循环。腿表 legs 写每张地图怎么走（walk / click），stage 写目标（练到几级 / 走到哪个点 / 巡逻）；队长自动打怪、加天赋，徒弟死亡就停。
-- `go_goal.py`、`desert_go.py`、`ruin_go.py`、`guji_entrance.py`、`tower1_go.py`、`tower2_go.py`、`go_cave.py`、`back_longeer.py`：只是 maze_train 的一个 stage 配置。
-- `portal_test.py`：逍遥村 ↔ 自由市场的免费传送门（菜单里也有梦幻岛）。
+**移动**
+- `pp_chain.py`：坐 PP鸡（按目的地自动中转）、`walk` 城里走路。
+- `maze_train.py`：带队主循环（每张图怎么走的 legs 表、练到几级 / 走到哪 / 巡逻；队长自动打怪、加天赋）。
+  这些只是它的一个配置：`go_goal.py`、`go_cave.py`、`desert_go.py`、`ruin_go.py`、`guji_entrance.py`、`tower1_go.py`、`tower2_go.py`、
+  `back_longeer.py`、`quan100.py`、`bazhen25.py`、`cave_train.py`、`tower28.py`、`tower2_patrol.py`、`shuidi.py`、`quanshou.py`。
+- `lunhui15.py`：轮回之城练级，也定义 `Caster`（战斗里放技能）。`well10.py`：古井练级，也定义 `form_team`、`invite_near`、`Unarm`。
+- `r4_util.py`（名字是历史遗留，现在是产线的常用小操作）：`home`（全员回城，徒弟先、师傅最后）、`leave`（`--home-if-split`）、`restock`、
+  `restock_master`、`supply`、`double`、`need`（任务闸门）、`windows`（窗口检查 + 重登）、`space` / `space_one` / `drop_order`（腾背包）。
+- `quanshou.py`：`scroll`（用回城卷）、`borrow`（向身边的人借）、`fetch`（师傅来接）、`flee`（逃出战斗）；也是转职任务 24 的打拳手脚本。
+- `shoe_point.py`：飞鞋记点 / 全员飞（查冷却）。`team_tp.py`：全队坐外城传送员到无尽2路口。`master_go.py`：师傅单独走。
 
-**第 2 层：队伍和战斗**
-- `well10.form_team`：组队（队长离太远时自己走过去邀请）。
-- `dew_team.py`：`regroup`（徒弟走到队长脚下 → 邀请 → 1.5 秒后接受，最多 4 次）、`lead_to`（站着不动 3 秒就重发寻路）、`past`（队长走过目标点 80 像素，让队尾的人站到目标旁）、`step_to`（徒弟独自走几步，遇怪就逃跑）。**以后新写的带队脚本都用这几个。**
-- `lunhui15.Caster`：战斗里放技能（师傅：扫射 + 宠物烈焰爆发；徒弟：普攻）。
-- `dew.Escaper`：战斗里只发逃跑（不一定逃得掉，所以徒弟不要单独在野外走）。
-- `fight_helper.py`：后台帮打。
+**队伍、战斗**
+- `teamwalk.py`：`lead_to`、`past`、`step_to`、`regroup`、`regroup_all`、`settle`（解散前等全队站稳）、`fight_out`、`leave_all`、`each`、
+  `click_here`（先原地点 NPC）、`Escaper`（只逃跑）。**新写的带队脚本都用这几个。**
+- `revive.py`：战斗里复活倒下的徒弟。`boss_quiz.py`：boss 开打题（答题器优先，这里兜底）。`boss_fight.py`：徒弟带队开打 NPC 战斗。
+- `farm.py`：带队刷某个掉落直到每人够数。
 
-**第 3 层：NPC 对话和任务**
-- `take224.talk`：点 NPC，按关键词一层层选。
-- `talk_chain.py`：城里多人并行，每人走到 NPC 旁边，对话一路点到底，遇到多个选项就停。
-- `team_npc.py`：野外版，师傅带队到了以后，徒弟离队、走近、对话，再回队。关键词用 `|` 分隔，按顺序优先选。
-- 每个任务的脚本：
-  - 拜师：`bai_shi.py`
-  - 考验一二：`trial_run.py`
-  - 考验三：`trial3_run.py`
-  - 10 级转职（任务 24）：`zhuanzhi_take.py`、`quanshou.py`、`zhuanzhi_finish.py`
-  - 转职后领 3 小时双倍（自由市场散福老人）：`double_exp.py`（`r3_zhuanzhi.sh` 最后一步）
-  - 任务 224：`take224.py`、`gather.py`、`dts.py`、`shoe_dagewang.py`
-  - 40 级战士的试炼（任务 181）：`quan100.py`、`guji_crystal.py`、`dew_team.py`
-  - 勇者的考验（任务 183）：`yongzhe_take.py`、`scorpion_water.py`、`scorpion_king.py`
-  - 出师：`chushi.py`
-  - 流程总控（第 1 轮）：`shitu_flow.py`
+**NPC 对话**
+- `take224.talk`：点 NPC 按关键词一层层选。`talk_chain.py`：城里每人同时走去对话。`team_npc.py`：野外队长带到、全员同时对话。
 
-**第 4 层：背包和钱**
-- `sell_tradable.py`：在小美那里卖东西，用开关选卖哪类：
-  - `--safe`：杂物、残骸、低于蓝色的装备
-  - `--zawu`：只卖杂物
-  - `--stones`：杂物、残骸、技能石、图纸、配方
-  - `--noorange`：杂物 + 橙色以下的装备
-  - `--name 词1,词2`：按名字卖
-- `buy_scroll.py`：在铁公鸡那里买回城卷（2.100 版的买包格式）。
-- `supply_go.py`：交易工具 `trade_until`，用来给物品和金币。
-- `give_box.py`：把橙装和全部金币交易给收货号。
-- `mail_sell.py`：分批提取宝箱邮件，然后卖掉。
-- `open_packs.py`：开成长礼包。
-- `eat_items.py`：吃掉指定的东西。
-- `drop_prank.py`：丢整人道具。
-- `heal.py`：吃萝卜糕补血。
-- `wear_best.py`：穿上背包里最好的装备。
-- `unequip_all.py`：脱下身上所有装备。
+**背包和钱**
+- `sell_tradable.py`：在小美那里按规则卖（`--safe`、`--stones`、`--zawu`、`--noorange`、`--tidy`、`--name 词…`、`--weapons` 卖光徒弟武器）。
+- `buy_scroll.py`：铁公鸡买回城卷 / 胡萝卜汁。`supply_go.py`：交易工具 `trade_until`、到平静海岸2区。
+- `trash.py`：丢葫芦 / 特赦令 / 整人道具（定时、开包后、回城），勇者线回城卖武器。`tidy.py`：元素使回城整理。
+- `open_packs.py`、`wear_best.py`（`--no-weapon`）、`eat_items.py`、`drop_prank.py`、`mail_sell.py`、`heal.py`、`unequip_all.py`、
+  `master_bag.py`（师傅背包清理）、`give_gold.py`（徒弟金币交给师傅）、`give_box.py`（橙装和金币交给收货号）。
 
-**建号 / 删号**
-- `make_apprentices.py`：建号。
-- `delete_apprentices.py`：删号。
+## 师徒线自己的任务脚本
 
-**第 5 层：第 4 轮产线**（详见 docs/SHITU_LINE.md）
-- `r4_line.py`：总控，每队一条线程，批次循环、放弃后的恢复、排除卡死的徒弟、报警。
-- `r4_batch.sh`、`r4_sup.sh`→`r4_supervise.sh`、`r4_run.sh`、`r4_env.sh`：一批 / 监管器 / 跑一段 / 每队环境。
-- `r4_early.sh`、`r4_mid.sh`、`r4_late.sh`：1→大个王、大个王→40、40→出师。
-- `r4_util.py`：home、leave、restock、supply、double、need（任务闸门）、windows（窗口检查 + 重新登录）、space。
-- `double_exp.py`（散福 3 小时）、`bazhen25.py`、`cave_train.py`、`tower28.py`、`tower2_patrol.py`（练级段）、`r4_stats.py`（经验表）。
+| 任务 | 脚本 |
+|---|---|
+| 拜师 | `bai_shi.py` |
+| 10 级转职：勇者（任务 24 拳手）/ 元素使（任务 25 水滴精灵）；任务 94；3 小时双倍 | `zhuanzhi_take.py`、`quanshou.py` / `shuidi.py`、`zhuanzhi_finish.py`、`line.ops q94`、`double_exp.py` |
+| PP鸡 权限 | `pp_unlock.py` |
+| 考验一二 / 考验三 | `trial_run.py`、`trial3_run.py` |
+| 任务 224（采集 + 地头蛇） | `take224.py`、`gather.py`、`dts.py`（`shoe_dagewang.py`：旧的大个王记点） |
+| 任务 181 战士的试炼（勇者） | `talk_chain.py`、`quan100.py`、`team_npc.py`、`dew_team.py` |
+| 任务 183 勇者的考验 | `yongzhe_take.py`、`scorpion_water.py`、`scorpion_king.py`、`line.ops fairy` |
+| 任务 187 术士的试炼 / 189 元素使的考验（元素使） | `stones.py`、`yaodao.py`、`bird.py`、`fire.py`、`mole.py`、`rooms.py`、`fifth.py`、`buy_gear.py` |
+| 出师 | `chushi.py` |
 
-## 第 3 轮的命令顺序（每队一套环境变量，两队同时跑；第 4 轮起用 r4_line.py）
+## 只读工具 / 分析
 
-```
-# A 队：export SHITU_STATE=state_r3a.json SHITU_MASTERS=伏地魔1 SHITU_APPRENTICES=千万1,千万2,千万3,千万4
-# B 队：export SHITU_STATE=state_r3b.json SHITU_MASTERS=伏地魔2 SHITU_APPRENTICES=千万5,千万6,千万7,千万8
-python -X utf8 make_apprentices.py ...           # 建号，进游戏后还要 attach_tap.py / native.arm
-python -X utf8 bai_shi.py                        # 拜师
-python -X utf8 well10.py                         # 1 -> 10，阴森古井
-python -X utf8 supply_go.py                      # 回城卷 + 5 万金币，到海岸，PP鸡 认证
-python -X utf8 lunhui15.py                       # 10 -> 15，轮回之城
-python -X utf8 maze_train.py                     # 15 -> 23，然后走到大个王
-bash r3_zhuanzhi.sh                              # 飞鞋，224 交了重接，10 级转职，任务 94，领 3 小时双倍
-bash r3_mid.sh                                   # 卖杂物，考验一二，通天塔练到 30
-bash r3_cave.sh; python -X utf8 dts.py                   # 任务 224，打地头蛇（弹 boss 题会自动答）
-bash r3_end.sh                                   # 回城，卖杂物，考验三
-python -X utf8 tower2_go.py; python -X utf8 tower2_patrol.py 40   # 通天塔二区巡逻到 40
-# 40 级之后的任务 181 / 183 / 出师 / 收尾，逐条命令见 docs/SHITU_PIPELINE.md 第 4 节
-```
+`check_rosters.py`（每个账号的角色列表）、`npc_peek.py`（看一个 NPC 的对话）、`boss_quiz_peek.py`（看答题面板）、
+`sp_watch.py`（量蓄力）、`r4_stats.py`、`exp_trial.py`、`r5_compare.py`（每批每步用时、各图每分钟经验）、`delete_apprentices.py`（删角色）。
 
-## 测试数据与实测参考
+## 2026-11-05 删掉的
 
-- [师徒批次战斗场次参考（2026-11-02）](notes/battle-counts-2026-11-02.md)：第三槽位五队两段练级计数对比；说明该合计不等于整套任务总场次。
+第 4 轮 shell 版产线（`r4_line.py`、`r4_line.toml`、`r4_*.sh`）、第 2 / 3 轮的一次性脚本（`r2_status.py`、`r3_*.sh`、`shitu_flow.py`、
+`dew.py`、`dew_solo.py`、`guji_crystal.py`、`fight_helper.py`、`portal_test.py`）。都已被 `line/` 和上面的模块取代，要看在 git 历史里。
