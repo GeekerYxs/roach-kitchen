@@ -23,3 +23,12 @@ sell_worn_white = false
 
 # 监狱接人时飞鞋冷却剩余超过这么多秒，就改走铁男付费入城（40,000），不干等。
 shoe_wait_max_seconds = 600
+
+# ---- 监督程序的恢复策略：可恢复的失败永不放弃 ----
+# 同一段连续失败（期间没有任何小号升级）时，每次重试前等待 0、base、2×base…，最多 cap 秒。
+retry_backoff_base_seconds = 30
+retry_backoff_cap_seconds = 600
+# 连续第 N、2N… 次失败时，先去更低一档的图练 1 级再回来（升级后连续计数清零）。
+fallback_after_failures = 3
+# 客户端读不到（掉线/网络）时最多等待多久恢复；超过才停止程序。
+offline_wait_seconds = 900

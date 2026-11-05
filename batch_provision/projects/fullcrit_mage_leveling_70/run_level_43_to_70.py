@@ -6,12 +6,11 @@ from level 43 on it runs exactly the old order 1100 -> 监狱 -> 陷阱囚牢 ->
 """
 import _bootstrap  # noqa: F401
 
-import trial_run as t
 import run_level_to_70
 
 if __name__ == "__main__":
     try:
         run_level_to_70.main()
-    except t.Stop as exc:
+    except run_level_to_70.GiveUp as exc:
         run_level_to_70.say(f"停止：{exc}")
         raise SystemExit(1)

@@ -40,6 +40,7 @@ class StopTest(unittest.TestCase):
 
     def test_death_by_text_or_state(self):
         self.assertEqual(P.classify_stop("{'元素使03': 1} 本段倒下 1 次，已停下"), 'death')
+        self.assertEqual(P.classify_stop("['元素使03'] 不在 曾经不曾 的队里了（掉线或死亡？）"), 'death')
         self.assertEqual(P.classify_stop("有人离开禁锢之地，停止巡逻：{'元素使01': 1}"), 'death')
         self.assertEqual(P.classify_stop('anything', maps_split=True), 'death')
         self.assertEqual(P.classify_stop('anything', party_incomplete=True), 'death')
@@ -49,28 +50,63 @@ class StopTest(unittest.TestCase):
         self.assertEqual(P.classify_stop('曾经不曾 在意外的地图 170'), 'stuck')
         self.assertEqual(P.classify_stop('巡逻到 (1000, 2900) 连续停滞 5 次'), 'stuck')
 
-    def test_needs_human(self):
-        self.assertIsNone(P.classify_stop('汉尼拔汽水未到账：请求 99'))
-        self.assertIsNone(P.classify_stop('元素使01 铁男入城选项不唯一'))
+    def test_offline(self):
+        self.assertEqual(P.classify_stop('元素使01 的窗口没找到'), 'offline')
+        self.assertEqual(P.classify_stop(f'元素使01 读不到等级（{P.OFFLINE}）'), 'offline')
+
+    def test_resource_is_the_only_give_up(self):
+        self.assertEqual(P.classify_stop('队长金币不足，不能给 元素使01 转 60000'), 'resource')
+        self.assertEqual(P.classify_stop('队长金币 100 不够买 1485 个劲爆汽水（约 141075）'), 'resource')
+        self.assertEqual(P.classify_stop('队长背包空格 2 不够放 1485 个劲爆汽水（需要 15 格）'), 'resource')
+
+    def test_unknown_is_still_recoverable(self):
+        self.assertEqual(P.classify_stop('汉尼拔汽水未到账：请求 99'), 'other')
+        self.assertEqual(P.classify_stop('元素使01 铁男入城选项不唯一'), 'other')
+        self.assertEqual(P.classify_stop('6s 内没等到: 惊魂监狱入口确认页'), 'other')
 
 
 class RetryTest(unittest.TestCase):
-    def test_limit_without_progress(self):
-        b = P.RetryBook(limit=3)
-        self.assertEqual([b.failed('x', 200) for _ in range(4)], [True, True, True, False])
+    def test_never_gives_up_and_backs_off(self):
+        b = P.RetryBook(base=30, cap=600, fallback_after=3)
+        acts = [b.failed('x', 200) for _ in range(20)]
+        self.assertEqual([a.wait for a in acts[:7]], [0, 30, 60, 120, 240, 480, 600])
+        self.assertTrue(all(a.wait == 600 for a in acts[6:]))
+        self.assertEqual(acts[-1].streak, 20)
 
-    def test_level_progress_restarts_the_count(self):
-        b = P.RetryBook(limit=3)
+    def test_fallback_every_third_failure_in_a_row(self):
+        b = P.RetryBook(fallback_after=3)
+        self.assertEqual([b.failed('x', 1).fallback for _ in range(7)],
+                         [False, False, True, False, False, True, False])
+
+    def test_level_progress_restarts_the_streak(self):
+        b = P.RetryBook()
         for _ in range(3):
-            self.assertTrue(b.failed('x', 240))
-        self.assertTrue(b.failed('x', 241))
-        self.assertEqual(b.count['x'], 1)
+            b.failed('x', 240)
+        a = b.failed('x', 241)
+        self.assertEqual((a.streak, a.wait, a.fallback), (1, 0, False))
 
     def test_success_clears(self):
-        b = P.RetryBook(limit=1)
+        b = P.RetryBook()
+        b.failed('x', 1)
         b.failed('x', 1)
         b.succeeded('x')
-        self.assertTrue(b.failed('x', 1))
+        self.assertEqual(b.failed('x', 1).streak, 1)
+
+    def test_recovery_backoff(self):
+        self.assertEqual([P.backoff(i) for i in (1, 2, 3, 6, 9)], [30, 60, 120, 600, 600])
+
+
+class FallbackTest(unittest.TestCase):
+    def name(self, i):
+        return P.LADDER[i][0] if i is not None else None
+
+    def test_one_tier_down_skipping_prison(self):
+        idx = {n: i for i, (n, _m, _u) in enumerate(P.LADDER)}
+        self.assertEqual(self.name(P.fallback_index(idx['禁锢之地'])), '陷阱囚牢')
+        self.assertEqual(self.name(P.fallback_index(idx['陷阱囚牢'])), '巨石之城东部遗址')
+        self.assertEqual(self.name(P.fallback_index(idx['惊魂监狱'])), '巨石之城东部遗址')
+        self.assertEqual(self.name(P.fallback_index(idx['轮回之城'])), '阴森古井')
+        self.assertIsNone(P.fallback_index(idx['阴森古井']))
 
 
 class YamTest(unittest.TestCase):

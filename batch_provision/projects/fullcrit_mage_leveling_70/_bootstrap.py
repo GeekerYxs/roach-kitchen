@@ -46,6 +46,10 @@ def env_from_team(cfg, environ=os.environ):
         "SHITU_REVIVE_CANDIDATE": str(revive),
         "SHITU_SELL_WORN_WHITE": "1" if cfg.get("sell_worn_white") else "0",
         "SHITU_SHOE_WAIT_MAX": str(cfg.get("shoe_wait_max_seconds", 600)),
+        "SHITU_RETRY_BACKOFF_BASE": str(cfg.get("retry_backoff_base_seconds", 30)),
+        "SHITU_RETRY_BACKOFF_CAP": str(cfg.get("retry_backoff_cap_seconds", 600)),
+        "SHITU_FALLBACK_AFTER": str(cfg.get("fallback_after_failures", 3)),
+        "SHITU_OFFLINE_WAIT": str(cfg.get("offline_wait_seconds", 900)),
     }
     for key, value in values.items():
         environ.setdefault(key, value)
