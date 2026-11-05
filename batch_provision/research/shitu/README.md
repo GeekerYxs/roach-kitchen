@@ -3,7 +3,7 @@
 更新：2026-11-05。
 
 - **怎么跑**：`python -X utf8 -m line`（在这个目录下），说明见 [docs/SHITU_LINE.md](../../../docs/SHITU_LINE.md)。
-- **路线**只看 `line/route.py`（`ROUTE` = v5、`ROUTE_BPLUS` = B+ 默认、`ROUTE_YUANSU` = 元素使）。
+- **路线**只看 `line/route.py`：`ROUTE_BPLUS` = 勇者（B+，唯一的勇者路线）、`ROUTE_YUANSU` = 元素使；两条都从内部底稿 `BASE`（原 v5，2026-11-05 起不能单独跑）改出来。
 - 这里的很多模块**别的产品线也在用**（满爆方士项目复用了大半），改之前先看 [docs/ARCHITECTURE.md](../../../docs/ARCHITECTURE.md) 第 3 节，
   `grep -rn <模块名> ../..` 查谁在用。
 - 所有脚本都在这个目录里运行：`python -X utf8 <脚本> ...`；`common.py` 会把 `batch_provision/` 加进 `sys.path`。

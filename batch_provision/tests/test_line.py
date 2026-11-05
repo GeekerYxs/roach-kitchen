@@ -81,7 +81,7 @@ SCRIPTS_OK = {'U', 'ops'}
 class Route(unittest.TestCase):
     def test_names_unique_and_old_from_names_kept(self):
         self.assertEqual(len(R.NAMES), len(set(R.NAMES)))
-        for old in ['start', 'bazhen', 'cave', 'q224', 'snake', 'tower1', 'end', 'packs', 'tower2', 'q181', 'quan',
+        for old in ['bazhen', 'cave', 'q224', 'snake', 'tower1', 'end', 'packs', 'tower2', 'q181', 'quan',
                     'wulong', 'tree', 'crystal', 'dew', 'pour', 'q183', 'corpse', 'king', 'fairy', 'chushi', 'finish']:
             self.assertIn(old, R.NAMES)
         stages = [s.stage for s in R.ROUTE]
@@ -364,11 +364,20 @@ class OwnAccountsAndLevels(unittest.TestCase):
         t = plan.Team('m', 0, 1)                                        # B+ is the default since 2026-10-30
         self.assertEqual([t.level(k) for k in plan.LEVELS], [12, 16, 23, 23, 28])
         self.assertEqual((t.route, t.tower2), ('bplus', 'auto'))       # 2026-10-31: per master, plan.tower2_auto
-        t = plan.Team('m', 0, 1, route='v5')
-        self.assertEqual([t.level(k) for k in plan.LEVELS], [15, 19, 23, 25, 28])
-        self.assertEqual(t.tower2, '40')
-        t = plan.Team('m', 0, 1, levels=(('cave', 27), ('lunhui', 12)), route='v5')
-        self.assertEqual((t.level('lunhui'), t.level('maze1'), t.level('cave')), (12, 19, 27))
+        t = plan.Team('m', 0, 1, levels=(('cave', 27), ('lunhui', 10)))
+        self.assertEqual((t.level('lunhui'), t.level('maze1'), t.level('cave')), (10, 16, 27))
+
+    def test_v5_route_is_gone(self):
+        """2026-11-05 (user): only B+ (勇者) and 元素使 run; route = "v5" in line.toml is refused."""
+        self.assertEqual(plan.ROUTE_NAMES, ('bplus',))
+        self.assertEqual(set(R.ROUTES), {'bplus'})
+        self.assertIs(R.ROUTE, R.ROUTE_BPLUS)
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / 'line.toml'
+            p.write_text('[team.x]\nmaster = "m"\naccounts = 37\nnames = "N"\nroute = "v5"\n', encoding='utf-8')
+            with self.assertRaises(ValueError) as e:
+                plan.load_teams(p)
+            self.assertIn('已删除', str(e.exception))
 
     def test_route_tokens_and_conditions(self):
         teams = {'g': plan.Team('m', 0, 1, 34, 41, 'Opus55B', (('bazhen', 23), ('cave', 27), ('lunhui', 12),
@@ -391,16 +400,6 @@ class OwnAccountsAndLevels(unittest.TestCase):
                        sleep=lambda s: None, say=lambda m: None)
             r.check(R.step('lunhui').unless, R.step('lunhui'))
             self.assertTrue(calls[-1].endswith('when lv_ge 12'))
-
-    def test_v5_teams_keep_their_levels(self):
-        b = plan.Batch('oa', 1)                                                 # route = "v5", no levels
-        maze = next(c for c in R.step('maze').cmds if c.args[0] == 'maze_train.py')     # after PP_COAST (2026-11-05)
-        self.assertEqual(R.expand(maze, b, python=())[0], ['maze_train.py', '19', '23', '--stay'])
-        self.assertEqual(R.fill(R.step('bazhen').unless, b), 'lv_ge 25')
-
-    def test_trial_teams_in_config(self):
-        plan.check_teams(['oa', 'ob', 'oc'])
-        self.assertEqual(plan.Batch('ob', 1).pairs[0], 'cap41:Opus55B1')
 
 
 class ParkRetry(unittest.TestCase):
@@ -613,7 +612,6 @@ class BPlus(unittest.TestCase):
         end = [c.args[0] for c in dict(zip(names, R.ROUTE_BPLUS))['end'].cmds]
         self.assertLess(end.index('trial_run.py'), end.index('trial3_run.py'))
         self.assertEqual(R.route_of(plan.Batch('a', 1)), R.ROUTE_BPLUS)    # default since 2026-10-30
-        self.assertEqual(R.route_of(plan.Batch('oa', 1)), R.ROUTE)         # the exp-map trial teams stay on v5
 
     def test_team_bp(self):
         t = plan.TEAMS['bp']
@@ -625,7 +623,7 @@ class BPlus(unittest.TestCase):
         tw = dict((s.name, s) for s in R.ROUTE_BPLUS)['tower2']
         self.assertEqual(R.fill(tw.unless, b), 'exp_ge 38+200000')
         self.assertEqual(R.expand(tw.cmds[-2], b, python=()), [['tower2_patrol.py', '38+200000']])
-        plan.check_teams(['bp', 'oa', 'ob', 'oc'])
+        plan.check_teams(['bp'])
 
     def test_bad_values_rejected(self):
         bad = ('accounts = ["x1", "x2"]\nnames = "N"', 'accounts = 37\nnames = "N"\nroute = "zz"',
@@ -647,14 +645,12 @@ class BPlus(unittest.TestCase):
     def test_take224_stays_at_boss_in_bplus(self):
         """2026-11-01 (user): B+ apprentices take 224 and stay at 大个王 (no 外城传送员 to 无尽2路口); v5 unchanged."""
         bp = dict((s.name, s) for s in R.ROUTE_BPLUS)
-        v5 = dict((s.name, s) for s in R.ROUTE)
         for name in ('q224', 'snake'):
             t224 = [c for c in bp[name].cmds if c.args[0] == 'take224.py']
             self.assertTrue(t224, name)
             for c in t224:
                 self.assertEqual(c.args, ('take224.py', '{A}', '--stay'), name)
                 self.assertTrue(c.par, name)                          # still all apprentices at once
-            self.assertFalse(any('--stay' in c.args for c in v5[name].cmds), name)
         self.assertEqual([c.when for c in bp['snake'].cmds if c.args[0] == 'take224.py'], ['master_on 20'])
 
     def test_team_tp_in_cave_and_snake(self):
@@ -675,18 +671,15 @@ class BPlus(unittest.TestCase):
             for c in s.cmds:
                 if c.args[0] == 'team_tp.py':
                     self.assertTrue(c.soft, s.name)
-        self.assertFalse(any(c.args[0] == 'team_tp.py' for s in R.ROUTE for c in s.cmds))
 
     def test_quan_scrolls_home_instead_of_walking_back(self):
         """2026-11-01 (user): after the 40 拳手, 回城卷 + PP鸡 to 龙之都 instead of back_longeer through 142; v5 walks."""
         bp = [c.args for c in dict((s.name, s) for s in R.ROUTE_BPLUS)['quan'].cmds]
-        v5 = [c.args for c in R.step('quan').cmds]
         self.assertNotIn(('back_longeer.py',), bp)
         i = bp.index(('quan100.py',))
         self.assertEqual(bp[i + 1:i + 4], [R.HOME.args, ('pp_chain.py', '龙之都', '平静海岸2区'),
                                            ('talk_chain.py', '20', '3174', '1251', '631', '战士的试炼', '{APPS}')])
         self.assertEqual(bp[-1], ('U', 'need', '181', '3'))
-        self.assertIn(('back_longeer.py',), v5)
 
     def test_take224_stay_skips_teleport(self):
         import take224
@@ -727,7 +720,6 @@ class BPlus(unittest.TestCase):
         for name, d in door.items():
             c = next(c for c in steps[name].cmds if c.args[0] == 'shoe_point.py')
             self.assertEqual(c.args[2:5], d, name)
-        self.assertFalse(any(c.args[0] == 'shoe_point.py' for s in R.ROUTE for c in s.cmds))
         b = plan.Batch('a', 1)
         fly = next(c for c in steps['king'].cmds if c.args[0] == 'shoe_point.py')
         self.assertEqual(R.expand(fly, b, python=())[0][:5], ['shoe_point.py', 'fly', '170', '3068', '192'])
@@ -791,7 +783,6 @@ class MasterBagAndGold(unittest.TestCase):
                 self.assertEqual(s.cmds[1], R.BAG_CHECK, s.name)
         self.assertEqual(args('tower2')[-1], ('ops', 'exp_note', 'tower2'))
         self.assertEqual(args('king')[-2], ('ops', 'exp_note', 'king'))
-        self.assertFalse(any(c.args[0] in ('master_bag.py', 'give_gold.py') for s in R.ROUTE for c in s.cmds))
 
     def test_bag_new_slots(self):
         import master_bag as B

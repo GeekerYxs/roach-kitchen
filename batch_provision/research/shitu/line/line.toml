@@ -1,4 +1,4 @@
-# 师徒产线 v5 总控（python -X utf8 -m line）的设置。说明见 line/__main__.py 文件头和 docs/SHITU_LINE.md 第 8 节。
+# 师徒产线总控（python -X utf8 -m line）的设置。说明见 docs/SHITU_LINE.md 第 3 节。
 teams = ["w1", "w2", "w3", "w4", "w5", "w6"]   # 这次跑哪几队（队名 = 下面 [team.<名>]）；2026-10-31 夜：6 个队长 × 2–3 批，mw01–24
                               # 2026-10-31 B+ 整批实测是 ["pa", "pb"]
                               # 2026-10-29 经验地图三队对照是 ["oa", "ob", "oc"]（EXP_MAP_TRIAL.md）
@@ -25,7 +25,7 @@ master_accounts = ["C:/Users/Y/Desktop/伏地魔队账号.txt", "C:/Users/Y/Desk
 # 八阵图 23（不回村，经验地图试验：24 级洞穴比八阵图快 52%）/ 洞穴 28，通天一 tower1 默认 35（师傅强弱不一，先统一到 35），
 # 通天二 tower2 默认 auto（2026-11-01 起：按这个师傅最近 3 批、同人数的后段收入 + 25000 余量算出塔点，plan.tower2_auto；
 # 没记录时 39+170000。神仙姐姐就职要 40，不够就 topup 回二区补；2026-10-30 bp 队写死 38+200000，补了 9 分钟）。
-# 要走老 v5 路线写 route = "v5"（levels 默认 lunhui 15 / maze1 19 / maze2 23 / bazhen 25 / cave 28，tower2 = 40）。
+# 老 v5 路线 2026-11-05 已删除（用户：只留最优的 B+）；写 route = "v5" 会报错。
 [team.a]
 master = "伏地魔1"
 slot = 0
@@ -64,32 +64,7 @@ gold = 50000
 d = ["亿万13"]                # 伏地魔4 名下：2026-10-28 181 第 4 步日记因背包满丢失，树 NPC 953 不再给对话框
 # w4 不再排除 亿万13：Gemini 10-30 的 t4（伏地魔4）两批都是 4 人出师，名额早空了（用户 2026-11-01 指出）
 
-# ---- 2026-10-29 经验地图三队对照（research/shitu/EXP_MAP_TRIAL.md）：新账号 cap37–48，角色名用模型名 Opus 5.5
-[team.oa]                     # 对照基准：满爆小法，走 v5 线路（当时强号默认通天一区到 33）
-master = "曾经不曾"
-accounts = 37
-names = "Opus55A"
-gold = 50000
-route = "v5"
-tower1 = 33
-
-[team.ob]                     # 同样的满爆小法，进图按 gemini 4 argon 的「大号带队最快区间」（docs/LEVELING_STAGE0.md 第 7 节）；
-master = "波大臀圆"            # 古井照旧练到 10 级（用户 2026-10-29），其余步骤不变
-accounts = 41
-names = "Opus55B"
-gold = 50000
-route = "v5"
-tower1 = 34                   # 通天一区 27–33，34 去二区
-levels = { lunhui = 12, maze1 = 16, maze2 = 23, bazhen = 23, cave = 28 }   # 轮回 10–11，迷城 12–15，八阵图 16–22，洞穴 23–27
-                              # gemini 是洞穴 23–26、27 进通天一区；但任务 224（洞穴后的地头蛇）28 级才能接，第 1 批 27 级接不到 -> 28
-
-[team.oc]                     # 第二对照：伏地魔1（伤害比满爆小法低），常规线路
-master = "伏地魔1"
-accounts = 45
-names = "Opus55C"
-gold = 50000
-tower1 = 35
-route = "v5"
+# ---- 2026-10-29 经验地图三队对照 oa / ob / oc（EXP_MAP_TRIAL.md）走 v5 路线，2026-11-05 随 v5 一起删掉
 
 # ---- 2026-10-30 B+ 线路整体实测（用户：伏地魔2，小号 gm2g01t01u01–04，只跑 1 批）：route.ROUTE_BPLUS
 # 轮回 10–12、迷城 12–16、八阵图 16–24 不回村、洞穴 24–28 + 采花 + 地头蛇、通天一 28–35、回村一次交考验一二三、
