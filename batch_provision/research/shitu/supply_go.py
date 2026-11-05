@@ -50,7 +50,9 @@ def trade(giver, taker, offer):
 
 def calm(*cs):
     """A trade sent while either side is in a battle is lost (round 2, 03:32: a well encounter hit at the first trade)."""
+    from lunhui15 import fight_out             # user 2026-11-05: a leader's pet casts 烈焰爆发 meanwhile
     for c in cs:
+        fight_out(c, 120, f'{c.name} 战斗结束')
         t.wait(lambda: not (s := c.world()).in_battle and not s.busy, 120, f'{c.name} 战斗结束')
     giver, taker = cs[0], cs[1]
     a, b = giver.world(), taker.world()

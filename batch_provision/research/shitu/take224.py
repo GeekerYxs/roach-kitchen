@@ -46,11 +46,14 @@ def walk(c, xy, why):
     if math.dist((st.x, st.y), xy) <= NEAR:
         return
     t.say(f'[{c.name}] 走去{why} {xy}（距离 {math.dist((st.x, st.y), xy):.0f}）')
+    from lunhui15 import BattleHand            # lazy: lunhui15 -> well10 -> ... -> take224
     end, last, last_t = time.monotonic() + 120, None, time.monotonic()
+    hand = BattleHand(c)                       # user 2026-11-05: the leader's pet casts 烈焰爆发 in every battle
     c.game.navigate(MAP, *xy)
     while time.monotonic() < end:
         st = c.world()
         if st.in_battle:
+            hand.tick()
             last_t = time.monotonic()
         elif math.dist((st.x, st.y), xy) <= NEAR and not st.moving:
             return

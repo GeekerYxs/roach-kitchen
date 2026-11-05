@@ -63,11 +63,12 @@ def _settle(c, t):
     """Out of any battle and standing still (the record takes the SERVER position, shoe_dagewang.py). In a team the
     battle is fought to its end: 2026-11-01 w3 fled one by one at the 遗址 entrance, the leader's flee left the
     apprentices fighting on their own, the team fell apart ~700 px back and 亿万L3 fought alone for minutes."""
+    from lunhui15 import fight_out
     from quanshou import flee
     if c.world().in_battle:
         if not c.team():
             flee(c)
-        t.wait(lambda: not c.world().in_battle, 120, f'{c.name} 战斗结束')
+        fight_out(c, 120, f'{c.name} 战斗结束')      # user 2026-11-05: a leader's pet casts 烈焰爆发 meanwhile
     t.wait(lambda: (s := c.world()) and not s.moving, 10, f'{c.name} 站稳')
 
 

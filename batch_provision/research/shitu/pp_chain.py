@@ -12,7 +12,7 @@ import sys
 import time
 
 import trial_run as t
-from lunhui15 import LEADER, MEMBERS
+from lunhui15 import LEADER, MEMBERS, BattleHand
 from provisioner import world as w
 from well10 import form_team
 
@@ -31,11 +31,14 @@ def walk(c, map_id, xy, why):
     t.say(f'[{c.name}] 走去{why} {xy}（距离 {math.dist((st.x, st.y), xy):.0f}）')
     c.game.navigate(map_id, *xy)
     last, last_t, end = None, time.monotonic(), time.monotonic() + 120
+    hand = BattleHand(c)                       # user 2026-11-05: the leader's pet casts 烈焰爆发 in every battle
     while time.monotonic() < end:
         s = c.world()
         if s.map_id == map_id and math.dist((s.x, s.y), xy) <= NEAR and not s.moving:
             return
         p = (round(s.x), round(s.y))
+        if s.in_battle:
+            hand.tick()
         if s.in_battle or p != last:
             last, last_t = p, time.monotonic()
         elif time.monotonic() - last_t > 5:

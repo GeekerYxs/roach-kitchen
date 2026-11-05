@@ -11,7 +11,7 @@ server answers 0x4019 with one option「采集遗忘之花」; SelectDialog(1) -
 0x46ff (count message) + 0x4020 (bag slot update), no cast bar. A picked flower answers「刚刚采过…过些时日」
 with only「离开」 until it regrows.
 Route: nearest flower not known to be regrowing, official path-finder Navigate(750, x, y); a battle on the way is
-left to the user's auto-skill, we only wait for in_battle to clear and walk on.
+fought with lunhui15.Caster (pet 烈焰爆发, recast while SP is left; SHITU_GATHER_CAST=0 = the user's auto-skill).
 No UI clicks: ClickNpc / SelectNpcDialogEntry / Navigate game functions (DLL command 106); reading = ReadProcessMemory.
 """
 import math
@@ -83,7 +83,9 @@ class Leader:
         self.game = Game(native.Session(self.pid, st['hwnd'], st['game_base']), self.mem)
         self.tap = Tap(self.pid, from_end=True)
         self.caster = None
-        if os.environ.get('SHITU_GATHER_CAST') == '1':
+        # user 2026-11-05: every battle the gatherer's pet casts 烈焰爆发 (ys3: under the game's auto-skill a fight
+        # took 75 s and the lv23 team was knocked home); SHITU_GATHER_CAST=0 leaves battles to the auto-skill again
+        if os.environ.get('SHITU_GATHER_CAST', '1') != '0':
             from lunhui15 import Caster
             self.caster = Caster(self)
 

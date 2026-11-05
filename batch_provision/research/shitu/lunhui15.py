@@ -117,6 +117,42 @@ class Caster:
         self.me, self.pet = Fight(), Fight()
 
 
+def leads(c):
+    """Alone, or the team's leader: this role's battle is its own to fight."""
+    team = c.team()
+    return not team or team[0] == c.char_id
+
+
+class BattleHand:
+    """For walk loops that used to wait out a battle under the game's auto-skill (user 2026-11-05: every battle
+    the leader's pet casts 烈焰爆发 at once and recasts while SP is left): call tick() every poll in a battle."""
+
+    def __init__(self, c):
+        self.c, self.caster = c, None
+
+    def tick(self, now=None):
+        if self.caster is None:
+            if not leads(self.c):
+                return
+            self.caster = Caster(self.c)
+        self.caster.tick(time.monotonic() if now is None else now)
+
+    def done(self):
+        if self.caster:
+            self.caster.reset()
+
+
+def fight_out(c, timeout=120, why=None):
+    """Until c is out of its battle; the leader (or a solo role) fights it with Caster, a member only waits."""
+    hand, end = BattleHand(c), time.monotonic() + timeout
+    while c.world().in_battle:
+        if time.monotonic() > end:
+            raise t.Stop(f'{why or c.name + " 战斗结束"} 超时 {timeout}s')
+        hand.tick()
+        time.sleep(0.15)
+    hand.done()
+
+
 class Route:
     def __init__(self):
         self.last_nav, self.progress_xy, self.progress_at = -1e9, None, 0.0

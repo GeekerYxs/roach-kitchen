@@ -74,6 +74,7 @@
 | | 解散前等全队站稳、打完这场 | `teamwalk.settle`、`teamwalk.fight_out` | 师徒 |
 | | 全员离队、全员回队 | `teamwalk.leave_all`、`teamwalk.regroup_all` | 师徒 |
 | **战斗** | 队长放技能 + 宠物技能 | `lunhui15.Caster` | 师徒、满爆方士 |
+| **战斗** | 走路途中遇到战斗：队长（或单人）用 Caster 打完，宠物开场就放烈焰爆发、有蓄力点立刻再放；队员只等 | `lunhui15.fight_out` / `lunhui15.BattleHand` | 师徒（采花、走去大个王、PP鸡链、飞鞋记点、补给交易） |
 | | 只逃跑 | `teamwalk.Escaper`、`quanshou.flee` | 师徒、满爆方士 |
 | | 复活道具 | `revive.py` | 师徒、满爆方士 |
 | | boss 开打题 | `boss_quiz.py`（答题器优先） | 师徒 |
