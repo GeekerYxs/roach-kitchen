@@ -42,7 +42,10 @@ def home():
         t.wait(lambda: not c.team(), 5, f'{c.name} 离队')
         if c.world().map_id != 1:
             scroll(c)
-    t.each(cs, one)
+    # the apprentices first, all at once, the master last (user 2026-11-05): one without a 回城卷 borrows from the
+    # master, who may have to come and fetch it (quanshou.fetch) — not possible once the master is home
+    t.each(cs[1:], one)
+    one(cs[0])
     # user 2026-11-05: at home the apprentices drop the 葫芦 / 特赦令 / 整人道具 and (勇者 line) sell their weapons
     import trash
     try:
