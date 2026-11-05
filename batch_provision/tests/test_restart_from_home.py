@@ -46,9 +46,19 @@ WALKERS = {'lunhui15.py', 'maze_train.py', 'go_goal.py', 'go_cave.py', 'desert_g
            'take224.py', 'team_tp.py', 'bird.py', 'fire.py', 'buy_gear.py'}
 # scripts that start from 逍遥村 by themselves (checked 2026-11-05): well10 (village -> 夕阳草原 -> 古井), supply_go
 # (scrolls whoever is not on 1 / 81, PP鸡 to 81), tower1_go / tower2_go (pp_chain unless at the tower), guji_entrance
-# (legs from map 1), the PP rides themselves, the trips home, bai_shi (糊涂博士 in the village)
+# (legs from map 1), the PP rides themselves, the trips home, bai_shi (糊涂博士 in the village); 元素使 (checked
+# 2026-11-05): shuidi (scrolls apprentices not on 1 / 130 home, legs 1 -> 130), rooms (tower1_go unless the master is
+# in the tower rooms already). fifth.py walks nowhere: it needs 3号房 and runs right after rooms.py in y_fifth.
 STARTERS = {'well10.py', 'supply_go.py', 'tower1_go.py', 'tower2_go.py', 'guji_entrance.py', 'pp_chain.py',
-            'bai_shi.py', 'pp_unlock.py'}
+            'bai_shi.py', 'pp_unlock.py', 'shuidi.py', 'rooms.py'}
+
+
+class YuansuRooms(unittest.TestCase):
+    def test_fifth_comes_right_after_rooms(self):
+        s = next(x for x in R.ROUTE_YUANSU if x.name == 'y_fifth')
+        a = [c.args[0] for c in s.cmds]
+        self.assertEqual(a.index('fifth.py'), a.index('rooms.py') + 1)
+        self.assertEqual(s.retry, 'home')            # a failure reruns from 逍遥村 through rooms.py again
 
 
 class EveryStep(unittest.TestCase):
