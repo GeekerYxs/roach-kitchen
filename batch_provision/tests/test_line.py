@@ -379,7 +379,8 @@ class OwnAccountsAndLevels(unittest.TestCase):
 
     def test_v5_teams_keep_their_levels(self):
         b = plan.Batch('oa', 1)                                                 # route = "v5", no levels
-        self.assertEqual(R.expand(R.step('maze').cmds[0], b, python=())[0], ['maze_train.py', '19', '23'])
+        maze = next(c for c in R.step('maze').cmds if c.args[0] == 'maze_train.py')     # after PP_COAST (2026-11-05)
+        self.assertEqual(R.expand(maze, b, python=())[0], ['maze_train.py', '19', '23'])
         self.assertEqual(R.fill(R.step('bazhen').unless, b), 'lv_ge 25')
 
     def test_trial_teams_in_config(self):

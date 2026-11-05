@@ -33,7 +33,11 @@ STAGES = (
                81: ('walk', 82, (1724, 2489)),           # across the 81 -> 82 link to the 暗影迷城 entrance
                82: ('click', 10160, (1724, 2489))}),     # 暗影迷城 entrance
     dict(name='八阵图', maze=700, until=23, patrol_b=(1200, 1800),       # B from the user; 25 -> 23 (user 01:24)
-         legs={600: ('click', 10159, (672, 756)),        # 暗影迷城 exit -> 平静海岸3区
+         # 555 / 81: a start already past 暗影迷城's level but not from inside 600 (2026-11-05 live: 欧皇 team at 20,
+         # relogged home; 「在意外的地图 1」 every retry -> stuck). Map 1 itself: the route's PP_COAST before maze_train.
+         legs={555: ('click', 10157, (2880, 360)),       # 轮回之城 exit -> 平静海岸2区
+               81: ('walk', 82, (1724, 2489)),           # across the 81 -> 82 link (then 82 below)
+               600: ('click', 10159, (672, 756)),        # 暗影迷城 exit -> 平静海岸3区
                82: ('walk', 140, (831, 2257)),           # across the 82 -> 140 link to the 八阵图 entrance
                140: ('click', 10164, (831, 2257))}),     # 八阵图 entrance (无尽平原1区)
     # goal stage: walk to a spot and stop there (no level target)

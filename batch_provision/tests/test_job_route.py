@@ -13,7 +13,9 @@ from line import ops  # noqa: E402
 
 # repr() fingerprints of the 勇者 routes as committed in 189b3d0 (after the no-DOUBLE-before-fairy/chushi change).
 # A change to the 勇者 line itself must update these on purpose; adding the 元素使 line must not.
-BRAVE_FINGERPRINTS = {'v5': '861cacc4f3d1b3a5', 'bplus': '0f3cddebbd86c460'}
+# Updated on purpose 2026-11-05: PR #20 (勇者 apprentices own no weapon: sell_tradable --weapons, wear_best
+# --no-weapon) and PP_COAST before lunhui / maze (a team scrolled home got 「在意外的地图 1」 for ever).
+BRAVE_FINGERPRINTS = {'v5': '4e4afa55d34d890d', 'bplus': '1b3d2b6ea3b7717e'}
 
 
 def fp(route):
