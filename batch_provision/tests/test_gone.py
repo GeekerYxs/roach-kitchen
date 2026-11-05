@@ -3,6 +3,7 @@ fails the leveling loop at once instead of the line's 15-minute silent-log watch
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace as NS
 
 HERE = Path(__file__).resolve().parent.parent / 'research' / 'shitu'
 sys.path.insert(0, str(HERE))
@@ -31,6 +32,21 @@ class Gone(unittest.TestCase):
         with self.assertRaises(t.Stop) as e:
             self.run_ticks([{'a': 1, 'b': None}] * 40)
         self.assertIn("['b']", str(e.exception))
+
+    def test_unanswered_quiz_fails_after_the_limit(self):
+        """2026-11-05: a quiz popup nobody answers (启动答题器 not running) fails the loop instead of the watchdog."""
+        q, ok = NS(verification=True), NS(verification=False)
+        clock = [0.0]
+        g = t.Gone(clock=lambda: clock[0], quiz_after=90)
+        for _ in range(80):                      # answered within the limit: nothing
+            self.assertFalse(g.tick({'a': q}))
+            clock[0] += 1
+        self.assertFalse(g.tick({'a': ok}))
+        with self.assertRaises(t.Stop) as e:
+            for _ in range(100):
+                g.tick({'a': ok, 'b': q})
+                clock[0] += 1
+        self.assertIn('答题器', str(e.exception))
 
     def test_loops_use_it(self):
         for f in ('well10.py', 'lunhui15.py', 'maze_train.py'):

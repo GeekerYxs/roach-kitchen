@@ -59,7 +59,8 @@
 |---|---|---|---|
 | **连接窗口** | 找窗口、读内存、发命令（`Client`）；等待；日志 `say` | `research/shitu/trial_run.py`、`common.py`、`provisioner/` | 全部 |
 | | 几个号同时做各自的事 `each` | `trial_run.each`、`teamwalk.each` | 师徒 |
-| | 掉线检测（30 秒读不到人物就报错） | `trial_run.Gone` | 师徒、满爆方士 |
+| | 掉线检测（30 秒读不到人物就报错）、答题弹窗 90 秒没人答就报错 | `trial_run.Gone` | 师徒、满爆方士 |
+| | 关掉开着的对话框（回城 / 离队前） | `r4_util.close_dialogs` | 师徒、满爆方士 |
 | | 登录 / 建角 / 进角色 / 新手出村 | `provisioner/`、`research/shitu/make_apprentices.py`、`master_login.py` | 料理、师徒 |
 | **移动** | 坐 PP鸡（按目的地找路线） | `pp_chain.py` | 师徒、满爆方士 |
 | | 城里走到某点 | `pp_chain.walk`、`zhuanzhi_finish.walk` | 师徒 |
