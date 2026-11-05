@@ -26,6 +26,49 @@ DEADLINE = 600                       # s for the whole sequence of one role
 FLOOR_WAIT, FLOOR_RETRY = 360, 20
 
 
+class MasterFights:
+    """Background thread for scripts where an apprentice leads and only talks to NPCs (fifth.py: the 第五元素守护兽
+    battles, user 2026-11-05 screenshot: the master never acted, the round timer's auto-attack did): every master
+    in a battle fights it with Caster, leader or member.
+
+        with MasterFights():
+            ...
+    """
+
+    def __init__(self, names=MASTERS):
+        import threading
+        self.names, self.stop = tuple(names), threading.Event()
+        self.thread = threading.Thread(target=self.run, daemon=True)
+
+    def run(self):
+        hands = {}
+        while not self.stop.is_set():
+            for n in self.names:
+                try:
+                    c = hands.get(n) or hands.setdefault(n, t.Client(n))
+                    if c.world().in_battle:
+                        if not hasattr(c, 'caster'):
+                            from lunhui15 import Caster
+                            c.caster = Caster(c)
+                        c.caster.tick(time.monotonic())
+                    elif hasattr(c, 'caster'):
+                        c.caster.reset()
+                except Exception as e:                 # never take the main script down; log once per kind
+                    if getattr(self, 'last_err', None) != repr(e):
+                        self.last_err = repr(e)
+                        t.say(f'[{n}] 师傅出手线程出错: {e!r}')
+            self.stop.wait(0.15)
+
+    def __enter__(self):
+        self.thread.start()
+        return self
+
+    def __exit__(self, *exc):
+        self.stop.set()
+        self.thread.join(2)
+        return False
+
+
 def click_any(c, npcs, wait=2.0):
     """Click each NPC id in turn; -> (npc, dialog) of the first that answers, or None."""
     for npc in npcs:
@@ -97,9 +140,11 @@ def one(name):
 
 if __name__ == '__main__':
     try:
-        for name in sys.argv[1:] or list(APPRENTICES):     # one after another: the floor serves one role, and only
-            one(name)                                      # the leader talks (2nd run: in parallel they took the lead
-                                                           # from each other, 元素使05 lost it with its vessel up)
+        with MasterFights():
+            for name in sys.argv[1:] or list(APPRENTICES):     # one after another: the floor serves one role, and
+                one(name)                                      # only the leader talks (2nd run: in parallel they took
+                                                               # the lead from each other, 元素使05 lost it with its
+                                                               # vessel up)
     except t.Stop as e:
         t.say(f'停止: {e}')
         raise SystemExit(1)
