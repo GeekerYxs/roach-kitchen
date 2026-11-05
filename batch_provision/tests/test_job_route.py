@@ -34,6 +34,17 @@ class BraveUntouched(unittest.TestCase):
         self.assertEqual(ops.FAIRY['183'], ['勇者的考验', '继续', '继续', '完成转职礼', '接受奖励'])
 
 
+class Tower2Exit(unittest.TestCase):
+    def test_mage_teams_leave_erqu_at_39_180000_brave_teams_unchanged(self):
+        from line import plan
+        mage = plan.Team('m', 0, 10000, job='术士', names='x', accounts=1)
+        self.assertEqual(mage.tower2, plan.TOWER2_YUANSU)
+        self.assertEqual(plan.TOWER2_YUANSU, '39+180000')
+        self.assertEqual(plan.Team('m', 0, 10000).tower2, 'auto')
+        self.assertEqual(plan.Team('m', 0, 10000, route='v5').tower2, '40')
+        self.assertEqual(plan.Team('m', 0, 10000, job='术士', tower2='39+50000').tower2, '39+50000')
+
+
 class Yuansu(unittest.TestCase):
     def setUp(self):
         self.route = R.route_of(NS(route='bplus', job='术士'))

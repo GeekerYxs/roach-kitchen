@@ -38,6 +38,11 @@ TOWER1 = 35                      # user 2026-10-30: masters differ in strength, 
 # bp's 19.2万 left a 2% margin) -> 'auto' (user: test, record, optimize): ops exp_note writes the exp where 二区 was
 # left and after 蝎子王 (logs/tower2_exp.csv); tower2_auto takes this master's smallest earning of its last batches
 TOWER2 = {'bplus': 'auto', 'v5': '40'}
+# 元素使 (job 术士) leaves 二区 at 39 + 180000: round 2 (2026-11-03 ys2, 元素使06-08) earned 539,450 after 二区 (battles
+# 265,805 + 187 27,491 + 189 46,154 + 出师 200,000); 39+0 -> 41 is 671,221, so 131,771 is the least, ~48k kept as margin
+# (two to three 二区 minutes). User 2026-11-05: an 元素使 should be 41 after 出师 (it goes on to 70 and leads teams).
+# 'auto' fits the 勇者 line only (it measures 二区 -> 蝎子王), so it is not the 术士 default.
+TOWER2_YUANSU = '39+180000'
 TOWER2_FIRST = '39+170000'       # no history for the master yet: ~26% margin on bp's earning
 TOWER2_MARGIN = 25000            # exp kept over the smallest earning seen (one 二区 minute is 2.2-3.9万); user 2026-11-02 (was 40000)
                                  # w1: the same master earned 23.4万 then 19.6万 (25000 left it 1万 short -> topup)
@@ -69,7 +74,7 @@ class Team:
 
     def __post_init__(self):
         if not self.tower2:
-            object.__setattr__(self, 'tower2', TOWER2[self.route])
+            object.__setattr__(self, 'tower2', TOWER2_YUANSU if self.job == '术士' else TOWER2[self.route])
 
     @property
     def first_account(self):
@@ -151,8 +156,8 @@ def load_teams(path=CONFIG):
         route = v.get('route', 'bplus')
         if route not in ROUTE_NAMES:
             raise ValueError(f'line.toml [team.{k}] route = {route!r}：只有 {ROUTE_NAMES}')
-        tower2 = str(v.get('tower2', TOWER2[route]))
-        if tower2 != 'auto' and not re.fullmatch(r'\d+(\+\d+)?', tower2):
+        tower2 = str(v.get('tower2', ''))      # '' = the default: the route's TOWER2, or TOWER2_YUANSU for job 术士
+        if tower2 and tower2 != 'auto' and not re.fullmatch(r'\d+(\+\d+)?', tower2):
             raise ValueError(f'line.toml [team.{k}] tower2 = {tower2!r}：写 40、38+200000 或 auto')
         t = Team(v['master'], int(v.get('slot', 0)), int(v.get('gold', GOLD)), int(v.get('tower1', TOWER1)),
                  0 if listed else int(acc), v.get('names', ''), tuple(sorted((a, int(b)) for a, b in levels.items())),
