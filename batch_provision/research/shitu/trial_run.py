@@ -82,6 +82,30 @@ class Client:
         return st.dialog if st else None
 
 
+GONE_AFTER = 30.0     # s a role may read as out of the world (map change ~1-3 s) before a loop calls it dropped
+
+
+class Gone:
+    """For the leveling loops that skip a tick while some role reads no world state: tick(states) -> the names
+    unread for GONE_AFTER s in a row raise Stop (user 2026-11-05: a dropped client sat at the login screen and the
+    loop waited silently until the line's 15-minute silent-log watchdog; now the step fails and the rerun's window
+    check relogs it). -> True while someone is unread (skip this tick)."""
+    def __init__(self, after=None, clock=time.monotonic):
+        self.after, self.clock, self.since = GONE_AFTER if after is None else after, clock, None
+
+    def tick(self, states):
+        gone = [n for n, s in states.items() if s is None]
+        if not gone:
+            self.since = None
+            return False
+        now = self.clock()
+        if self.since is None:
+            self.since = now
+        elif now - self.since > self.after:
+            raise Stop(f'{gone} {self.after:.0f} 秒读不到人物（掉线？），交给产线重登后重跑')
+        return True
+
+
 def wait(cond, timeout, what):
     end = time.monotonic() + timeout
     while time.monotonic() < end:

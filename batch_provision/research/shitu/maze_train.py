@@ -238,10 +238,11 @@ def main():
     t.say(f'当前段: {STAGES[stage_i]["name"]}' + (f'（刷到 {STAGES[stage_i]["until"]} 级）' if STAGES[stage_i]['until'] else ''))
     battles, stage_battles, in_battle, last_levels, t0 = 0, 0, False, None, time.monotonic()
     fallen, falls = set(), {}
+    gone = t.Gone()                      # a dropped client: fail after 30 s, not the 15-min watchdog (2026-11-05)
     while True:
         now = time.monotonic()
         sts = {n: c.world() for n, c in cs.items()}
-        if any(s is None for s in sts.values()):
+        if gone.tick(sts):
             time.sleep(TICK)
             continue
         for n in APPRENTICES:

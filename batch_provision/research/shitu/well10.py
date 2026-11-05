@@ -225,10 +225,11 @@ def main(target):
     talents, eaters = {n: Talent() for n in APPRENTICES}, {n: Eater(cs[n]) for n in APPRENTICES}
     unarms = {n: Unarm(cs[n]) for n in APPRENTICES}
     battles, in_battle, last_reason, last_levels = 0, False, None, None
+    gone = t.Gone()                      # a dropped client: fail after 30 s, not the 15-min watchdog (2026-11-05)
     while True:
         now = time.monotonic()
         sts = {n: c.world() for n, c in cs.items()}
-        if any(s is None for s in sts.values()):
+        if gone.tick(sts):
             time.sleep(TICK)
             continue
         missing = [n for n, c in cs.items() if c.char_id not in lead.team()]
