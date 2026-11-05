@@ -58,6 +58,9 @@ def tc(*args):                       # talk_chain MAP X Y NPC WORD for every app
 
 
 PP_HOME = C('pp_chain.py', '龙之都', '平静海岸2区', when='master_on 1')    # a restart scrolled home first
+# lunhui15 / maze_train only know the way from 平静海岸2区 (81) on: a team the recovery scrolled home (2026-11-05 live,
+# 欧皇 team: 「在意外的地图 1」 on every retry, relog + home, again -> 停摆) first rides the PP鸡 to 81
+PP_COAST = C('pp_chain.py', '平静海岸2区', when='master_on 1')
 HOME, DOUBLE = C('U', 'home'), C('U', 'double')
 
 ROUTE = (
@@ -81,8 +84,8 @@ ROUTE = (
     Step('double3h', 'early', (C('double_exp.py', '{A}'),), retry='leave'),     # user: 3 小时 right after 转职
     # the master talks too: 飞天 / 舔尊 (2026-10-28 batch 3) never ran this line, their PP鸡 permission is unknown
     Step('pp', 'early', (C('supply_go.py'), C('pp_unlock.py', '{M}', '{APPS}')), retry='leave'),
-    Step('lunhui', 'early', (C('lunhui15.py', '{LV:lunhui}'),), retry='leave', unless='lv_ge {LV:lunhui}'),
-    Step('maze', 'early', (C('maze_train.py', '{LV:maze1}', '{LV:maze2}'),), retry='leave'),
+    Step('lunhui', 'early', (PP_COAST, C('lunhui15.py', '{LV:lunhui}')), retry='leave', unless='lv_ge {LV:lunhui}'),
+    Step('maze', 'early', (PP_COAST, C('maze_train.py', '{LV:maze1}', '{LV:maze2}')), retry='leave'),
 
     # ---- mid: 考验一二 -> 八阵图 25 -> 遗忘洞穴 25->28 (+采集) -> 224 -> 地头蛇 -> 通天一 28->33 -> 考验三 -> 二区 ->40
     Step('start', 'mid', (HOME, C('sell_tradable.py', '--safe', '{APPS}'),
