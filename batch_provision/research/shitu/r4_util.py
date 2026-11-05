@@ -364,7 +364,7 @@ def need(qid, n):
         if not q.done and len(q.steps) < n:
             short[name] = q.steps
     if short:
-        _short_file().write_text(' '.join(short), encoding='utf-8')   # r4_line.py may leave these out
+        _short_file().write_text(' '.join(short), encoding='utf-8')   # the line's runner may leave these out
         raise t.Stop(f'任务 {qid} 没到第 {n} 步: {short}')
     t.say(f'任务 {qid} 全员已到第 {n} 步')
 

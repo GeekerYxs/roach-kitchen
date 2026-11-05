@@ -1,3 +1,19 @@
+# batch_provision — 所有产品线的代码
+
+这个目录里有几条产品线，共用一套游戏能力，整体结构见 [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md)：
+
+| 目录 | 是什么 |
+|---|---|
+| `provisioner/`、`native/` | 游戏接口：登录、建角、进游戏、读内存、发命令（DLL 命令 106 调游戏函数） |
+| `factory/` | 小强料理产品线（总大脑、工位、补给、卖东西、物品分类 `items.py`） |
+| `research/shitu/` | 师徒产品线（勇者 / 元素使），`line/` 是总控；也放着目前大部分共用能力（见它的 README） |
+| `projects/fullcrit_mage_leveling_70/` | 满爆方士带到 70 级 |
+| `research/qiyi/`、`research/jingu/` | 七一领工资、金鼓刷怪等小实验 |
+| `battlelog/`、`expwatch/` | 战斗记录、经验监测 |
+| `tests/` | 单元测试（不连游戏；Linux 上的跑法见仓库根目录 `AGENTS.md`） |
+
+下面是最早的工具：批量登录、建角、进游戏、新手出村，和料理产线各工序。
+
 # 批量登录 + 建角
 
 **本机配置**：游戏路径、本机小号号段、全部密码只写在 `local.toml`（不上传 GitHub，模板 `local.example.toml`），

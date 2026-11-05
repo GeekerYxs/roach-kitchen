@@ -17,18 +17,24 @@ from line.runner import Result, Runner  # noqa: E402
 
 
 class Plan(unittest.TestCase):
-    def r4_env(self, team, batch, skip=''):
-        out = subprocess.run(['bash', '-c', f'BATCH={batch} SKIP="{skip}"; . ./r4_env.sh {team}; '
-                              'echo "$SHITU_APPRENTICES|$PAIRS|$LOGID|$SHITU_MASTERS|$SHITU_GOLD|$SHITU_STATE"'],
-                             cwd=SHITU, capture_output=True, text=True, encoding='utf-8').stdout.strip()
-        return out.split('|')
-
-    def test_agrees_with_r4_env(self):
-        for team, batch, skip in [('a', 1, []), ('b', 2, []), ('d', 3, ['亿万13', '亿万48']), ('c', 4, ['亿万58'])]:
-            e = plan.Batch(team, batch, skip).env()
-            self.assertEqual(self.r4_env(team, batch, ' '.join(skip)),
-                             [e['SHITU_APPRENTICES'], e['PAIRS'], e['LOGID'], e['SHITU_MASTERS'], e['SHITU_GOLD'],
-                              e['SHITU_STATE']], (team, batch, skip))
+    def test_batch_names_accounts_logids(self):
+        """The naming rules once checked against round 4's r4_env.sh (deleted 2026-11-05 with the r4_* stack):
+        batch N, slot k = 亿万(16(N-1)+4k+1..+4) on cap(21+4k+i); LOGID r4<team>[_b<N>]; the skipped left out."""
+        want = {
+            ('a', 1, ()): ['亿万1,亿万2,亿万3,亿万4', 'cap21:亿万1 cap22:亿万2 cap23:亿万3 cap24:亿万4', 'r4a', '伏地魔1',
+                           'state_r4a.json'],
+            ('b', 2, ()): ['亿万21,亿万22,亿万23,亿万24', 'cap25:亿万21 cap26:亿万22 cap27:亿万23 cap28:亿万24', 'r4b_b2',
+                           '伏地魔2', 'state_r4b_b2.json'],
+            ('d', 3, ('亿万13', '亿万48')): ['亿万45,亿万46,亿万47', 'cap33:亿万45 cap34:亿万46 cap35:亿万47', 'r4d_b3',
+                                           '伏地魔4', 'state_r4d_b3.json'],
+            ('c', 4, ('亿万58',)): ['亿万57,亿万59,亿万60', 'cap29:亿万57 cap31:亿万59 cap32:亿万60', 'r4c_b4', '伏地魔3',
+                                   'state_r4c_b4.json'],
+        }
+        with unittest.mock.patch.object(plan, 'aliases', lambda: {}):
+            for (team, batch, skip), v in want.items():
+                e = plan.Batch(team, batch, list(skip)).env()
+                self.assertEqual([e['SHITU_APPRENTICES'], e['PAIRS'], e['LOGID'], e['SHITU_MASTERS'],
+                                  e['SHITU_STATE']], v, (team, batch, skip))
 
     def test_teams_from_config(self):
         self.assertEqual(plan.TEAMS['fei'].master, '飞天把你射成蜂窝')
