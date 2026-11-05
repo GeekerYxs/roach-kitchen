@@ -120,9 +120,18 @@ class Route(unittest.TestCase):
 
     def test_quest_item_steps_free_bag_slots_first(self):
         """A full bag loses quest items silently (round 4): space before dew / king / corpse / tree pick-ups."""
-        for name in ('tree', 'dew', 'corpse', 'king', 'crystal', 'pour'):
+        for name in ('tree', 'dew', 'corpse', 'king', 'crystal', 'pour', 'q183'):     # q183: 2026-11-05
             cmds = R.step(name).cmds
             self.assertEqual(cmds[0].args[:2], ('U', 'space'), name)
+
+    def test_supply_and_gear_free_bag_slots_first(self):
+        """2026-11-05: the 古井 loot stays in the bags until the master's 回城卷 trade / the 转职 rewards; 元素使
+        buy_gear checks every piece in the bag right after packs filled it."""
+        for route in (R.ROUTE, R.ROUTE_BPLUS, R.ROUTE_YUANSU):
+            z = [c.args for c in next(s for s in route if s.name == 'zhuanzhi').cmds]
+            self.assertLess(z.index(('U', 'space', '3')), z.index(('U', 'supply')))
+        g = [c.args for c in next(s for s in R.ROUTE_YUANSU if s.name == 'gear').cmds]
+        self.assertLess(g.index(('U', 'space', '6')), g.index(('buy_gear.py', '{APPS}')))
 
     def test_relogs_accept_any_map_new_roles_do_not(self):
         """2026-10-29 亿万60 relogged fine in map 1000 but make_apprentices called it a failure (only 逍遥村 = ok)."""
