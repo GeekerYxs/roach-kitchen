@@ -135,7 +135,7 @@ class Runner:
     def run_step(self, step):
         """One attempt. -> 0 ok, else the exit code of the failing Cmd."""
         for cmd in step.cmds:
-            if not self.b.apprentices and ('{APPS}' in cmd.args or cmd.par):
+            if not self.b.apprentices and ('{APPS}' in cmd.args or '{PAIRS}' in cmd.args or cmd.par):
                 continue
             if cmd.when and not self.check(cmd.when, step):
                 continue
