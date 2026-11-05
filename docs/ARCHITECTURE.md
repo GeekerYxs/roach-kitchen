@@ -17,7 +17,7 @@
 
 | 工具 | 做什么 | 在哪 |
 |---|---|---|
-| 答题器 | 战斗题 + boss 开打题，顺带解锁游戏自带辅助工具；**自动发现并注入每个新开的游戏窗口** | `大冒险2_自动答题器_原生无感关窗版/` |
+| 答题器 | 普通战斗题 + boss 开打题，解锁游戏自带辅助工具的战斗辅助、自动采集、自动任务三页；**自动发现并注入每个新开的游戏窗口**。一台电脑开一个，所有产线共用；**每条产线启动时 `provisioner.quizbot.ensure()` 检查，没开才启动**（启动会先关掉已有的，所以不能多开） | `大冒险2_自动答题器_原生无感关窗版/`，启动逻辑 `batch_provision/provisioner/quizbot.py` |
 | 战斗记录 | 每场战斗一行进 SQLite，报表 | `batch_provision/battlelog/`，[BATTLELOG.md](BATTLELOG.md) |
 | 经验监测 | 每场经验、各级速度 | `batch_provision/expwatch/` |
 
@@ -61,6 +61,7 @@
 | | 几个号同时做各自的事 `each` | `trial_run.each`、`teamwalk.each` | 师徒 |
 | | 掉线检测（30 秒读不到人物就报错）、答题弹窗 90 秒没人答就报错 | `trial_run.Gone` | 师徒、满爆方士 |
 | | 关掉开着的对话框（回城 / 离队前） | `r4_util.close_dialogs` | 师徒、满爆方士 |
+| | 确保答题器在运行（没开就启动，加锁防两条线同时启动） | `provisioner/quizbot.py` | 全部（料理总大脑、师徒总控、满爆方士、抓宠） |
 | | 登录 / 建角 / 进角色 / 新手出村 | `provisioner/`、`research/shitu/make_apprentices.py`、`master_login.py` | 料理、师徒 |
 | **移动** | 坐 PP鸡（按目的地找路线） | `pp_chain.py` | 师徒、满爆方士 |
 | | 城里走到某点 | `pp_chain.walk`、`zhuanzhi_finish.walk` | 师徒 |

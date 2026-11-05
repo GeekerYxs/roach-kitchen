@@ -1341,6 +1341,8 @@ def main():
     except Exception as e:
         logger.error('配置错误 (%s): %s', cfg, e)
         return 2
+    from provisioner import quizbot          # user 2026-11-05: every line makes sure 启动答题器 runs (one per PC)
+    quizbot.ensure(say=logger.warning)
     sup = Supervisor(s, logger)
     sup.guarded = os.environ.get(outage.GUARD_ENV) == '1'
     login_mod.RESULT_HOOK = sup.login_log.add
