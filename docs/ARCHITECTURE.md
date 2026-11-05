@@ -155,5 +155,5 @@ batch_provision/
 | 各张图练级多快 | [LEVELING_STAGE0.md](LEVELING_STAGE0.md)、`research/shitu/EXP_MAP_TRIAL.md` |
 | 战斗记录 | [BATTLELOG.md](BATTLELOG.md) |
 | 宠物连续施法、方士天之箭 | [PET_MAGIC_CONTINUOUS_CASTING_AND_TIANZHIJIAN.md](PET_MAGIC_CONTINUOUS_CASTING_AND_TIANZHIJIAN.md) |
-| 客户端 2.101 更新要核对什么 | [GAME_UPDATE_2101.md](GAME_UPDATE_2101.md) |
+| **游戏更新以后做什么**（地址、封包、实测；地址档案） | [GAME_UPDATE.md](GAME_UPDATE.md)；2.101 那次的逐项核对 [GAME_UPDATE_2101.md](GAME_UPDATE_2101.md) |
 | 历次实跑记录（只做参考，不是操作手册） | `research/shitu/ROUND*_NOTES.md`、`BPLUS_NOTES.md`、`YUANSU_NOTES.md`、`notes/` |
