@@ -127,6 +127,10 @@ class Team(threading.Thread):
         # line.toml [team.<t>] skip = { "1" = [...] }: names left out of that batch only (2026-11-01 w4: batch 1 had
         # started with 3 under a stale 亿万13 exclusion; the line restarted, batch 2 takes 4 again)
         extra = self.cfg.get('team', {}).get(self.team, {}).get('skip', {}).get(str(batch), [])
+        # written under the planned name, the role may have been renamed since (亿万J12 -> 亿万JX12, name_alias.json);
+        # the batch's names are the renamed ones (plan.batch_names), so the skip must be too (user 2026-11-05)
+        al = plan.aliases()
+        extra = [al.get(n, n) for n in extra]
         skip = list(dict.fromkeys(plan.plan_skip(self.team, batch, self.data['stuck']) + list(extra)))
         b = plan.Batch(self.team, batch, skip)
         c = self.cfg
@@ -166,6 +170,15 @@ class Team(threading.Thread):
             self.data.update(batch=batch, parked=False, reason='')
             self.save()
             r = self.runner(batch)
+            if not r.b.apprentices:
+                # every name of the batch skipped (line.toml skip / stuck ones): nothing to make. Before, make ran
+                # with no pairs (make_apprentices fell back to its DEFAULT mvp01-03 十万 roles) and the next step
+                # parked the team on 「没有徒弟了」 (user 2026-11-05: a skipped batch must not stop the line)
+                say(f'[{self.team}] 第 {batch} 批全部跳过 {r.b.skip}，直接下一批')
+                self.data['done'].append(batch)
+                self.data['batch'] = None
+                self.save()
+                continue
             say(f'[{self.team}] 第 {batch} 批开始: {r.b.apprentices}（跳过 {r.b.skip}）')
             res = r.run()
             self.data['stuck'] = list(dict.fromkeys(self.data['stuck'] + list(res.excluded)))

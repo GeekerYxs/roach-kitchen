@@ -453,6 +453,65 @@ class SkipOneBatch(unittest.TestCase):
             self.assertEqual(t.data['stuck'], [])
 
 
+class SkippedBatches(unittest.TestCase):
+    """user 2026-11-05: a batch with every name skipped is passed over (it made the DEFAULT mvp 十万 roles and parked
+    on 「没有徒弟了」); a skip written under the planned name also hits the renamed role (name_alias.json)."""
+    def setUp(self):
+        import line.__main__ as M
+        self.M = M
+        self.teams = dict(plan.TEAMS, a=plan.Team('m', 0, 1))
+
+    def test_whole_batch_skipped_goes_on(self):
+        M, ran = self.M, []
+
+        class FakeRunner:
+            def __init__(self, b, **kw):
+                self.b = b
+
+            def run(self):
+                ran.append(self.b.batch)
+                return M.Result(True, 'done')
+        four = ['亿万1', '亿万2', '亿万3', '亿万4']
+        cfg = dict(M.load_config(), teams=['a'], batches=[1, 2], team={'a': {'skip': {'1': four}}})
+        patch = unittest.mock.patch.object
+        with patch(M, 'load_state', lambda: {}), patch(M, 'save_team', lambda *a: None), \
+                patch(M, 'quizbot_running', lambda: True), patch(plan, 'TEAMS', self.teams), \
+                patch(plan, 'aliases', lambda: {}):
+            t = M.Team('a', cfg, runner=FakeRunner)
+            t.line()
+        self.assertEqual(ran, [2])                       # batch 1 never ran, batch 2 did
+        self.assertEqual(sorted(t.data['done']), [1, 2])
+        self.assertFalse(t.data['parked'])
+
+    def test_skip_by_planned_name_hits_the_renamed_role(self):
+        M = self.M
+
+        class FakeRunner:
+            def __init__(self, b, **kw):
+                self.b = b
+        cfg = dict(M.load_config(), teams=['a'], batches=[1], team={'a': {'skip': {'1': ['亿万4']}}})
+        patch = unittest.mock.patch.object
+        with patch(M, 'load_state', lambda: {}), patch(plan, 'TEAMS', self.teams), \
+                patch(plan, 'aliases', lambda: {'亿万4': '亿万X4'}):
+            b = M.Team('a', cfg, runner=FakeRunner).runner(1).b
+            self.assertEqual(b.apprentices, ['亿万1', '亿万2', '亿万3'])
+            self.assertIn('亿万X4', b.skip)
+
+    def test_make_step_not_run_without_apprentices(self):
+        from line.runner import Runner
+        b = plan.Batch('a', 1, [])
+        with unittest.mock.patch.object(plan, 'TEAMS', self.teams), \
+                unittest.mock.patch.object(plan.Batch, 'apprentices', property(lambda s: [])):
+            r = Runner.__new__(Runner)
+            r.b, got = b, []
+            r.execute = lambda argvs, env: got.append(argvs) or 0
+            r.env = lambda step: {}
+            r.argv = lambda cmd: [list(cmd.args)]
+            make = next(s for s in R.ROUTE_BPLUS if s.name == 'make')
+            self.assertEqual(r.run_step(make), 0)
+        self.assertEqual(got, [])
+
+
 class ReloadBatches(unittest.TestCase):
     def test_batches_added_while_running_are_picked_up(self):
         import line.__main__ as M
