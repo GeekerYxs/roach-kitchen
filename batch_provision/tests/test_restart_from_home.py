@@ -118,3 +118,24 @@ class InPlaceRerun(unittest.TestCase):
         self.assertTrue(any(s.get('goal') for s in maze_train.STAGES))      # the walk --stay leaves out
         src = Path(maze_train.__file__).read_text(encoding='utf-8')
         self.assertIn("STAGES = tuple(s for s in STAGES if s.get('goal') is None)", src)
+
+
+class GujiFromVillage(unittest.TestCase):
+    """2026-11-05 (a local copy, not this repo): a 「map 1 -> PP鸡 平静海岸2区」 added inside maze_train sent the
+    crystal step's team (guji_entrance borrows maze_train's loop) to 81 -> 「在意外的地图 81」. The ride to the coast
+    belongs to the route (PP_COAST before lunhui / maze only); maze_train itself never rides a PP鸡."""
+    def test_maze_train_rides_no_pp(self):
+        import maze_train
+        src = Path(maze_train.__file__).read_text(encoding='utf-8')
+        self.assertNotIn('pp_chain', src)
+
+    def test_guji_walks_from_the_village(self):
+        src = (Path(__file__).resolve().parent.parent / 'research' / 'shitu' / 'guji_entrance.py').read_text(
+            encoding='utf-8')
+        self.assertIn("legs={1: ('walk', 130, (301, 323))", src)
+        for route in (R.ROUTE, R.ROUTE_BPLUS):
+            for s in route:
+                a = [c.args for c in s.cmds]
+                if ('guji_entrance.py',) in a:
+                    before = a[:a.index(('guji_entrance.py',))]
+                    self.assertNotIn(('pp_chain.py', '平静海岸2区'), before, s.name)
