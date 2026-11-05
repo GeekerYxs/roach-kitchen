@@ -107,6 +107,22 @@ def create(session, account, name, lg):
     raise Stop('15s 内没收到建角回包 0x4003（结果不确定，重跑会先看选角列表）')
 
 
+def slot_problem(names, name, batch):
+    """Why this batch must not create / enter `name` on an account whose roster is `names` (None = fine). Batch N
+    takes role slot N, but only as an upper bound (user 2026-11-05: mw04's batch 2 was skipped, 亿万J8 refused as
+    a 敏感词, so batch 3 found 1 role where the exact check wanted 2 and the team parked; a relog of the batch-3 role,
+    now in slot 2, failed the same way). Fewer roles = an earlier batch skipped: fine. More = a role we do not know
+    about: refused, as before. batch 0 = no batch (a manual run)."""
+    if not batch:
+        return None
+    if name in names:
+        slot = names.index(name) + 1
+        return None if slot <= batch else f'{name} 在第 {slot} 槽，比本批（第 {batch} 批）的槽还靠后'
+    if len(names) > batch - 1:
+        return f'本批是第 {batch} 批，账号里已有 {len(names)} 个角色 {names}（多于前面 {batch - 1} 批）；不建角'
+    return None
+
+
 def one(settings, throttle, account, name, anywhere=False):
     lg = log.for_account(account.name)
     out = {'account': account.name, 'name': name, 'ok': False}
@@ -116,11 +132,9 @@ def one(settings, throttle, account, name, anywhere=False):
         session = login(settings, account, ROOT / 'runtime', throttle, lg)
         _, roster = read_session(session, account.name, lg)
         names = [n for _, _, n in roster]
-        if name in names and target_slot and names.index(name) + 1 != target_slot:
-            raise Stop(f'{name} 已在第 {names.index(name) + 1} 槽，不是本批指定的第 {target_slot} 槽')
+        if (why := slot_problem(names, name, target_slot)):
+            raise Stop(why)
         if name not in names:
-            if target_slot and len(roster) != target_slot - 1:
-                raise Stop(f'本批要求第 {target_slot} 槽，但账号当前有 {len(roster)} 个角色 {names}；不建角')
             if len(roster) >= MAX_SLOTS:
                 raise Stop(f'账号里已有 {len(roster)} 个角色 {names}，没有空槽，不建')
             name = out['name'] = create_named(session, account, name, lg)
@@ -131,8 +145,8 @@ def one(settings, throttle, account, name, anywhere=False):
         if names.count(name) != 1:
             raise Stop(f'{name} 不在选角列表里（或重名）: {names}')
         slot = names.index(name) + 1                   # the list as read decides the slot (2026-10-27 03:2x round)
-        if target_slot and slot != target_slot:
-            raise Stop(f'{name} 在第 {slot} 槽，不是本批指定的第 {target_slot} 槽')
+        if (why := slot_problem(names, name, target_slot)):
+            raise Stop(why)
         char_id, level, _ = roster[slot - 1]
         lg.info('进入第 %d 槽 %s (ID=%d, %d级)', slot, name, char_id, level)
         enter_role(session, slot, settings.enter_timeout, lg, account.name)
