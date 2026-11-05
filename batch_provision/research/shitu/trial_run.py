@@ -82,6 +82,41 @@ class Client:
         return st.dialog if st else None
 
 
+GONE_AFTER = 30.0     # s a role may read as out of the world (map change ~1-3 s) before a loop calls it dropped
+QUIZ_AFTER = 90.0     # s a quiz popup may stay unanswered (the quiz bot answers in 1-2 s) before a loop gives up
+
+
+class Gone:
+    """For the leveling loops that skip a tick while some role reads no world state: tick(states) -> the names
+    unread for GONE_AFTER s in a row raise Stop (user 2026-11-05: a dropped client sat at the login screen and the
+    loop waited silently until the line's 15-minute silent-log watchdog; now the step fails and the rerun's window
+    check relogs it). -> True while someone is unread (skip this tick)."""
+    def __init__(self, after=None, clock=time.monotonic, quiz_after=None):
+        self.after, self.clock, self.since = GONE_AFTER if after is None else after, clock, None
+        self.quiz_after, self.quiz_since = QUIZ_AFTER if quiz_after is None else quiz_after, None
+
+    def tick(self, states):
+        gone = [n for n, s in states.items() if s is None]
+        if not gone:
+            self.since = None
+            # user 2026-11-05: a quiz popup nobody answers (启动答题器 not running) held the loops silently until the
+            # 15-minute watchdog, and the rerun met the same popup; now the step fails saying why
+            quiz = [n for n, s in states.items() if getattr(s, 'verification', False)]
+            if not quiz:
+                self.quiz_since = None
+            elif self.quiz_since is None:
+                self.quiz_since = self.clock()
+            elif self.clock() - self.quiz_since > self.quiz_after:
+                raise Stop(f'{quiz} 答题弹窗 {self.quiz_after:.0f} 秒没人答（启动答题器 没开？）')
+            return False
+        now = self.clock()
+        if self.since is None:
+            self.since = now
+        elif now - self.since > self.after:
+            raise Stop(f'{gone} {self.after:.0f} 秒读不到人物（掉线？），交给产线重登后重跑')
+        return True
+
+
 def wait(cond, timeout, what):
     end = time.monotonic() + timeout
     while time.monotonic() < end:

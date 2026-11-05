@@ -16,7 +16,7 @@ import time
 
 import revive
 import trial_run as t
-from factory.welltrain import Fight, Talent, decide_battle, decide_talent
+from factory.welltrain import Decision, Fight, Talent, decide_battle, decide_talent
 from provisioner import world as w
 from provisioner.game import FIGHT_ATTACK
 from well10 import form_team
@@ -34,18 +34,33 @@ COAST, MAZE = 81, 555
 ENTRANCE, ENTRANCE_NPC = (1635, 3041), 10158
 PATROL = ((2754, 291), (2550, 616))     # user 2026-10-27: the landing point <-> (2550,616); the 路标 NPCs are behind
                                         # walls the path-finder cannot cross from the landing area (live 00:52-00:54)
-SKILL, PET_MAGIC, PET_MP_MIN = 803, 1504, 100
+SKILL, SCHOLAR_SKILL, PET_MAGIC, PET_MP_MIN = 803, 354, 1504, 100
+PET_SP_RETRY = 0.6       # same positive SP after a cast can mean 完美施法 did not spend it; retry promptly
 NEAR, ARRIVE = 80, 40
 STALL, NAV_RETRY, CLICK_WAIT = 6.0, 2.0, 8.0
 TICK = 0.15
 
 
 class Caster:
-    """One 70: player 扫射 + pet 烈焰爆发 on the first live enemy whenever SP changes (welltrain.decide_battle)."""
+    """Choose a learned player attack (hunter 扫射 / scholar 天之箭) and pet 烈焰爆发."""
 
     def __init__(self, c):
         self.c = c
-        self.skill = w.read_skill_level(c.mem, SKILL) or 0
+        requested = int(os.environ.get('SHITU_PLAYER_SKILL', '0') or 0) if c.name == LEADER else 0
+        candidates = (requested,) if requested else (SKILL, SCHOLAR_SKILL)
+        self.skill_id, self.skill = 0, 0
+        for skill_id in candidates:
+            level = w.read_skill_level(c.mem, skill_id) or 0
+            if level:
+                self.skill_id, self.skill = skill_id, level
+                break
+        self.strict_skill = bool(requested)
+        if requested and not self.skill:
+            # The user confirmed 354 天之箭 is this 方士's cycle skill, but this build's learned-skill
+            # reader does not expose its level. Try the requested skill at a conservative configured level;
+            # if it is rejected, stop instead of silently substituting a normal attack.
+            self.skill_id = requested
+            self.skill = int(os.environ.get('SHITU_PLAYER_SKILL_LEVEL', '1') or 1)
         pet = w.read_fighting_pet(c.mem)
         self.pet_level = pet.abilities.get(PET_MAGIC, 0) if pet else 0
         self.me, self.pet = Fight(), Fight()
@@ -53,7 +68,10 @@ class Caster:
         self.reviver = None
         if c.name in MASTERS and revive.ITEM:          # 2026-11-02 元素使 team: revive downed apprentices
             self.reviver = revive.Reviver(c, APPRENTICES)
-        t.say(f'[{c.name}] 扫射 lv{self.skill}，宠物烈焰爆发 lv{self.pet_level}' + (f'，魔力 {pet.mp}' if pet else '，没有出战宠物'))
+        skill_name = {SKILL: '扫射', SCHOLAR_SKILL: '天之箭'}.get(self.skill_id, '无人物技能')
+        level_note = '（技能等级内存未读到，按配置级别尝试）' if requested and not w.read_skill_level(c.mem, requested) else ''
+        t.say(f'[{c.name}] {skill_name} lv{self.skill}{level_note}，宠物烈焰爆发 lv{self.pet_level}' +
+              (f'，魔力 {pet.mp}' if pet else '，没有出战宠物'))
 
     def tick(self, now):
         battle = w.read_battle(self.c.mem)
@@ -62,13 +80,33 @@ class Caster:
         pet = w.read_fighting_pet(self.c.mem)
         pet_ok = bool(self.pet_level) and pet is not None and pet.mp >= PET_MP_MIN
         for who, d in decide_battle(battle, self.me, self.pet, now, bool(self.skill), pet_ok):
+            if who == 'pet':
+                if not battle.pet or battle.pet.sp <= 0:
+                    continue
+                if d.kind == 'none' and pet_ok and battle.enemies and now - self.pet.sent_at >= PET_SP_RETRY:
+                    d = Decision('cast', '宠物仍有蓄力点，立即重放烈焰爆发', battle.enemies[0])
+                    t.say(f'[{self.c.name}] 宠物蓄力点仍为 {battle.pet.sp}，重放烈焰爆发')
+                # This leveling team is configured for magic-only pet damage. The generic
+                # well-train policy can eventually return `attack` after repeated skill
+                # acknowledgements fail; never turn that fallback into a normal pet attack.
+                if d.kind == 'attack' and os.environ.get('SHITU_PET_MAGIC_ONLY') == '1':
+                    if pet_ok and battle.enemies and now - self.pet.sent_at >= PET_SP_RETRY:
+                        d = Decision('cast', '禁止宠物普攻；有蓄力点时重试烈焰爆发', battle.enemies[0])
+                        t.say(f'[{self.c.name}] 拦截宠物普攻，重试烈焰爆发（SP={battle.pet.sp}）')
+                    else:
+                        continue
+            if who == 'me' and self.strict_skill and d.kind == 'attack':
+                raise t.Stop(f'{self.c.name} 指定技能 {self.skill_id} 多次未响应，停止，不退回普攻')
             if d.kind == 'none':
                 continue
             is_pet = who == 'pet'
             if d.kind == 'cast' and is_pet:
                 self.c.game.cast_pet_magic(d.arg, PET_MAGIC, self.pet_level)
             elif d.kind == 'cast':
-                self.c.game.cast_skill(d.arg, SKILL, self.skill)
+                if self.skill_id == SCHOLAR_SKILL:
+                    self.c.game.cast_magic_skill_captured(d.arg, self.skill_id, self.skill)
+                else:
+                    self.c.game.cast_skill(d.arg, self.skill_id, self.skill)
             else:
                 self.c.game.fight_command(FIGHT_ATTACK, is_pet=is_pet, target=d.arg)
             self.casts += 1
@@ -160,12 +198,16 @@ def main(target):
     talents = {n: Talent() for n in APPRENTICES}
     route = Route()
     battles, in_battle, last_levels, t0 = 0, False, None, time.monotonic()
+    gone = t.Gone()                      # a dropped client: fail after 30 s, not the 15-min watchdog (2026-11-05)
+    import trash
+    trasher = trash.Trasher([cs[n] for n in APPRENTICES if n in cs])     # 葫芦 / 特赦令 / 整人道具 every 20 min
     while True:
         now = time.monotonic()
         sts = {n: c.world() for n, c in cs.items()}
-        if any(s is None for s in sts.values()):
+        if gone.tick(sts):
             time.sleep(TICK)
             continue
+        trasher.tick(sts, now)
         missing = [n for n, c in cs.items() if c.char_id not in lead.team()]
         if missing:
             raise t.Stop(f'{missing} 不在 {LEADER} 的队里了（掉线或死亡？）')

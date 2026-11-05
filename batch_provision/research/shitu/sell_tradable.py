@@ -19,23 +19,28 @@ one request (up to 20 slots per 0x55, factory.supply.SELL_BATCH) instead of tryi
 Evidence (02:55 十万1): of 35 slots, all 13 tradable ones sold and all 22 不可交易 ones (the (御) gift items,
 新手洗点卡, 神秘的金属) were refused, so the ItemLib trade flag (factory/data/items.csv) is the rule.
 """
+import os
 import sys
 
 import trial_run as t
-from common import APPRENTICES
+from common import APPRENTICES, MASTERS
 from factory.items import EQUIP_TYPES, load_items
 from factory.supply import PETSHOP, ShopClient
 from provisioner import log, world as w
 from zhuanzhi_finish import walk
 
-WEAPON_SLOT = 2
+WEAPON_SLOT, WEAPON = 2, 0x103          # 0x103 = 武器 (factory/items.py TYPE_NAMES; 0x113 宠物武器 is not one)
+WEAPONS = False                         # --weapons (勇者 apprentices, user 2026-11-04): every weapon off and sold
 
 
 def unequip_weapon(c, nm):
     for e in w.read_equipment(c.mem) or ():
         if e.slot == WEAPON_SLOT:
             used = {s.slot for s in w.read_bag(c.mem)}
-            free = next(i for i in range(w.read_bag_capacity(c.mem)) if i not in used)
+            free = next((i for i in range(w.read_bag_capacity(c.mem)) if i not in used), None)
+            if free is None:
+                t.say(f'[{c.name}] 背包没有空格，武器 {nm(e.item_id)} 先不脱')
+                return
             c.game.unequip(WEAPON_SLOT, free)
             t.wait(lambda: not any(x.slot == WEAPON_SLOT for x in w.read_equipment(c.mem)), 5, f'{c.name} 脱下武器')
             t.say(f'[{c.name}] 脱下 {nm(e.item_id)} -> 背包第 {free} 格')
@@ -61,6 +66,12 @@ def wanted(it, mode):
         return any(k in it.name for k in NAMES)
     if mode == 'noorange':
         return it.type == ZAWU or (it.type in EQUIP_TYPES and it.quality < 4)
+    if mode == 'junk-stones-white':
+        # Apprentice cleanup: include all skill stones and weapon/armor recipes as well as the three
+        # named gourd consumables. The user explicitly asked these to be cleared before entering 1150.
+        return (it.type in (ZAWU, RELIC, STONE, RECIPE) or
+                (it.type in EQUIP_TYPES and it.quality == 1) or
+                '图纸' in it.name or '配方' in it.name or '葫芦' in it.name)
     if mode == 'stones':
         # 配方 by TYPE: their names look like gear (学识之头罩, 猛袭之软甲 ...), so the name test missed them (18:2x)
         return it.type in (ZAWU, RELIC, STONE, RECIPE) or '图纸' in it.name or '配方' in it.name
@@ -80,11 +91,24 @@ def main(names, mode='all'):
 
 def one(n, mode, items, nm):
     c = t.Client(n)
-    if mode in ('all', 'tidy'):
+    # --weapons: the 勇者 line's apprentices own no weapon (user 2026-11-04: 「小号的武器都卖掉，别动大号！」)
+    weapons = WEAPONS and n not in MASTERS
+    if WEAPONS and n in MASTERS:
+        t.say(f'[{n}] 是大号（师傅），武器不脱、不卖')
+    if mode in ('all', 'tidy') or weapons:
         unequip_weapon(c, nm)
+    elif mode == 'junk-stones-white' and os.environ.get('SHITU_SELL_WORN_WHITE', '1') == '1':
+        # fullcrit_mage_leveling_70 turns this off by default (team.toml sell_worn_white): taking the worn white
+        # gear off low-level apprentices made them fight the next map without armour.
+        unequip_quality(c, 1, items, nm)
     walk(c, 1, (1338, 1155), '宠物商人小美')
     bag = w.read_bag(c.mem)
-    sell = [s for s in bag if s.item_id in items and items[s.item_id].tradable and wanted(items[s.item_id], mode)]
+    sell = [s for s in bag if s.item_id in items and items[s.item_id].tradable
+            and (wanted(items[s.item_id], mode) or (weapons and items[s.item_id].type == WEAPON))]
+    if weapons:
+        stuck = [nm(s.item_id) for s in bag if (it := items.get(s.item_id)) and it.type == WEAPON and not it.tradable]
+        if stuck:
+            t.say(f'[{n}] 不可交易的武器卖不掉: {stuck}')
     keep = [nm(s.item_id) for s in bag if s not in sell]
     gold = w.read_gold(c.mem)
     t.say(f'[{n}] 模式 {mode}：卖 {len(sell)} 格: {[nm(s.item_id) for s in sell]}；留 {len(keep)} 格: {keep}')
@@ -96,8 +120,29 @@ def one(n, mode, items, nm):
           (f'；可交易但没卖掉: {left}' if left else ''))
 
 
+def unequip_quality(c, quality, items, nm):
+    """Take off worn gear of the requested quality so it can be sold with the bag items."""
+    for e in w.read_equipment(c.mem) or ():
+        it = items.get(e.item_id)
+        if not it or it.type not in EQUIP_TYPES or it.quality != quality:
+            continue
+        bag = w.read_bag(c.mem)
+        used = {s.slot for s in bag}
+        free = next((i for i in range(w.read_bag_capacity(c.mem)) if i not in used), None)
+        if free is None:
+            raise t.Stop(f'{c.name} 背包无空格，不能安全脱下白装 {nm(e.item_id)}')
+        c.game.unequip(e.slot, free)
+        t.wait(lambda: not any(x.slot == e.slot for x in (w.read_equipment(c.mem) or ())),
+               5, f'{c.name} 脱下白装 {nm(e.item_id)}')
+        t.say(f'[{c.name}] 脱下白装 {nm(e.item_id)} -> 背包第 {free} 格')
+
+
 if __name__ == '__main__':
-    flags = {'--junk': 'junk', '--safe': 'safe', '--tidy': 'tidy', '--zawu': 'zawu', '--stones': 'stones', '--noorange': 'noorange'}
+    if '--weapons' in sys.argv:
+        WEAPONS = True
+        sys.argv.remove('--weapons')
+    flags = {'--junk': 'junk', '--safe': 'safe', '--tidy': 'tidy', '--zawu': 'zawu', '--stones': 'stones',
+             '--noorange': 'noorange', '--junk-stones-white': 'junk-stones-white'}
     argv = sys.argv[1:]
     if '--name' in argv:
         i = argv.index('--name')

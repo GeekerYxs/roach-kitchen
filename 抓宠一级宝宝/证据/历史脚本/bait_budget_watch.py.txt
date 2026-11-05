@@ -1,0 +1,52 @@
+# 历史研究快照：路径和进程标识已脱敏，不可直接运行。
+import json
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+sys.path.insert(0, r'<WORKSPACE>\worktrees\auto_task_unlock\batch_provision')
+from expwatch.__main__ import module_base
+from provisioner.memory import ProcessMemory
+from provisioner.world import read_bag, read_world
+
+PID = <PROCESS_OR_CHARACTER_ID>
+CHAR = <PROCESS_OR_CHARACTER_ID>
+MAP = 81
+ITEM_ID = 8703
+BASELINE = 66
+TARGET = 50
+ROOT = Path(__file__).resolve().parent
+STOP = ROOT / 'patrol_capture_stop.flag'
+LOG = ROOT / 'bait_budget_watch.log'
+
+
+def log(f, event, **fields):
+    row = {'time': datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(timespec='seconds'),
+           'event': event, **fields}
+    f.write(json.dumps(row, ensure_ascii=False) + '\n')
+    f.flush()
+
+
+base = module_base(PID)
+with ProcessMemory(PID, base) as mem, LOG.open('a', encoding='utf-8', buffering=1) as f:
+    log(f, 'watch_started', baseline=BASELINE, target=TARGET, item_id=ITEM_ID)
+    last_quantity = None
+    while True:
+        world = read_world(mem)
+        if not world or world.char_id != CHAR or world.map_id != MAP:
+            log(f, 'guard_stop', reason='process/character/map changed')
+            break
+        bait = next((x for x in (read_bag(mem) or ()) if x.item_id == ITEM_ID), None)
+        quantity = bait.quantity if bait else 0
+        if quantity != last_quantity:
+            log(f, 'quantity', quantity=quantity, consumed=BASELINE - quantity,
+                item_slot=(bait.slot if bait else None), in_battle=world.in_battle)
+            last_quantity = quantity
+        if quantity <= TARGET:
+            STOP.touch(exist_ok=True)
+            log(f, 'budget_reached', baseline=BASELINE, final_quantity=quantity,
+                consumed=BASELINE - quantity, stop_flag=str(STOP))
+            break
+        time.sleep(0.1)

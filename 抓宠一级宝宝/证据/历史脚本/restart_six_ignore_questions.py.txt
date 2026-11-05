@@ -1,0 +1,32 @@
+# 历史研究快照：路径和进程标识已脱敏，不可直接运行。
+import sys,time,subprocess,ctypes
+from pathlib import Path
+sys.path.insert(0,r'<WORKSPACE>\worktrees\auto_task_unlock\batch_provision')
+from expwatch.__main__ import module_base
+from provisioner.memory import ProcessMemory
+from provisioner.world import read_world
+root=Path(__file__).resolve().parent
+roles=[('伏地魔2',<PROCESS_OR_CHARACTER_ID>,198176),('伏地魔3',<PROCESS_OR_CHARACTER_ID>,194536),('伏地魔4',<PROCESS_OR_CHARACTER_ID>,198012),('伏地魔',<PROCESS_OR_CHARACTER_ID>,197764),('欧皇',<PROCESS_OR_CHARACTER_ID>,192032)]
+k=ctypes.WinDLL('kernel32',use_last_error=True)
+k.OpenProcess.argtypes=[ctypes.c_ulong,ctypes.c_int,ctypes.c_ulong];k.OpenProcess.restype=ctypes.c_void_p
+k.WaitForSingleObject.argtypes=[ctypes.c_void_p,ctypes.c_ulong];k.CloseHandle.argtypes=[ctypes.c_void_p]
+for role,gamepid,oldpid in roles:
+ stop=root/('six_tiger_'+role+'.stop'); deadline=time.monotonic()+50
+ with ProcessMemory(gamepid,module_base(gamepid)) as mem:
+  while time.monotonic()<deadline:
+   w=read_world(mem)
+   if w and not w.in_battle:break
+   time.sleep(.15)
+  else:
+   print(role,'not restarted: battle did not end',flush=True);continue
+  stop.touch()
+  h=k.OpenProcess(0x100000,False,oldpid)
+  if h:
+   result=k.WaitForSingleObject(h,5000);k.CloseHandle(h)
+   if result!=0:
+    print(role,'not restarted: old controller still active',flush=True);continue
+  stop.unlink(missing_ok=True)
+  out=(root/('six_'+role+'.stdout')).open('ab');err=(root/('six_'+role+'.stderr')).open('ab')
+  p=subprocess.Popen([sys.executable,'-X','utf8',str(root/'tiger_six_runner.py'),role],stdout=out,stderr=err,creationflags=0x08000000)
+  out.close();err.close();time.sleep(.7)
+  print(role,'new controller',p.pid,'alive',p.poll() is None,flush=True)

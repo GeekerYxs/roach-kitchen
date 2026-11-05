@@ -1,0 +1,465 @@
+{
+  "created_at": "2026-11-05T01:20:23+08:00",
+  "note": "冻结快照；采样执行期间不同文件的截止时间可能不同",
+  "datasets": {
+    "six_tiger": {
+      "battles": 20776,
+      "enemies": 51388,
+      "level1_targets": 4,
+      "possible_captures": 4,
+      "roles": [
+        {
+          "file": "six_tiger_伏地魔.jsonl.gz",
+          "battles": 3435,
+          "enemies": 8517,
+          "targets": [],
+          "possible_captures": [],
+          "last_event": {
+            "time": "2026-11-05T01:19:39+08:00",
+            "event": "battle_end",
+            "battle": 464,
+            "target": null,
+            "attempts": 0,
+            "escape_sent": true,
+            "bait": [
+              [
+                8713,
+                53,
+                50
+              ]
+            ],
+            "pet_items": [],
+            "elapsed_seconds": 3.18
+          }
+        },
+        {
+          "file": "six_tiger_伏地魔1.jsonl.gz",
+          "battles": 3484,
+          "enemies": 8623,
+          "targets": [
+            {
+              "time": "2026-11-04T14:42:16+08:00",
+              "slot": 2,
+              "type": 1,
+              "name": "魔力布老虎",
+              "level": 1,
+              "hp": 20,
+              "hp_max": 20,
+              "dead": false
+            }
+          ],
+          "possible_captures": [
+            {
+              "run": 3,
+              "battle": 725,
+              "slot": 2,
+              "attempts": 3,
+              "before": 50,
+              "after": 47,
+              "pet_items": [
+                [
+                  28,
+                  1
+                ]
+              ],
+              "time": "2026-11-04T14:42:19+08:00"
+            }
+          ],
+          "last_event": {
+            "time": "2026-11-05T01:19:38+08:00",
+            "event": "battle_end",
+            "battle": 462,
+            "target": null,
+            "attempts": 0,
+            "escape_sent": true,
+            "bait": [
+              [
+                8713,
+                23,
+                47
+              ]
+            ],
+            "pet_items": [],
+            "elapsed_seconds": 3.19
+          }
+        },
+        {
+          "file": "six_tiger_伏地魔2.jsonl.gz",
+          "battles": 3507,
+          "enemies": 8665,
+          "targets": [
+            {
+              "time": "2026-11-05T01:06:00+08:00",
+              "slot": 2,
+              "type": 1,
+              "name": "魔力布老虎",
+              "level": 1,
+              "hp": 20,
+              "hp_max": 20,
+              "dead": false
+            }
+          ],
+          "possible_captures": [
+            {
+              "run": 5,
+              "battle": 371,
+              "slot": 2,
+              "attempts": 5,
+              "before": 52,
+              "after": 47,
+              "pet_items": [
+                [
+                  41,
+                  1
+                ]
+              ],
+              "time": "2026-11-05T01:06:03+08:00"
+            }
+          ],
+          "last_event": {
+            "time": "2026-11-05T01:19:39+08:00",
+            "event": "battle_end",
+            "battle": 452,
+            "target": null,
+            "attempts": 0,
+            "escape_sent": true,
+            "bait": [
+              [
+                8713,
+                33,
+                47
+              ]
+            ],
+            "pet_items": [
+              [
+                41,
+                1
+              ]
+            ],
+            "elapsed_seconds": 3.2
+          }
+        },
+        {
+          "file": "six_tiger_伏地魔3.jsonl.gz",
+          "battles": 3470,
+          "enemies": 8584,
+          "targets": [],
+          "possible_captures": [],
+          "last_event": {
+            "time": "2026-11-05T01:19:40+08:00",
+            "event": "battle_end",
+            "battle": 460,
+            "target": null,
+            "attempts": 0,
+            "escape_sent": true,
+            "bait": [
+              [
+                8713,
+                43,
+                50
+              ]
+            ],
+            "pet_items": [],
+            "elapsed_seconds": 10.09
+          }
+        },
+        {
+          "file": "six_tiger_伏地魔4.jsonl.gz",
+          "battles": 3483,
+          "enemies": 8623,
+          "targets": [
+            {
+              "time": "2026-11-04T14:54:34+08:00",
+              "slot": 2,
+              "type": 1,
+              "name": "魔力布老虎",
+              "level": 1,
+              "hp": 20,
+              "hp_max": 20,
+              "dead": false
+            },
+            {
+              "time": "2026-11-04T20:21:54+08:00",
+              "slot": 1,
+              "type": 1,
+              "name": "魔力布老虎",
+              "level": 1,
+              "hp": 20,
+              "hp_max": 20,
+              "dead": false
+            }
+          ],
+          "possible_captures": [
+            {
+              "run": 2,
+              "battle": 774,
+              "slot": 2,
+              "attempts": 3,
+              "before": 50,
+              "after": 47,
+              "pet_items": [
+                [
+                  43,
+                  1
+                ]
+              ],
+              "time": "2026-11-04T14:54:37+08:00"
+            },
+            {
+              "run": 3,
+              "battle": 1289,
+              "slot": 1,
+              "attempts": 3,
+              "before": 47,
+              "after": 44,
+              "pet_items": [
+                [
+                  43,
+                  1
+                ]
+              ],
+              "time": "2026-11-04T20:21:56+08:00"
+            }
+          ],
+          "last_event": {
+            "time": "2026-11-05T01:19:41+08:00",
+            "event": "battle_end",
+            "battle": 465,
+            "target": null,
+            "attempts": 0,
+            "escape_sent": true,
+            "bait": [
+              [
+                8713,
+                49,
+                44
+              ]
+            ],
+            "pet_items": [
+              [
+                43,
+                1
+              ]
+            ],
+            "elapsed_seconds": 3.27
+          }
+        },
+        {
+          "file": "six_tiger_欧皇.jsonl.gz",
+          "battles": 3397,
+          "enemies": 8376,
+          "targets": [],
+          "possible_captures": [],
+          "last_event": {
+            "time": "2026-11-05T00:29:38+08:00",
+            "event": "guard_stop",
+            "reason": "world or character changed"
+          }
+        }
+      ]
+    },
+    "six_wise": {
+      "battles": 5826,
+      "enemies": 8682,
+      "level1_targets": 0,
+      "possible_captures": 0,
+      "roles": [
+        {
+          "file": "six_wise_伏地魔.jsonl.gz",
+          "battles": 965,
+          "enemies": 1424,
+          "targets": [],
+          "possible_captures": [],
+          "last_event": {
+            "time": "2026-11-05T00:01:06+08:00",
+            "event": "stopped"
+          }
+        },
+        {
+          "file": "six_wise_伏地魔1.jsonl.gz",
+          "battles": 968,
+          "enemies": 1456,
+          "targets": [],
+          "possible_captures": [],
+          "last_event": {
+            "time": "2026-11-05T00:01:06+08:00",
+            "event": "stopped"
+          }
+        },
+        {
+          "file": "six_wise_伏地魔2.jsonl.gz",
+          "battles": 960,
+          "enemies": 1445,
+          "targets": [],
+          "possible_captures": [],
+          "last_event": {
+            "time": "2026-11-05T00:01:06+08:00",
+            "event": "stopped"
+          }
+        },
+        {
+          "file": "six_wise_伏地魔3.jsonl.gz",
+          "battles": 958,
+          "enemies": 1414,
+          "targets": [],
+          "possible_captures": [],
+          "last_event": {
+            "time": "2026-11-05T00:01:06+08:00",
+            "event": "stopped"
+          }
+        },
+        {
+          "file": "six_wise_伏地魔4.jsonl.gz",
+          "battles": 962,
+          "enemies": 1420,
+          "targets": [],
+          "possible_captures": [],
+          "last_event": {
+            "time": "2026-11-05T00:01:06+08:00",
+            "event": "stopped"
+          }
+        },
+        {
+          "file": "six_wise_欧皇.jsonl.gz",
+          "battles": 1013,
+          "enemies": 1523,
+          "targets": [],
+          "possible_captures": [],
+          "last_event": {
+            "time": "2026-11-05T00:01:06+08:00",
+            "event": "stopped"
+          }
+        }
+      ]
+    },
+    "historical_vold2": {
+      "battles": 3451,
+      "enemies": 8529,
+      "target_count": 2,
+      "targets": [
+        {
+          "time": "2026-11-03 23:46:45",
+          "slot": 2,
+          "type": 1,
+          "name": "魔力布老虎",
+          "level": 1,
+          "hp": 20,
+          "hp_max": 20,
+          "dead": false
+        },
+        {
+          "time": "2026-11-04 03:30:11",
+          "slot": 3,
+          "type": 1,
+          "name": "魔力布老虎",
+          "level": 1,
+          "hp": 20,
+          "hp_max": 20,
+          "dead": false
+        }
+      ]
+    }
+  },
+  "files": {
+    "historical_long_events.jsonl.gz": {
+      "bytes": 175435,
+      "sha256": "5d4affa89060aebe1125c083b0ce17a8551f1e3d8cf8498e19b04bc5beac8789"
+    },
+    "live_baby_30min.jsonl.gz": {
+      "bytes": 2698,
+      "sha256": "50cc5fedb4fe301afc4aa8b4d98caf31b5f8ed51c096392c6e9e3297ae26310e"
+    },
+    "live_baby_until_empty.jsonl.gz": {
+      "bytes": 7857,
+      "sha256": "e812538cfb41c3860c1164c25e0728217a2fb8a24b1b39f094cfdc9078a7d7a3"
+    },
+    "manual_defend_watch.jsonl.gz": {
+      "bytes": 206,
+      "sha256": "22ffc33574f2466370d984ed276a6401c8f60dd919ed8f0c7e7a7535605fecfe"
+    },
+    "patrol_bait_five.jsonl.gz": {
+      "bytes": 661,
+      "sha256": "2770b18164ac54799fe99ac869b1a730b6acb40a7e59633a98f164cbc075e12e"
+    },
+    "patrol_capture.log.gz": {
+      "bytes": 926,
+      "sha256": "6a002a65fda93fa255301a310a60d00b907439baf9f408c4b40545a00ab5aee3"
+    },
+    "patrol_contract_10.jsonl.gz": {
+      "bytes": 576,
+      "sha256": "70e963ad823c9babf76bbfa621c36281a69d1c76df37da027d41536cf3c13e6d"
+    },
+    "patrol_defend_60.jsonl.gz": {
+      "bytes": 645,
+      "sha256": "3135ab0c906e60c767cbecc3600601a8ee31e5efe1056fd6fbd2eef67f4fe235"
+    },
+    "patrol_defend_7.jsonl.gz": {
+      "bytes": 830,
+      "sha256": "68faf32d33fe40cb041f35f0f0072696e2b73bb85acb1ebc48f405278a6fae96"
+    },
+    "patrol_escape_10.jsonl.gz": {
+      "bytes": 514,
+      "sha256": "eaf8ce859ca741e9080cb7e57bf8ad58118eae7e027ab5abee3fed90c1b781e7"
+    },
+    "single_capture_once.log.gz": {
+      "bytes": 511,
+      "sha256": "750e5281e9e1cea61afb8b71c8df5b176fb3da5f03b922ce8da46bd05fe02583"
+    },
+    "six_tiger_伏地魔.jsonl.gz": {
+      "bytes": 105268,
+      "sha256": "1b1430847c5ff1b0b7caf40fffd4589cf7b281f9665bda2c7c82456765e3e3d6"
+    },
+    "six_tiger_伏地魔1.jsonl.gz": {
+      "bytes": 106746,
+      "sha256": "6d7b3c43079f98a5151d013b50704d7baaa81552cf170870676780ec44cbe011"
+    },
+    "six_tiger_伏地魔2.jsonl.gz": {
+      "bytes": 106466,
+      "sha256": "5e4411e1ba7cf7f64ea04c16225c88e8540f8f935e8674b84a8cd161e9fc4eaf"
+    },
+    "six_tiger_伏地魔3.jsonl.gz": {
+      "bytes": 106651,
+      "sha256": "8a584cb6cd768689511057c3146cbc5442b7cfaa9072e9bb2ef5d891fbe06d85"
+    },
+    "six_tiger_伏地魔4.jsonl.gz": {
+      "bytes": 107164,
+      "sha256": "585ff48be9fba8f2097b3e8cc91a16be0dadfbd1a8141c1febc803120d9bb696"
+    },
+    "six_tiger_欧皇.jsonl.gz": {
+      "bytes": 99643,
+      "sha256": "3efd2589617fde4fc8d0e394e411dd310243f43f0d539b2b3625bbbe951728ae"
+    },
+    "six_wise_伏地魔.jsonl.gz": {
+      "bytes": 27976,
+      "sha256": "aafc0c2dee1a388d68cceb88b338fbf72e3cf620b3b94e47c11afc63e1a67c9d"
+    },
+    "six_wise_伏地魔1.jsonl.gz": {
+      "bytes": 27997,
+      "sha256": "9d99b581551d3a0d490f8b915d42305e7ec553b2309dd8954a88a00aa671be6f"
+    },
+    "six_wise_伏地魔2.jsonl.gz": {
+      "bytes": 27837,
+      "sha256": "352b5344b03717a85f507e82f926dabf38485bd9d965f80c6aa6fea44958b43a"
+    },
+    "six_wise_伏地魔3.jsonl.gz": {
+      "bytes": 28070,
+      "sha256": "c1d709014d71dd3caaf1f8c09927ef43df7f1dfa5ea6df9aba472673f7ef74f8"
+    },
+    "six_wise_伏地魔4.jsonl.gz": {
+      "bytes": 27970,
+      "sha256": "df37484dc97a7f3d8f7061039592ed7c48dc4b64e17d2240c6cbddac66ae75ce"
+    },
+    "six_wise_欧皇.jsonl.gz": {
+      "bytes": 28262,
+      "sha256": "e9b59b13d4c84353c3e54eb1da074f9a6cba2077c5027e18ab77fc2d41ac7580"
+    },
+    "tiger_伏地魔1.jsonl.gz": {
+      "bytes": 5010,
+      "sha256": "fe7c46f2cca64d22d646f9c9bdfe99e1928df7ee4829bdd2c8545fb973e88c61"
+    },
+    "tiger_伏地魔3.jsonl.gz": {
+      "bytes": 2795,
+      "sha256": "89286c383172b04d417192dfa5cff907ec4df2420d9540318da83d93f4a0772c"
+    }
+  }
+}

@@ -9,6 +9,7 @@ fewer than MIN_FREE bag slots are left or a pack does not open within WAIT secon
 import sys
 import time
 
+import trash
 import trial_run as t
 from factory.items import load_items
 from provisioner import world as w
@@ -43,6 +44,8 @@ def run(name, items):
             break
         opened.append(items[s.item_id].name)
         time.sleep(0.5)
+        if trash.enabled():
+            trash.drop(c, items, check=False)   # 特赦令 / 整人道具 out of the pack go at once (user 2026-11-05)
     bag = w.read_bag(c.mem)
     left = [items[s.item_id].name for s in bag if BIG <= s.item_id <= LAST]
     t.say(f'[{name}] {level} 级，开了 {len(opened)} 个: {opened}；背包 {len(bag)}/{w.read_bag_capacity(c.mem)}；剩下 {left}')

@@ -13,7 +13,11 @@ from line import ops  # noqa: E402
 
 # repr() fingerprints of the 勇者 routes as committed in 189b3d0 (after the no-DOUBLE-before-fairy/chushi change).
 # A change to the 勇者 line itself must update these on purpose; adding the 元素使 line must not.
-BRAVE_FINGERPRINTS = {'v5': '861cacc4f3d1b3a5', 'bplus': '0f3cddebbd86c460'}
+# Updated on purpose 2026-11-05: PR #20 (勇者 apprentices own no weapon: sell_tradable --weapons, wear_best
+# --no-weapon) and PP_COAST before lunhui / maze (a team scrolled home got 「在意外的地图 1」 for ever); then
+# maze_train --stay (no walk to 大个王 after 八阵图); then U space before zhuanzhi's supply and q183.
+# 2026-11-05: the v5 route is deleted (user: only B+); B+ itself unchanged by that (same fingerprint).
+BRAVE_FINGERPRINTS = {'bplus': '9dcbba79996aea83'}
 
 
 def fp(route):
@@ -22,13 +26,13 @@ def fp(route):
 
 class BraveUntouched(unittest.TestCase):
     def test_brave_routes_are_unchanged(self):
-        self.assertEqual(fp(R.ROUTE), BRAVE_FINGERPRINTS['v5'])
+        self.assertIs(R.ROUTE, R.ROUTE_BPLUS)
         self.assertEqual(fp(R.ROUTE_BPLUS), BRAVE_FINGERPRINTS['bplus'])
 
     def test_default_and_warrior_teams_get_the_brave_routes(self):
         self.assertIs(R.route_of(NS(route='bplus')), R.ROUTE_BPLUS)           # old batches: no job attribute
         self.assertIs(R.route_of(NS(route='bplus', job='战士')), R.ROUTE_BPLUS)
-        self.assertIs(R.route_of(NS(route='v5', job='战士')), R.ROUTE)
+        self.assertIs(R.route_of(NS(route='v5', job='战士')), R.ROUTE_BPLUS)    # v5 gone 2026-11-05: B+
 
     def test_fairy_words_for_183_are_the_old_ones(self):
         self.assertEqual(ops.FAIRY['183'], ['勇者的考验', '继续', '继续', '完成转职礼', '接受奖励'])
@@ -41,7 +45,6 @@ class Tower2Exit(unittest.TestCase):
         self.assertEqual(mage.tower2, plan.TOWER2_YUANSU)
         self.assertEqual(plan.TOWER2_YUANSU, '39+180000')
         self.assertEqual(plan.Team('m', 0, 10000).tower2, 'auto')
-        self.assertEqual(plan.Team('m', 0, 10000, route='v5').tower2, '40')
         self.assertEqual(plan.Team('m', 0, 10000, job='术士', tower2='39+50000').tower2, '39+50000')
 
 

@@ -1,4 +1,4 @@
-"""Entry: python -m provisioner.addrscan [WAATClient.exe] — finds every game address this repo uses by byte
+"""Entry: python -m provisioner.addrscan [--save] [WAATClient.exe] | --history [NAME ...] — finds every game address this repo uses by byte
 signatures in the exe file (read-only, no game window needed) and compares them with the constants in the code.
 
 Why: each client update (2.98, 2.100, 2.101 ...) moves globals and functions, and sometimes struct offsets. The
@@ -310,6 +310,66 @@ def compare(found, code):
     return rows, problems
 
 
+# ---- per-version archive (user 2026-11-05): numbers only, never the game's exe (the repo is public). On a new PC
+# without the old exe, the archive still tells what every address was in each earlier version.
+ARCHIVE = Path(__file__).resolve().parent / 'addr_versions'
+
+
+def exe_info(path):
+    """The exe's identity: file version (VS_FIXEDFILEINFO), size, SHA256, PE time stamp."""
+    import hashlib
+    raw = Path(path).read_bytes()
+    pe = struct.unpack_from('<I', raw, 0x3C)[0]
+    stamp = struct.unpack_from('<I', raw, pe + 8)[0]
+    version = None
+    i = raw.find(b'\xbd\x04\xef\xfe')                    # VS_FIXEDFILEINFO.dwSignature
+    if i >= 0:
+        ms, ls = struct.unpack_from('<II', raw, i + 8)
+        version = f'{ms >> 16}.{ms & 0xFFFF}.{ls >> 16}.{ls & 0xFFFF}'
+    return {'version': version, 'size': len(raw), 'sha256': hashlib.sha256(raw).hexdigest(),
+            'pe_timestamp': f'{stamp:#x}'}
+
+
+def archive_record(info, found, source):
+    """One version's record: identity + every address found (hex strings) + the ones not found."""
+    return {'version': info.get('version'), 'size': info.get('size'), 'sha256': info.get('sha256'),
+            'pe_timestamp': info.get('pe_timestamp'), 'source': source,
+            'addresses': {n: f'{v:#x}' for n, (v, _) in sorted(found.items()) if v is not None},
+            'missing': sorted(n for n, (v, _) in found.items() if v is None)}
+
+
+def save_archive(record, folder=ARCHIVE):
+    import json
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    name = record.get('version') or record['sha256'][:12]
+    path = folder / f'{name}.json'
+    path.write_text(json.dumps(record, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    return path
+
+
+def load_archives(folder=ARCHIVE):
+    """[record] oldest version first."""
+    import json
+    recs = [json.loads(p.read_text(encoding='utf-8')) for p in Path(folder).glob('*.json')]
+    key = lambda r: tuple(int(x) for x in (r.get('version') or '0').split('.') if x.isdigit())   # noqa: E731
+    return sorted(recs, key=key)
+
+
+def history(names=(), folder=ARCHIVE):
+    """Lines: each address across the archived versions (only those that changed, unless names are given)."""
+    recs = load_archives(folder)
+    if not recs:
+        return ['还没有地址档案']
+    every = sorted({n for r in recs for n in r['addresses']})
+    out = ['地址'.ljust(20) + ''.join((r.get('version') or '?').rjust(18) for r in recs)]
+    for n in (names or every):
+        vals = [r['addresses'].get(n, '-') for r in recs]
+        if names or len(set(vals)) > 1:
+            out.append(n.ljust(20) + ''.join(v.rjust(18) for v in vals))
+    return out
+
+
 def default_exe():
     from factory.supervisor import load_supervisor
     return load_supervisor(ROOT / 'supervisor.toml').login.game_exe
@@ -317,8 +377,17 @@ def default_exe():
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
+    if '--history' in argv:                      # python -m provisioner.addrscan --history [NAME ...]
+        print('\n'.join(history([a for a in argv if a != '--history'])))
+        return 0
+    save = '--save' in argv
+    argv = [a for a in argv if a != '--save']
     exe = argv[0] if argv else default_exe()
     found = scan(exe)
+    if save:                                     # python -m provisioner.addrscan --save [exe]
+        info = exe_info(exe)
+        path = save_archive(archive_record(info, found, 'addrscan --save'))
+        print(f'地址档案 {info["version"]}（{sum(v is not None for v, _ in found.values())} 个地址）-> {path}')
     rows, problems = compare(found, code_constants())
     print(f'游戏程序 {exe}')
     for name, have, value, status in rows:

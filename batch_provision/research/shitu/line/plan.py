@@ -1,14 +1,14 @@
 """Who is in a batch: masters, apprentice names, accounts, log ids, the env every script gets.
 
-Teams come from line.toml [team.<name>] (master, slot, gold). Same rules as r4_env.sh for slots 0..3 (tests/test_line.py
-checks the two agree for teams a..d), so old logs / state files keep their names:
+Teams come from line.toml [team.<name>] (master, slot, gold). The naming rules are round 4's (its r4_env.sh is gone since
+2026-11-05; tests/test_line.py Plan.test_batch_names_accounts_logids pins them), so old logs / state files keep their names:
   batch N, slot k (0..3) = 亿万(16(N-1)+4k+1 .. +4); team slot i uses account cap(21+4k+i), role slot N.
   LOGID r4<team> for batch 1, r4<team>_b<N> after (the team name, not the slot: a new master = a new name).
 A team may instead name its own accounts and role names (2026-10-29 exp-map trial: cap37.. and Opus55A1..):
   accounts = first account number (the team uses capN..capN+3), names = name prefix: batch N, account i -> prefix(4(N-1)+i).
-  levels = where this team leaves each map (keys of LEVELS; unset = the route's: BPLUS_LEVELS, or LEVELS for v5).
+  levels = where this team leaves each map (keys of LEVELS; unset = LEVELS, the B+ ones).
 Or a list of account names (accounts = ["gm2g01t01u01", ...], 2026-10-30 B+ trial with 伏地魔2): batch N uses them all.
-  route = 'bplus' (default since 2026-10-30) runs route.ROUTE_BPLUS, 'v5' the old route.ROUTE; tower1 default 35;
+  route = 'bplus' (the only one: v5 deleted 2026-11-05) runs route.ROUTE_BPLUS; tower1 default 35;
   tower2 = where 通天塔二区 stops: '40' or 'L+E' (default per route: TOWER2; level L and
   E exp into it, the late quests + 出师 fill the rest up to 40); batches = this team's own batch list.
 """
@@ -18,16 +18,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 MASTER_SLOTS = 4                 # a master holds 4 apprentices at most (excluded ones stay bound and take a slot)
-JOBS = ('战士', '术士')           # zhuanzhi_take.JOBS; 战士 -> 勇者 (route B+ / v5), 术士 -> 元素使 (route.ROUTE_YUANSU)
+JOBS = ('战士', '术士')           # zhuanzhi_take.JOBS; 战士 -> 勇者 (route B+), 术士 -> 元素使 (route.ROUTE_YUANSU)
 TALENT_STATS = ('力量', '感知', '体质', '敏捷', '运气')     # = provisioner.game.TALENT_STATS (not importable here)
 SCROLLS = 20                     # 回城卷 each apprentice gets from the master (SHITU_SCROLLS)
 CONFIG = Path(__file__).with_name('line.toml')
-# the v5 route leaves 轮回之城 at 15, 暗影迷城 at 19, 八阵图 at 23 (maze_train) and 25 (bazhen25), 遗忘洞穴 at 28
-LEVELS = {'lunhui': 15, 'maze1': 19, 'maze2': 23, 'bazhen': 25, 'cave': 28}
+# B+ (the only 勇者 route since 2026-11-05; v5's were lunhui 15 / maze1 19 / maze2 23 / bazhen 25 / cave 28)
 # route B+ (the default since 2026-10-30): 轮回 10-12, 迷城 12-16, 八阵图 16-23 without the trip home, 洞穴 23-28
 # (exp-map trial EXP_MAP_TRIAL.md: at 24 洞穴 10,639/min vs 八阵图 6,984; the bp live run used 24)
-BPLUS_LEVELS = {'lunhui': 12, 'maze1': 16, 'maze2': 23, 'bazhen': 23, 'cave': 28}
-ROUTE_NAMES = ('bplus', 'v5')    # route.ROUTES keys; bplus = default
+LEVELS = BPLUS_LEVELS = {'lunhui': 12, 'maze1': 16, 'maze2': 23, 'bazhen': 23, 'cave': 28}
+ROUTE_NAMES = ('bplus',)         # route.ROUTES keys; v5 deleted 2026-11-05 (user: only the best route)
 GOLD = 10000                     # starting gold per apprentice (user 2026-11-01): spent before the first income
                                  # (考验 at 35) is ~2-2.5k of PP鸡; 1万 ran whole batches twice (r4 d, 11-01 w2);
                                  # give_gold returns it all at the batch end, more only ties up the master's gold
@@ -37,7 +36,7 @@ TOWER1 = 35                      # user 2026-10-30: masters differ in strength, 
 # 2026-10-31 pa / pb: 39+125000 still needed a 2-3 min topup on both (the late quests earned < 187,448 = 312,448 - 125,000,
 # bp's 19.2万 left a 2% margin) -> 'auto' (user: test, record, optimize): ops exp_note writes the exp where 二区 was
 # left and after 蝎子王 (logs/tower2_exp.csv); tower2_auto takes this master's smallest earning of its last batches
-TOWER2 = {'bplus': 'auto', 'v5': '40'}
+TOWER2 = {'bplus': 'auto'}
 # 元素使 (job 术士) leaves 二区 at 39 + 180000: round 2 (2026-11-03 ys2, 元素使06-08) earned 539,450 after 二区 (battles
 # 265,805 + 187 27,491 + 189 46,154 + 出师 200,000); 39+0 -> 41 is 671,221, so 131,771 is the least, ~48k kept as margin
 # (two to three 二区 minutes). User 2026-11-05: an 元素使 should be 41 after 出师 (it goes on to 70 and leads teams).
@@ -64,7 +63,7 @@ class Team:
     names: str = ''              # role name prefix ('' = 亿万 numbered by the slot)
     levels: tuple = ()           # ((key, level), ...) overrides of LEVELS
     account_names: tuple = ()    # explicit accounts (instead of capN..capN+3)
-    route: str = 'bplus'         # 'bplus' = route.ROUTE_BPLUS (default), 'v5' = route.ROUTE
+    route: str = 'bplus'         # route.ROUTE_BPLUS (v5 deleted 2026-11-05)
     tower2: str = ''             # 通天塔二区 target: '40' or 'L+E'; '' = the route's TOWER2
     stat: str = '体质'           # where the apprentices' talent points go (provisioner.game.TALENT_STATS)
     job: str = '战士'            # 10 级 class (zhuanzhi_take.JOBS: 战士 / 术士)
@@ -85,7 +84,7 @@ class Team:
         return list(self.account_names) or [f'cap{self.first_account + i}' for i in range(MASTER_SLOTS)]
 
     def level(self, key):
-        return dict(LEVELS if self.route == 'v5' else BPLUS_LEVELS, **dict(self.levels))[key]
+        return dict(LEVELS, **dict(self.levels))[key]
 
 
 def _explib(path=EXPLIB):
@@ -155,7 +154,7 @@ def load_teams(path=CONFIG):
             raise ValueError(f'line.toml [team.{k}] accounts 要正好 {MASTER_SLOTS} 个: {listed}')
         route = v.get('route', 'bplus')
         if route not in ROUTE_NAMES:
-            raise ValueError(f'line.toml [team.{k}] route = {route!r}：只有 {ROUTE_NAMES}')
+            raise ValueError(f'line.toml [team.{k}] route = {route!r}：只有 {ROUTE_NAMES}（v5 路线 2026-11-05 已删除，去掉这一行即可）')
         tower2 = str(v.get('tower2', ''))      # '' = the default: the route's TOWER2, or TOWER2_YUANSU for job 术士
         if tower2 and tower2 != 'auto' and not re.fullmatch(r'\d+(\+\d+)?', tower2):
             raise ValueError(f'line.toml [team.{k}] tower2 = {tower2!r}：写 40、38+200000 或 auto')
@@ -291,7 +290,7 @@ class Batch:
         return f'state_{self.logid}.json'
 
     def env(self):
-        """SHITU_* for the stage scripts (common.py reads them), LOGID / PAIRS like r4_env.sh."""
+        """SHITU_* for the stage scripts (common.py reads them), LOGID / PAIRS (round 4's names)."""
         return {
             'SHITU_STATE': self.state_file,
             'SHITU_MASTERS': self.master,
@@ -301,6 +300,7 @@ class Batch:
             'SHITU_JOB': TEAMS[self.team].job,
             'SHITU_REVIVE': str(TEAMS[self.team].revive),
             'SHITU_TIDY': '1' if TEAMS[self.team].tidy else '0',
+            'SHITU_TRASH': '1',          # trash.py: drop 葫芦 / 特赦令 / 整人道具, 勇者 sell weapons at home (2026-11-05)
             'SHITU_SCROLLS': str(SCROLLS),
             'LOGID': self.logid,
             'PAIRS': ' '.join(self.pairs),

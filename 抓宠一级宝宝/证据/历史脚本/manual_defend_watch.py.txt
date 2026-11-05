@@ -1,0 +1,24 @@
+# 历史研究快照：路径和进程标识已脱敏，不可直接运行。
+import sys,time,json
+from pathlib import Path
+from datetime import datetime
+from zoneinfo import ZoneInfo
+sys.path.insert(0,r'<WORKSPACE>\worktrees\auto_task_unlock\batch_provision')
+from expwatch.__main__ import module_base
+from provisioner.memory import ProcessMemory
+from provisioner.world import read_world
+root=Path(__file__).resolve().parent; stop=root/'manual_defend_watch.stop'; tap=Path(r'<WORKSPACE>\output\runtime\tap_146948.jsonl')
+base=module_base(<PROCESS_OR_CHARACTER_ID>)
+with ProcessMemory(<PROCESS_OR_CHARACTER_ID>,base) as mem,(root/'manual_defend_watch.jsonl').open('a',encoding='utf-8',buffering=1) as f:
+ def log(**row):
+  f.write(json.dumps(dict(time=datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(timespec='milliseconds'),**row),ensure_ascii=False)+'\n'); f.flush()
+ log(event='start',tap_offset=tap.stat().st_size)
+ last=None
+ while not stop.exists():
+  w=read_world(mem)
+  if not w or w.char_id!=<PROCESS_OR_CHARACTER_ID>:
+   log(event='guard_stop');break
+  state=(w.in_battle,w.my_sp,w.map_id)
+  if state!=last:log(event='state',battle=w.in_battle,sp=w.my_sp,map=w.map_id);last=state
+  time.sleep(.1)
+ log(event='stop')

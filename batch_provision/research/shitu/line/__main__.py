@@ -1,4 +1,4 @@
-"""师徒产线 v5 总控：每个师傅一条线程，一批接一批跑 route.ROUTE（建号 -> 前段 -> 中段 -> 后段 -> 出师）。
+"""师徒产线总控：每个师傅一条线程，一批接一批跑这一队的路线（route.route_of：勇者 B+ 或元素使；建号 -> 前段 -> 中段 -> 后段 -> 出师）。
 
     cd batch_provision/research/shitu
     python -X utf8 -m line                          按 line.toml 跑全部队
@@ -27,6 +27,7 @@ STOP = LOGS / 'LINE_STOP'
 CONFIG = Path(__file__).with_name('line.toml')
 QUIZBOT = ('启动答题器.exe', 'quizbot.exe')
 _lock = threading.Lock()
+_quiz_lock = threading.Lock()   # ensure_quizbot only: a start may take 20 s, alerts / saves must not wait
 
 
 def say(msg):
@@ -91,6 +92,12 @@ def process_names():
     return '\n'.join(names)
 
 
+def ensure_quizbot():
+    from provisioner import quizbot
+    with _quiz_lock:                # the teams' threads: one check / start at a time (other lines: quizbot's lock)
+        return quizbot.ensure(say=say)
+
+
 def quizbot_running(tries=3, list_procs=None):
     """启动答题器 answers the boss / battle quizzes and unlocks the 辅助工具 pages; scripts fall back to
     boss_quiz.py without it, but the battle quiz (0x46F4) has no fallback. 2026-10-28 15:00 team b alerted while the
@@ -127,6 +134,10 @@ class Team(threading.Thread):
         # line.toml [team.<t>] skip = { "1" = [...] }: names left out of that batch only (2026-11-01 w4: batch 1 had
         # started with 3 under a stale 亿万13 exclusion; the line restarted, batch 2 takes 4 again)
         extra = self.cfg.get('team', {}).get(self.team, {}).get('skip', {}).get(str(batch), [])
+        # written under the planned name, the role may have been renamed since (亿万J12 -> 亿万JX12, name_alias.json);
+        # the batch's names are the renamed ones (plan.batch_names), so the skip must be too (user 2026-11-05)
+        al = plan.aliases()
+        extra = [al.get(n, n) for n in extra]
         skip = list(dict.fromkeys(plan.plan_skip(self.team, batch, self.data['stuck']) + list(extra)))
         b = plan.Batch(self.team, batch, skip)
         c = self.cfg
@@ -161,11 +172,21 @@ class Team(threading.Thread):
                 alert(self.team, f'排除的徒弟 {self.data["stuck"]} 占满了师傅名额，这一队停摆')
                 self.data.update(parked=True, reason='master slots full')
                 break
-            if not quizbot_running():
-                alert(self.team, '启动答题器 没在运行：战斗里的题没人答（boss 题脚本会自己答）。请启动它')
+            # user 2026-11-05: not running -> start it (one per computer serves every line, provisioner.quizbot)
+            if not quizbot_running() and ensure_quizbot() == 'failed':
+                alert(self.team, '启动答题器 没在运行、自动启动也没成：战斗里的题没人答（boss 题脚本会自己答）。请手动启动它')
             self.data.update(batch=batch, parked=False, reason='')
             self.save()
             r = self.runner(batch)
+            if not r.b.apprentices:
+                # every name of the batch skipped (line.toml skip / stuck ones): nothing to make. Before, make ran
+                # with no pairs (make_apprentices fell back to its DEFAULT mvp01-03 十万 roles) and the next step
+                # parked the team on 「没有徒弟了」 (user 2026-11-05: a skipped batch must not stop the line)
+                say(f'[{self.team}] 第 {batch} 批全部跳过 {r.b.skip}，直接下一批')
+                self.data['done'].append(batch)
+                self.data['batch'] = None
+                self.save()
+                continue
             say(f'[{self.team}] 第 {batch} 批开始: {r.b.apprentices}（跳过 {r.b.skip}）')
             res = r.run()
             self.data['stuck'] = list(dict.fromkeys(self.data['stuck'] + list(res.excluded)))

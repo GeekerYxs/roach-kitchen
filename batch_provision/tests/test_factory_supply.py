@@ -157,8 +157,8 @@ class Requests(unittest.TestCase):
         self.bags = [bag((HP_ITEM, 1)), bag((HP_ITEM, 1)), bag((HP_ITEM, 3))]
         self.assertTrue(self.client.buy(NURSE, 0, HP_ITEM, 2))
         self.assertEqual(self.sent(), [(0x50, struct.pack('<II', 0, 409)), (0x51, struct.pack('<III', 0, 1, 0)),
-                                       (0x55, struct.pack('<IIBBHBB', 0, 409, 1, 0, 0, 0, 2))])
-        self.assertEqual(len(self.sent()[2][1]), 14)
+            (0x55, struct.pack('<IIBBHBH', 0, 409, 1, 0, 0, 0, 2))])
+        self.assertEqual(len(self.sent()[2][1]), 15)
 
     def test_buy_not_arrived(self):
         self.bags = [bag((HP_ITEM, 1))]

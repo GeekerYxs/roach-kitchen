@@ -33,7 +33,11 @@ STAGES = (
                81: ('walk', 82, (1724, 2489)),           # across the 81 -> 82 link to the 暗影迷城 entrance
                82: ('click', 10160, (1724, 2489))}),     # 暗影迷城 entrance
     dict(name='八阵图', maze=700, until=23, patrol_b=(1200, 1800),       # B from the user; 25 -> 23 (user 01:24)
-         legs={600: ('click', 10159, (672, 756)),        # 暗影迷城 exit -> 平静海岸3区
+         # 555 / 81: a start already past 暗影迷城's level but not from inside 600 (2026-11-05 live: 欧皇 team at 20,
+         # relogged home; 「在意外的地图 1」 every retry -> stuck). Map 1 itself: the route's PP_COAST before maze_train.
+         legs={555: ('click', 10157, (2880, 360)),       # 轮回之城 exit -> 平静海岸2区
+               81: ('walk', 82, (1724, 2489)),           # across the 81 -> 82 link (then 82 below)
+               600: ('click', 10159, (672, 756)),        # 暗影迷城 exit -> 平静海岸3区
                82: ('walk', 140, (831, 2257)),           # across the 82 -> 140 link to the 八阵图 entrance
                140: ('click', 10164, (831, 2257))}),     # 八阵图 entrance (无尽平原1区)
     # goal stage: walk to a spot and stop there (no level target)
@@ -51,7 +55,7 @@ CLICK_NEAR = 25     # live 01:09: 10159 ignored 3 clicks from 67 px, answered at
 CLICK_WAIT = 8.0
 
 
-MAX_FALLS = 5      # one apprentice knocked out this often in one stage = the map is too hard for it: stop
+MAX_FALLS = int(os.environ.get('SHITU_MAX_FALLS', '5'))  # project-specific recovery policy; other users keep default
 
 class Route:
     def __init__(self, stage):
@@ -110,6 +114,10 @@ class Route:
             self.progress_at = now
             if st.in_battle:
                 self.last_nav = -1e9
+                # A patrol leg may already be active when an encounter starts. Stop it so the captain
+                # cannot keep walking away from the team while combat is resolving.
+                if st.nav_active or st.moving:
+                    lead.game.cancel_navigation()
             return
         if self.goal and st.map_id == self.goal[0]:
             if self.goal[1] is None or math.dist((st.x, st.y), self.goal[1]) <= NEAR and not st.moving:
@@ -221,18 +229,25 @@ def main():
     casters = [Caster(cs[n]) for n in CASTERS]
     talents = {n: Talent() for n in APPRENTICES}
     stage_i = 0
-    while STAGES[stage_i]['until'] and min(w.read_level(cs[n].mem) for n in APPRENTICES) >= STAGES[stage_i]['until']:
+    while stage_i < len(STAGES) and STAGES[stage_i]['until'] and min(w.read_level(cs[n].mem) for n in APPRENTICES) >= STAGES[stage_i]['until']:
         stage_i += 1
+    if stage_i >= len(STAGES):
+        t.say('所有目标等级已达到：' + str({n: w.read_level(cs[n].mem) for n in APPRENTICES}))
+        return
     route = Route(STAGES[stage_i])
     t.say(f'当前段: {STAGES[stage_i]["name"]}' + (f'（刷到 {STAGES[stage_i]["until"]} 级）' if STAGES[stage_i]['until'] else ''))
-    battles, in_battle, last_levels, t0 = 0, False, None, time.monotonic()
-    fallen, falls = set(), {}            # round 3 (user 12:3x) stopped at the first death; now after MAX_FALLS
+    battles, stage_battles, in_battle, last_levels, t0 = 0, 0, False, None, time.monotonic()
+    fallen, falls = set(), {}
+    gone = t.Gone()                      # a dropped client: fail after 30 s, not the 15-min watchdog (2026-11-05)
+    import trash
+    trasher = trash.Trasher([cs[n] for n in APPRENTICES if n in cs])     # 葫芦 / 特赦令 / 整人道具 every 20 min
     while True:
         now = time.monotonic()
         sts = {n: c.world() for n, c in cs.items()}
-        if any(s is None for s in sts.values()):
+        if gone.tick(sts):
             time.sleep(TICK)
             continue
+        trasher.tick(sts, now)
         for n in APPRENTICES:
             if sts[n].in_battle and n not in fallen:
                 b = w.read_battle(cs[n].mem)
@@ -254,6 +269,8 @@ def main():
                              f'({sts[LEADER].x:.0f},{sts[LEADER].y:.0f})，共 {battles} 场），等指示')
         missing = [n for n, c in cs.items() if c.char_id not in lead.team()]
         if missing:
+            if sts[LEADER].nav_active:
+                lead.game.cancel_navigation()
             raise t.Stop(f'{missing} 不在 {LEADER} 的队里了（掉线或死亡？）')
         levels = {n: w.read_level(cs[n].mem) for n in APPRENTICES}
         if levels != last_levels:
@@ -273,12 +290,21 @@ def main():
                 tm.sent_at, tm.misses, tm.last_miss = None, tm.misses + 1, now
         lw = sts[LEADER]
         if lw.in_battle != in_battle:
+            if lw.in_battle and not in_battle and STAGES[stage_i].get('maze') == lw.map_id:
+                stage_battles += 1
             in_battle = lw.in_battle
             battles += in_battle
             if not in_battle:
                 for c in casters:
                     c.reset()
         stage = STAGES[stage_i]
+        battle_limit = stage.get('battle_limit')
+        if battle_limit and stage_battles >= battle_limit and not lw.in_battle:
+            if lw.nav_active or lw.moving:
+                lead.game.cancel_navigation()
+            t.say(f'{stage["name"]} 完成 {stage_battles} 场本地图战斗（本流程共 {battles} 场），按指定场数停下；等级 {levels}，'
+                  f'停在地图 {lw.map_id} ({lw.x:.0f},{lw.y:.0f})')
+            return
         if stage.get('quest'):                        # (quest id, steps): done once no apprentice still shows them
             qid, steps = stage['quest']
             qs = {n: w.read_quest(cs[n].mem, qid) for n in APPRENTICES}
@@ -323,6 +349,11 @@ def main():
 
 
 if __name__ == '__main__':
+    if '--stay' in sys.argv:
+        # the line's maze step (user 2026-11-05): stop in 八阵图 at the level. The old walk to 大个王 was wasted (the
+        # next step scrolls home) and a rerun past 23 from 81 had no way there (「在意外的地图 81」)
+        sys.argv.remove('--stay')
+        STAGES = tuple(s for s in STAGES if s.get('goal') is None)
     for st, lv in zip(STAGES, sys.argv[1:3]):      # only when run itself: bazhen25 / cave_train import this module
         st['until'] = int(lv)
     try:
