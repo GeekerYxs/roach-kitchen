@@ -25,7 +25,8 @@ from provisioner.enter import enter_role, verify_in_world
 from provisioner.login import LaunchThrottle, login, read_session
 from provisioner.memory import ProcessMemory
 from provisioner.novice import NOVICE_MAP, NoviceJob, load_settings
-from provisioner.protocol import MAX_SLOTS, OP_CREATE_REPLY, TapReader, build_create, parse_create_reply
+from provisioner.protocol import (LOOK_FEMALE, LOOK_MALE, MAX_SLOTS, OP_CREATE_REPLY, TapReader, build_create,
+                                  parse_create_reply)
 from provisioner.world import read_world
 
 DEFAULT = ('mvp01:十万1', 'mvp02:十万2', 'mvp03:十万3')
@@ -85,13 +86,17 @@ def create_named(session, account, name, lg):
     raise Stop(f'{name} 和替换名 {alt_names(name)} 都被服务器拒绝')
 
 
+# env SHITU_SEX (line.toml team sex): 女 -> the look of the user's hand-made 魔法师09 (protocol.LOOK_FEMALE)
+LOOK = LOOK_FEMALE if os.environ.get('SHITU_SEX') == '女' else LOOK_MALE
+
+
 def create(session, account, name, lg):
     native.arm(session)
     reader = TapReader(ROOT / 'runtime', session.pid)
     reader.poll()
     with ProcessMemory(session.pid, session.base) as mem:
         context, _ = mem.locate_context()
-        body = build_create(mem, context, account.name, name)
+        body = build_create(mem, context, account.name, name, LOOK)
     lg.info('发送建角请求 %s (0x0002, %d 字节)', name, len(body))
     native.send_create(session, body)
     end = time.monotonic() + 15

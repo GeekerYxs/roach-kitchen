@@ -88,12 +88,19 @@ def encode_role_name(role):
     return role_b
 
 
-def build_create(memory, context, account, role):
+# Appearance (body[265] u32, [269] u32, [273] u8, [274] u8) = what the client copies from its create screen. The
+# selected role's roster entry holds the same values (entry +0x40 / +0x34 / +0x0C / +0x10), so a role made by hand
+# shows them: 2026-11-05 the user's 女 魔法师09 (yss09) read (3, 5, 0, 5) against the UI sample's male blue-hair
+# (3, 0, 1, 0): [273] = sex (1 男 / 0 女), [274] and [269] the 头像 / 发型 picks, [265] 3 both times.
+LOOK_MALE = (3, 0, 1, 0)
+LOOK_FEMALE = (3, 5, 0, 5)
+
+
+def build_create(memory, context, account, role, look=LOOK_MALE):
     role_b = encode_role_name(role)
     body = _session_body(memory, context, account, CREATE_BODY_SIZE)
-    # Default appearance values observed from the UI sample (male, blue hair).
-    struct.pack_into('<II', body, 265, 3, 0)
-    body[273:275] = bytes([1, 0])
+    struct.pack_into('<II', body, 265, look[0], look[1])
+    body[273:275] = bytes([look[2], look[3]])
     body[275:275 + len(role_b)] = role_b
     return bytes(body)
 

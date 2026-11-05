@@ -70,6 +70,8 @@ class Team:
     revive: int = 0              # item the master uses on a downed apprentice in battle (revive.py; 0 = off)
     tidy: bool = False           # every U home also runs tidy.py (packs / pranks / gear / selling)
     first: int = 1               # number of batch 1's first role (names + number); 2026-11-03 ys2: 元素使05.. on fresh accounts
+    digits: int = 0              # zero-pad the number to this width (2: 魔法师09 .. 魔法师12); 0 = as is
+    sex: str = '男'              # created roles: 男 (the old default look) / 女 (protocol.LOOK_FEMALE)
 
     def __post_init__(self):
         if not self.tower2:
@@ -161,7 +163,10 @@ def load_teams(path=CONFIG):
         t = Team(v['master'], int(v.get('slot', 0)), int(v.get('gold', GOLD)), int(v.get('tower1', TOWER1)),
                  0 if listed else int(acc), v.get('names', ''), tuple(sorted((a, int(b)) for a, b in levels.items())),
                  listed, route, tower2, v.get('stat', '体质'), v.get('job', '战士'), int(v.get('revive', 0)),
-                 bool(v.get('tidy', False)), int(v.get('first', 1)))
+                 bool(v.get('tidy', False)), int(v.get('first', 1)),
+                 int(v.get('digits', 0)), v.get('sex', '男'))
+        if t.sex not in ('男', '女'):
+            raise ValueError(f'line.toml [team.{k}] sex = {t.sex!r}：只有 男 / 女')
         if t.job not in JOBS:
             raise ValueError(f'line.toml [team.{k}] job = {t.job!r}：只有 {JOBS}（默认 战士 = 勇者线，术士 = 元素使线）')
         if t.stat not in TALENT_STATS:
@@ -212,7 +217,7 @@ def aliases(path=ALIAS_FILE):
 def batch_names(team, batch):
     t = TEAMS[team]
     if t.names:
-        names = [f'{t.names}{4 * (batch - 1) + t.first - 1 + i}' for i in range(1, 5)]
+        names = [f'{t.names}{4 * (batch - 1) + t.first - 1 + i:0{max(t.digits, 1)}d}' for i in range(1, 5)]
     else:
         o = 16 * (batch - 1) + t.slot * 4
         names = [f'亿万{o + i}' for i in range(1, 5)]
@@ -297,6 +302,7 @@ class Batch:
             'SHITU_APPRENTICES': ','.join(self.apprentices),
             'SHITU_GOLD': str(TEAMS[self.team].gold),
             'SHITU_STAT': TEAMS[self.team].stat,
+            'SHITU_SEX': TEAMS[self.team].sex,
             'SHITU_JOB': TEAMS[self.team].job,
             'SHITU_REVIVE': str(TEAMS[self.team].revive),
             'SHITU_TIDY': '1' if TEAMS[self.team].tidy else '0',

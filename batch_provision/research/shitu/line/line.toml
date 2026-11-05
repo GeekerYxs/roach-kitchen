@@ -163,3 +163,17 @@ stat = "敏捷"
 job = "术士"
 revive = 0                    # 用户：大号强，不用担心死亡（师傅身上也没有美味小强料理）
 tidy = true
+
+[team.ys3]                    # 2026-11-05 元素使 第 3 轮：波大臀圆 带 魔法师09–12（yss09–12），女号；用户在 yss09 手建 魔法师09，
+master = "波大臀圆"            # 其余 3 个照它的外观建（sex = 女：性别 / 头像 / 发型 = protocol.LOOK_FEMALE）
+accounts = ["yss09", "yss10", "yss11", "yss12"]
+names = "魔法师"
+first = 9
+digits = 2                    # 魔法师09 .. 魔法师12
+sex = "女"
+gold = 10000
+batches = [1]
+stat = "敏捷"
+job = "术士"
+revive = 0                    # 大号强（第 2 轮同一个师傅没死人）
+tidy = true
