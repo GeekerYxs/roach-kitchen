@@ -24,7 +24,9 @@ t = m.t
 DOOR, DOOR_XY, ROOM_XY = 10214, (3306, 6183), (4194, 8157)
 LAYER2, LAYER2_XY = 10190, (2304, 1320)      # user 2026-10-27: go to (2300,1300) first = the passage to 二层; the
                                              # path-finder cannot reach the door from the upper part (stuck 02:41)
-LOWER_Y = 4000                               # 二层 = lower part of map 750 (dark flowers y 4121..7841)
+LOWER_Y = 3800                               # 二层 = lower part of map 750 (dark flowers y 4121..7841); gather.py's
+                                             # FLOOR_SPLIT_Y. 2026-11-05 ys4: 4000 read a role at (1334,3956) on 二层
+                                             # as still on 一层
 SNAKE = 1172
 FLOWER, STONE = 11150, 11151
 
@@ -49,11 +51,15 @@ def main():
     st = lead.world()
     if math.dist((st.x, st.y), ROOM_XY) > 600:
         if st.y < LOWER_Y:
-            m.STAGES = (dict(name='二层通道', goal=(750, LAYER2_XY), maze=None, until=None, patrol_b=None, legs={}),)
+            # 2026-11-05 ys4: the path-finder walked straight into the link rect (walking in teleports, gather.py)
+            # and the stage then tried for minutes to reach the 一层 passage from 二层: done once on 二层
+            m.STAGES = (dict(name='二层通道', goal=(750, LAYER2_XY), maze=None, until=None, patrol_b=None, legs={},
+                             done_when=lambda: lead.world().y > LOWER_Y),)
             m.main()
             st = lead.world()
-            t.say(f'[{LEADER}] 到二层通道 ({st.x:.0f},{st.y:.0f})，点 NPC {LAYER2}')
-            for attempt in range(3):         # 2026-10-28 飞天: one click right on arrival did nothing (8 s)
+            if st.y <= LOWER_Y:
+                t.say(f'[{LEADER}] 到二层通道 ({st.x:.0f},{st.y:.0f})，点 NPC {LAYER2}')
+            for attempt in range(3 if st.y <= LOWER_Y else 0):         # 2026-10-28 飞天: one click right on arrival did nothing (8 s)
                 t.wait(lambda: not (s := lead.world()).moving and not s.busy, 5, f'{LEADER} 站稳')
                 lead.game.click_npc(LAYER2)
                 try:

@@ -178,6 +178,48 @@ job = "术士"
 revive = 0                    # 大号强（第 2 轮同一个师傅没死人）
 tidy = true
 
+[team.ys4]                    # 2026-11-05 元素使 三批的第 1 批：波大臀圆 带 刘亦菲13–16（yss13–16），女号
+master = "波大臀圆"
+accounts = ["yss13", "yss14", "yss15", "yss16"]
+names = "刘亦菲"
+first = 13
+digits = 2                    # 刘亦菲13 .. 刘亦菲16
+sex = "女"
+gold = 10000
+batches = [1]
+stat = "敏捷"
+job = "术士"
+revive = 0
+tidy = true
+
+[team.ys5]                    # 2026-11-05 元素使 三批的第 2 批：波大臀圆 带 宋轶17–20（yss17–20），女号
+master = "波大臀圆"
+accounts = ["yss17", "yss18", "yss19", "yss20"]
+names = "宋轶"
+first = 17
+digits = 2                    # 宋轶17 .. 宋轶20
+sex = "女"
+gold = 10000
+batches = [1]
+stat = "敏捷"
+job = "术士"
+revive = 0
+tidy = true
+
+[team.ys6]                    # 2026-11-05 元素使 三批的第 3 批：波大臀圆 带 王祖贤21–24（yss21–24），女号
+master = "波大臀圆"
+accounts = ["yss21", "yss22", "yss23", "yss24"]
+names = "王祖贤"
+first = 21
+digits = 2                    # 王祖贤21 .. 王祖贤24
+sex = "女"
+gold = 10000
+batches = [1]
+stat = "敏捷"
+job = "术士"
+revive = 0
+tidy = true
+
 [team.oh]                     # 2026-11-05 勇者线 3 批（用户）：欧皇丨花花乀，小号从 mw01 起按空槽自动挑（line/pool.py）
 master = "欧皇丨花花乀"
 pool = "mw01-mw100"
