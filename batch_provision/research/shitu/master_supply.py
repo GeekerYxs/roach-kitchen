@@ -118,3 +118,95 @@ def gold_problem(p, gold):
     if gold < p.cost:
         return f'师傅金币 {gold} 不够补给（要 {p.cost}）'
     return None
+
+
+# ---- stage 3: the trip (user 2026-11-05, routes and shelves live-tested with 自由三号 the same day) -----------------
+
+CUIHUA = dict(npc=554, map_id=20, spot=(4360, 540), shelf={SCROLL: 8, 8454: 5, 8404: 2})   # 龙之都外城
+VILLAGE, CUIHUA_VIA = 1, ['平静海岸2区']      # 逍遥村 PP鸡 -> 平静海岸2区 (190) -> 龙之都 (690)
+BATCH_MAX = 99                                # per shop request; 回城卷 per its 50 stack
+
+
+def chunks(item, qty):
+    size = min(BATCH_MAX, STACK.get(item, 99))
+    while qty > 0:
+        yield min(size, qty)
+        qty -= size
+
+
+def summary(p):
+    return (f'蓝 {p.have["mp"]:,} / 血 {p.have["hp"]:,} / 忠诚 {p.have["loyal"]:,} / 回城卷 {p.scrolls}；'
+            f'要买 {p.buys or "无"}，约 {p.cost:,} 金币，新占 {p.slots} 格（空 {p.free} 格）')
+
+
+def ensure(name):
+    """Top the master up to the quota before a batch: one trip 翠花 (龙之都外城) -> 回城卷 home -> 小美. -> final Plan."""
+    import logging
+    import time
+
+    import master_bag
+    import trial_run as t
+    from factory.supply import PETSHOP, Shop, ShopClient
+    from pp_chain import hop, walk
+    from provisioner import world as w
+    from quanshou import scroll
+
+    c = t.Client(name)
+    potions, quota = load_potions(), load_quota()
+
+    def now():
+        bag = w.read_bag(c.mem)
+        return bag, plan(bag, w.read_bag_capacity(c.mem), potions, quota)
+
+    bag, p = now()
+    t.say(f'[{name}] 补给检查：{summary(p)}')
+    if not p.buys:
+        return p
+    err = gold_problem(p, w.read_gold(c.mem))
+    if err:
+        raise t.Stop(err)                       # user 2026-11-05: short of gold -> stop at the start
+    if c.dialog():
+        c.game.select_dialog(0)
+        time.sleep(0.5)
+    if c.world().map_id != VILLAGE:
+        scroll(c)
+    if p.short_slots:
+        t.say(f'[{name}] 报警：背包空 {p.free} 格，补给要 {p.slots} 格；先卖 / 丢地图掉落')
+        master_bag.clean(name)
+        bag, p = now()
+    if p.short_slots:
+        p = fit(p, bag, p.free)
+        for msg in p.warnings:
+            t.say(f'[{name}] 报警：{msg}')
+    shop = ShopClient(c.game, c.mem, logging.getLogger(f'supply.{name}'))
+    cui = {i: n for i, n in p.buys.items() if i in CUIHUA['shelf']}
+    if cui:
+        for _ in range(4):
+            if c.world().map_id == CUIHUA['map_id']:
+                break
+            hop(c, [c], '龙之都', list(CUIHUA_VIA))
+        walk(c, CUIHUA['map_id'], CUIHUA['spot'], '补给商翠花')
+        cuihua = Shop('补给商翠花', CUIHUA['npc'], CUIHUA['map_id'], CUIHUA['spot'], CUIHUA['shelf'], 1, 2)
+        try:
+            for item, qty in cui.items():
+                for n in chunks(item, qty):
+                    if not shop.buy(cuihua, CUIHUA['shelf'][item], item, n):
+                        raise t.Stop(f'{name} 翠花 {item} ×{n} 没到账，停下以免重复买')
+        finally:
+            shop.close()
+    if c.world().map_id != VILLAGE:
+        scroll(c)
+    pet = p.buys.get(BUY['loyal'], 0)
+    if pet:
+        walk(c, VILLAGE, PETSHOP.spot, '宠物商人小美')
+        try:
+            for n in chunks(BUY['loyal'], pet):
+                if not shop.buy(PETSHOP, PETSHOP.shelf[BUY['loyal']], BUY['loyal'], n):
+                    raise t.Stop(f'{name} 小美 甜点 ×{n} 没到账，停下以免重复买')
+        finally:
+            shop.close()
+    bag, done = now()
+    t.say(f'[{name}] 补给完成：{summary(done)}；金币 {w.read_gold(c.mem):,}')
+    if done.buys:
+        t.say(f'[{name}] 报警：补给后仍不够额定值 {done.buys}')
+    return done

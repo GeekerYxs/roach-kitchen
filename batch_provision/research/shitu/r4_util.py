@@ -4,6 +4,8 @@
     python -X utf8 research/shitu/r4_util.py restock [N]          apprentices: free portal to 自由市场, 回城卷 up to N
                                                                   (default 20) at 铁公鸡, back to 逍遥村
     python -X utf8 research/shitu/r4_util.py restock_master [N]   the master: 回城卷 up to N (default 100) at 铁公鸡
+    python -X utf8 research/shitu/r4_util.py master_supply        the master up to the per-batch quota (master_supply.py:
+                                                                  健康果汁 / 心情便当 / 回城卷 at 翠花, 甜点 at 小美)
     python -X utf8 research/shitu/r4_util.py supply               apprentices back to the master, 回城卷 + gold from him
     python -X utf8 research/shitu/r4_util.py double               double exp running out: 散福 3 小时 (in 逍遥村) or one 地瓜
     python -X utf8 research/shitu/r4_util.py double_due           epoch to break off for the 3 小时 (0 = all claimed)
@@ -112,8 +114,8 @@ def restock(n):
 
 def restock_master(n):
     """The master: 回城卷 up to n at 铁公鸡 (free portal 逍遥村 <-> 自由市场), for the next batch's supply. The pet's
-    胡萝卜汁 (2026-10-30 .. 11-05) is not bought any more: user 2026-11-05, a new mp logic for the master comes instead
-    (buy_scroll.juice_needed is left for it)."""
+    胡萝卜汁 (2026-10-30 .. 11-05) is not bought any more: the batch start tops the master up instead
+    (master_supply.ensure, user 2026-11-05)."""
     c = t.Client(MASTERS[0])
     if buy_scroll.count(c) >= n:
         return
@@ -455,7 +457,7 @@ def space_one(c, n):
 if __name__ == '__main__':
     a = sys.argv[1:]
     try:
-        {'home': lambda: home(), 'leave': lambda: leave('--home-if-split' in a), 'restock_master': lambda: restock_master(int(a[1]) if len(a) > 1 else 100), 'restock': lambda: restock(int(a[1]) if len(a) > 1 else 20),
+        {'home': lambda: home(), 'leave': lambda: leave('--home-if-split' in a), 'restock_master': lambda: restock_master(int(a[1]) if len(a) > 1 else 100), 'master_supply': lambda: __import__('master_supply').ensure(MASTERS[0]), 'restock': lambda: restock(int(a[1]) if len(a) > 1 else 20),
          'steps': lambda: steps(int(a[1])), 'need': lambda: need(int(a[1]), int(a[2])), 'have': lambda: have(int(a[1]), int(a[2])), 'windows': lambda: windows(a[1:]), 'relog': lambda: relog(a[1:]), 'double': lambda: double(), 'double_due': lambda: print(int(double_due())), 'supply': lambda: supply(), 'space': lambda: space(int(a[1]) if len(a) > 1 else 3)}[a[0]]()
     except t.Stop as e:
         t.say(f'停止: {e}')

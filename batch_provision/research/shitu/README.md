@@ -12,7 +12,7 @@
 
 | 路径 | 内容 | 进仓库？ |
 |---|---|---|
-| `line/` | 产线总控、路线表、批次计划、小操作（`__main__` / `runner` / `route` / `plan` / `ops`）、`line.toml` 设置 | 是 |
+| `line/` | 产线总控、路线表、批次计划、小操作（`__main__` / `runner` / `route` / `plan` / `ops`）、账号范围自动挑空槽（`pool`）、`line.toml` 设置 | 是 |
 | `*.py` | 共用能力和每一步的脚本（见下） | 是 |
 | `bank.json` | 考验一二的题库 | 是 |
 | `*_NOTES.md`、`notes/`、`ANALYSIS.md`、`GATHER.md`、`BOSS_QUIZ.md`、`EXP_MAP_TRIAL.md`、`GPT_REVIEW.md` | 历次实跑记录、协议分析、实验数据（参考用，不是操作手册） | 是 |

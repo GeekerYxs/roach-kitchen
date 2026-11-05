@@ -19,20 +19,8 @@ from quanshou import SCROLL_ITEM
 NPC, XY, SHELF, MAX_ONE = 25, (1650, 1071), 2, 50
 
 
-# 2026-10-30 user: the masters' pets drink 胡萝卜汁 (AutoUseItemID: 宠物补魔法 = 63954 胡萝卜汁 / 8456 劲爆汽水); when
-# they have fewer than JUICE_LOW, buy JUICE_FULL (20 x 99) here. 伏地魔1 had run dry: pet mp 68, 烈焰爆发 stopped.
-# 胡萝卜汁 gives 50 mp, 劲爆汽水 590 (ItemProp PropValue): 1980 juice lasted 伏地魔1 about 2.5 h of 烈焰爆发, so
-# every home() checks too (r4_util.home).
-JUICE, JUICE_SHELF, PET_MP_ITEMS, JUICE_LOW, JUICE_FULL = 63954, 1, (63954, 8456), 50, 20 * 99
-
-
 def count(c, item=SCROLL_ITEM):
     return w.item_count(w.read_bag(c.mem), item)
-
-
-def pet_mp_items(c):
-    bag = w.read_bag(c.mem)
-    return sum(w.item_count(bag, i) for i in PET_MP_ITEMS)
 
 
 def buy(c, n, item=SCROLL_ITEM, shelf=SHELF, label='回城卷'):
@@ -53,12 +41,6 @@ def buy(c, n, item=SCROLL_ITEM, shelf=SHELF, label='回城卷'):
         c.game.select_dialog(0)
         time.sleep(0.5)
     t.say(f'[{c.name}] {label} {count(c, item)}，金币 {gold} -> {w.read_gold(c.mem)}')
-
-
-def juice_needed(c):
-    """How many 胡萝卜汁 to buy: up to JUICE_FULL once the pet's mp drinks are below JUICE_LOW, else 0."""
-    have = pet_mp_items(c)
-    return JUICE_FULL if have < JUICE_LOW else 0
 
 
 if __name__ == '__main__':

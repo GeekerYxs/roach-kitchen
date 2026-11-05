@@ -109,6 +109,23 @@ class Fit(unittest.TestCase):
         self.assertEqual(len(q.warnings), 4)
 
 
+class Trip(unittest.TestCase):
+    def test_chunks(self):
+        self.assertEqual(list(S.chunks(8454, 1485)), [99] * 15)
+        self.assertEqual(list(S.chunks(8454, 98)), [98])
+        self.assertEqual(list(S.chunks(S.SCROLL, 75)), [50, 25])          # 回城卷 stacks to 50
+
+    def test_cuihua_shelf_is_the_live_one(self):
+        self.assertEqual(S.CUIHUA['shelf'], {S.SCROLL: 8, 8454: 5, 8404: 2})   # 自由三号 2026-11-05
+        self.assertEqual((S.CUIHUA['npc'], S.CUIHUA['map_id'], S.CUIHUA['spot']), (554, 20, (4360, 540)))
+
+    def test_every_buy_has_a_shop(self):
+        from factory.supply import PETSHOP
+        p = S.plan(bag(), 40, POT)
+        for item in p.buys:
+            self.assertTrue(item in S.CUIHUA['shelf'] or item in PETSHOP.shelf, item)
+
+
 class Gold(unittest.TestCase):
     def test_gold(self):
         p = S.plan(bag(), 40, POT)

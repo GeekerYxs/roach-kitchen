@@ -131,7 +131,8 @@ def slot_problem(names, name, batch):
 def one(settings, throttle, account, name, anywhere=False):
     lg = log.for_account(account.name)
     out = {'account': account.name, 'name': name, 'ok': False}
-    target_slot = int(os.environ.get('BATCH', '0') or 0)
+    # a pool team (line/pool.py, user 2026-11-05) takes any account with a free slot: other roles there are expected
+    target_slot = 0 if os.environ.get('SHITU_POOL') == '1' else int(os.environ.get('BATCH', '0') or 0)
     session = None
     try:
         session = login(settings, account, ROOT / 'runtime', throttle, lg)
@@ -173,7 +174,9 @@ def one(settings, throttle, account, name, anywhere=False):
         out['error'] = f'{type(e).__name__}: {e}'
         lg.error('%s 停止: %s', account.name, e)
         if session:
-            lg.warning('保留窗口 pid=%d 供排查', session.pid)
+            # user 2026-11-05: windows kept "for a look" piled up over the line's retries (32 x ~520 MB); the roster
+            # and the error are in the log, the window goes
+            lg.warning('关掉窗口 pid=%d (%s)', session.pid, native.close(session))
     return out
 
 

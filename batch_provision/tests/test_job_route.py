@@ -17,7 +17,9 @@ from line import ops  # noqa: E402
 # --no-weapon) and PP_COAST before lunhui / maze (a team scrolled home got 「在意外的地图 1」 for ever); then
 # maze_train --stay (no walk to 大个王 after 八阵图); then U space before zhuanzhi's supply and q183.
 # 2026-11-05: the v5 route is deleted (user: only B+); B+ itself unchanged by that (same fingerprint).
-BRAVE_FINGERPRINTS = {'bplus': '9dcbba79996aea83'}
+# Updated on purpose 2026-11-05: the arm step tops the master up to the per-batch quota (U master_supply, user)
+# instead of U restock_master 100.
+BRAVE_FINGERPRINTS = {'bplus': '00f47090767ddc7a'}
 
 
 def fp(route):

@@ -74,6 +74,7 @@ class Team:
     first: int = 1               # number of batch 1's first role (names + number); 2026-11-03 ys2: 元素使05.. on fresh accounts
     digits: int = 0              # zero-pad the number to this width (2: 魔法师09 .. 魔法师12); 0 = as is
     sex: str = '男'              # created roles: 男 (the old default look) / 女 (protocol.LOOK_FEMALE)
+    pool: str = ''               # account range ('mw01-mw100'): each batch picks 4 accounts with a free slot (line/pool.py)
 
     def __post_init__(self):
         if not self.tower2:
@@ -166,7 +167,7 @@ def load_teams(path=CONFIG):
                  0 if listed else int(acc), v.get('names', ''), tuple(sorted((a, int(b)) for a, b in levels.items())),
                  listed, route, tower2, v.get('stat', '体质'), v.get('job', '战士'), int(v.get('revive', 0)),
                  bool(v.get('tidy', False)), int(v.get('first', 1)),
-                 int(v.get('digits', 0)), v.get('sex', '男'))
+                 int(v.get('digits', 0)), v.get('sex', '男'), str(v.get('pool', '')))
         if t.sex not in ('男', '女'):
             raise ValueError(f'line.toml [team.{k}] sex = {t.sex!r}：只有 男 / 女')
         if t.job not in JOBS:
@@ -175,7 +176,12 @@ def load_teams(path=CONFIG):
             raise ValueError(f'line.toml [team.{k}] stat = {t.stat!r}：只有 {TALENT_STATS}')
         if not t.accounts and not listed and not 0 <= t.slot < 4:
             raise ValueError(f'line.toml [team.{k}] slot {t.slot} 不在 0..3')
-        if bool(t.accounts or listed) != bool(t.names):
+        if t.pool:
+            from line.pool import expand
+            expand(t.pool)                         # a bad range fails at load
+            if t.accounts or listed or not t.names:
+                raise ValueError(f'line.toml [team.{k}] pool 要和 names 一起写，不写 accounts')
+        elif bool(t.accounts or listed) != bool(t.names):
             raise ValueError(f'line.toml [team.{k}] accounts 和 names 要一起写')
         if t.names:
             _check_name(k, t.names)
@@ -194,6 +200,8 @@ def check_teams(names, teams=None):
         raise ValueError(f'line.toml 里没有这些队: {missing}')
     seen = {}
     for n in names:
+        if teams[n].pool:                 # accounts are picked per batch, never two teams' at once (line/pool.py)
+            continue
         for acc in teams[n].account_list:
             if acc in seen:
                 raise ValueError(f'队 {seen[acc]} 和 {n} 都用账号 {acc}，不能一起跑')
@@ -280,7 +288,14 @@ class Batch:
     @property
     def pairs(self):
         """'capNN:亿万M' for the kept apprentices (account of their team slot, whatever was skipped)."""
-        accs = TEAMS[self.team].account_list
+        t = TEAMS[self.team]
+        if t.pool:
+            from line.pool import accounts
+            accs = accounts(self.team, self.batch)
+            if not accs:
+                return []                    # not allocated yet (Team.line allocates before the batch starts)
+        else:
+            accs = t.account_list
         return [f'{accs[i]}:{n}' for i, n in enumerate(self.all_names) if n not in self.skip]
 
     @property
@@ -313,4 +328,5 @@ class Batch:
             'LOGID': self.logid,
             'PAIRS': ' '.join(self.pairs),
             'BATCH': str(self.batch),
+            'SHITU_POOL': '1' if TEAMS[self.team].pool else '0',
         }

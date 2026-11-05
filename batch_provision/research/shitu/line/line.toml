@@ -178,6 +178,20 @@ job = "术士"
 revive = 0                    # 大号强（第 2 轮同一个师傅没死人）
 tidy = true
 
+[team.oh]                     # 2026-11-05 勇者线 3 批（用户）：欧皇丨花花乀，小号从 mw01 起按空槽自动挑（line/pool.py）
+master = "欧皇丨花花乀"
+pool = "mw01-mw100"
+names = "欧花徒"
+digits = 2                    # 欧花徒01 .. 欧花徒12
+batches = [1, 2, 3]
+
+[team.zy]                     # 同上：自由三号
+master = "自由三号"
+pool = "mw01-mw100"
+names = "自三徒"
+digits = 2
+batches = [1, 2, 3]
+
 # 师傅补给额定值（用户 2026-11-05，SUPPLY_DESIGN.md §4.0）：每批徒弟启动前补到这些量，按"总共能回多少"算，
 # 借来的师傅背包里别的红 / 蓝药也算进去。mp = 15 组健康果汁 × 99 × 310；hp = 3 组心情便当 × 99 × 310；
 # loyal = 4 组甜点 × 99 × 150；回城卷 少于等于 scroll_low 张就补到 scroll_full 张。

@@ -70,7 +70,8 @@ BASE = (
     # ---- make: the batch's roles (slot BATCH of the team's accounts), tap armed, master's 回城卷
     Step('close_prev', 'make', (C('ops', 'close', '{PREV}'),), retry='none'),
     Step('make', 'make', (C('make_apprentices.py', '{PAIRS}'),), retry='none'),
-    Step('arm', 'make', (C('ops', 'arm', '{APPS}'), C('U', 'restock_master', '100')), retry='none'),
+    # user 2026-11-05: the master tops up to the per-batch quota (健康果汁 / 心情便当 / 甜点 / 回城卷, master_supply.py)
+    Step('arm', 'make', (C('ops', 'arm', '{APPS}'), C('U', 'master_supply')), retry='none'),
 
     # ---- early: 拜师 -> 古井 1->10 -> 10 级转职 + 任务 94 -> 3 小时双倍 -> 补给 + PP鸡 -> 轮回之城 -> 迷城/八阵图 -> 大个王
     Step('bai_shi', 'early', (C('bai_shi.py', '--master', '{M}', '{APPS}'),), retry='leave'),

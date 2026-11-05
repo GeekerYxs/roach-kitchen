@@ -163,6 +163,19 @@ class Team(threading.Thread):
         except (OSError, ValueError) as e:            # a half-saved / broken file: keep the list we have
             say(f'[{self.team}] 读 line.toml 出错，批次照旧 {self.cfg["batches"]}: {e}')
 
+    def allocate(self, batch):
+        """pool teams (user 2026-11-05): pick this batch's 4 accounts with a free slot. -> False = parked."""
+        from line import pool
+        try:
+            pool.allocate(self.team, batch, plan.TEAMS[self.team].pool, plan.batch_names(self.team, batch),
+                          pool.scan_rosters, say=say)
+            return True
+        except Exception as e:
+            alert(self.team, f'第 {batch} 批挑账号失败: {e}')
+            self.data.update(parked=True, reason=f'挑账号失败: {e}')
+            self.save()
+            return False
+
     def line(self):
         while self.fresh_batches() or (batch := next_batch(self.cfg, self.data, self.team)) is not None:
             if STOP.exists():
@@ -177,6 +190,8 @@ class Team(threading.Thread):
                 alert(self.team, '启动答题器 没在运行、自动启动也没成：战斗里的题没人答（boss 题脚本会自己答）。请手动启动它')
             self.data.update(batch=batch, parked=False, reason='')
             self.save()
+            if plan.TEAMS[self.team].pool and not self.allocate(batch):
+                break
             r = self.runner(batch)
             if not r.b.apprentices:
                 # every name of the batch skipped (line.toml skip / stuck ones): nothing to make. Before, make ran
