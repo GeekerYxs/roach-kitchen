@@ -122,11 +122,103 @@ def flee(c, timeout=120):
     t.say(f'[{c.name}] 逃出战斗')
 
 
+FETCH_NEAR, FETCH_WAIT = 150, 180      # px the master walks up to; s it may take (battles on the way included)
+import threading                       # noqa: E402
+_FETCH = threading.Lock()              # one master: one apprentice fetched at a time (home() runs them at once)
+
+
+def _master_walks_to(c, mc):
+    """Same map: the master walks over to c, casting in battles on the way. -> True when it got within FETCH_NEAR."""
+    import math
+    from lunhui15 import Caster          # lazy: lunhui15 imports this module's neighbours
+    if mc.team():
+        mc.game.team_leave()
+    caster, end, last = Caster(mc), time.monotonic() + FETCH_WAIT, 0.0
+    while time.monotonic() < end:
+        s, cs = mc.world(), c.world()
+        if s is None or cs is None or s.map_id != cs.map_id:
+            return False
+        if s.in_battle:
+            caster.tick(time.monotonic())
+        elif math.dist((s.x, s.y), (cs.x, cs.y)) <= FETCH_NEAR and not s.moving:
+            return True
+        elif time.monotonic() - last > 3 and not s.moving:
+            caster.reset()
+            mc.game.navigate(cs.map_id, round(cs.x), round(cs.y))
+            last = time.monotonic()
+        time.sleep(0.2)
+    return False
+
+
+def _fly(x):
+    """x returns to its 飞鞋 record. -> True when it got there (marked as used for the hour)."""
+    import math
+    import shoe_point
+    rec = w.read_shoe_record(x.mem)
+    flee(x)
+    if x.team():
+        x.game.team_leave()
+        t.wait(lambda: not x.team(), 5, f'{x.name} 离队')
+    x.game.shoe_return()
+    try:
+        t.wait(lambda: (s := x.world()) and s.map_id == rec[0] and math.dist((s.x, s.y), rec[1:]) <= shoe_point.ARRIVE,
+               6, f'{x.name} 飞到 {rec}')
+    except t.Stop:
+        return False
+    shoe_point.mark_used(x.name, rec)
+    t.say(f'[{x.name}] 飞鞋到了 {rec}')
+    return True
+
+
+def fetch(c):
+    """User 2026-11-05: c has no 回城卷 and nobody within reach lends one. The master comes: on the same map it walks
+    over; else c flies to its 飞鞋 record when the master is on that map or can fly to the same spot (the line
+    records the whole team together), and the master walks / flies there. Then borrow. -> True when c has scrolls;
+    False with the reason said (the caller stops)."""
+    from common import MASTERS
+    if not MASTERS or c.name in MASTERS:
+        return False
+    with _FETCH:
+        mc = t.Client(MASTERS[0])
+        start = mc.world().map_id
+        got = _fetch(c, mc)
+        if got and mc.world().map_id != start and start == 1:
+            scroll(mc)                 # it was home already (home() sends the master last): back again
+        return got
+
+
+def _fetch(c, mc):
+    import math
+    import shoe_point
+    cs, ms = c.world(), mc.world()
+    if cs.map_id != ms.map_id:
+        now = time.time()
+        rec, mrec = w.read_shoe_record(c.mem), w.read_shoe_record(mc.mem)
+        c_left = shoe_point.cooldown_left(shoe_point.used_at(c.name), now)
+        m_left = shoe_point.cooldown_left(shoe_point.used_at(mc.name), now)
+        m_there = rec and ms.map_id == rec[0]
+        m_can = rec and mrec and mrec[0] == rec[0] and math.dist(mrec[1:], rec[1:]) <= shoe_point.NEAR and not m_left
+        if not rec or c_left or not (m_there or m_can):
+            t.say(f'[{c.name}] 没有回城卷，在地图 {cs.map_id} ({cs.x:.0f},{cs.y:.0f})；师傅在地图 {ms.map_id}；'
+                  f'飞鞋记录 {rec}（冷却 {c_left // 60} 分），师傅记录 {mrec}（冷却 {m_left // 60} 分）：师傅接不到')
+            return False
+        t.say(f'[{c.name}] 没有回城卷，飞鞋到记录点 {rec}，师傅过去接')
+        if not _fly(c):
+            return False
+        if not m_there and not _fly(mc):
+            return False
+    if not _master_walks_to(c, mc):
+        t.say(f'[{c.name}] 师傅 {FETCH_WAIT}s 没走到身边')
+        return False
+    return borrow(c)
+
+
 def scroll(c):
     st = c.world()
     slot = next((s.slot for s in w.read_bag(c.mem) if s.item_id == SCROLL_ITEM), None)
-    if slot is None and borrow(c):
+    if slot is None and (borrow(c) or fetch(c)):
         slot = next((s.slot for s in w.read_bag(c.mem) if s.item_id == SCROLL_ITEM), None)
+        st = c.world()                    # fetch may have flown it elsewhere
     if slot is None:
         raise t.Stop(f'{c.name} 没有回城卷')
     for attempt in range(3):                  # round 4: a battle starting right then swallows the scroll

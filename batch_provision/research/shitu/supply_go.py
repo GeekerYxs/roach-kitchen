@@ -109,6 +109,11 @@ def go_home(cs):
         st = c.world()
         t.wait(lambda: not (s := c.world()).in_battle and not s.busy, 120, f'{c.name} 战斗结束')
         slot = next((s.slot for s in w.read_bag(c.mem) if s.item_id == SCROLL_ITEM), None)
+        if slot is None:               # borrow nearby, else the master fetches it (quanshou.fetch, user 2026-11-05)
+            from quanshou import borrow, fetch
+            if borrow(c) or fetch(c):
+                slot = next((s.slot for s in w.read_bag(c.mem) if s.item_id == SCROLL_ITEM), None)
+                st = c.world()
         if slot is None:
             raise t.Stop(f'{c.name} 没有回城卷（在地图 {st.map_id}）')
         t.say(f'[{c.name}] 用回城卷（第 {slot} 格），现在地图 {st.map_id}')
