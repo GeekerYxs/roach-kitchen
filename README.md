@@ -16,6 +16,7 @@
 ## 工具
 
 - 部署到新电脑（准备哪些大号、16 核 32 GB 怎么配、启动顺序）：[DEPLOY.md](docs/DEPLOY.md)
+- 游戏更新以后（每周）：按 [GAME_UPDATE.md](docs/GAME_UPDATE.md) 改地址、查封包；每个版本的地址档案在 `batch_provision/provisioner/addr_versions/`
 - 答题器（战斗题 + boss 题，自动注入每个新开的游戏窗口，顺带解锁游戏自带辅助工具）：[功能、源码与编译](大冒险2_自动答题器_原生无感关窗版/src/README.md)
 - Boss 开打题：题号 2601～3000 共 400 题全齐，答案已并入答题器；规律和协议见 `batch_provision/research/shitu/BOSS_QUIZ.md`，
   采集记录 [BOSS_QUESTION_COLLECTION_20261030.md](docs/BOSS_QUESTION_COLLECTION_20261030.md)
