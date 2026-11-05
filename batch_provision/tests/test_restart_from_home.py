@@ -37,3 +37,32 @@ class MazeLegs(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+# scripts that walk the team from a map they expect (maze_train / lunhui15 loops, team talks in a field or town)
+WALKERS = {'lunhui15.py', 'maze_train.py', 'go_goal.py', 'go_cave.py', 'desert_go.py', 'ruin_go.py', 'quan100.py',
+           'back_longeer.py', 'bazhen25.py', 'tower28.py', 'cave_train.py', 'tower2_patrol.py', 'dts.py',
+           'dew_team.py', 'scorpion_water.py', 'scorpion_king.py', 'team_npc.py', 'talk_chain.py', 'yongzhe_take.py',
+           'take224.py', 'team_tp.py', 'bird.py', 'fire.py', 'buy_gear.py'}
+# scripts that start from 逍遥村 by themselves (checked 2026-11-05): well10 (village -> 夕阳草原 -> 古井), supply_go
+# (scrolls whoever is not on 1 / 81, PP鸡 to 81), tower1_go / tower2_go (pp_chain unless at the tower), guji_entrance
+# (legs from map 1), the PP rides themselves, the trips home, bai_shi (糊涂博士 in the village)
+STARTERS = {'well10.py', 'supply_go.py', 'tower1_go.py', 'tower2_go.py', 'guji_entrance.py', 'pp_chain.py',
+            'bai_shi.py', 'pp_unlock.py'}
+
+
+class EveryStep(unittest.TestCase):
+    """A step rerun after the recovery scrolled everybody home starts from 逍遥村: before its first walker comes a trip
+    home or a PP ride, or a script that starts from the village by itself."""
+    def test_no_step_walks_from_an_unknown_start(self):
+        bad = []
+        for route in (R.ROUTE, R.ROUTE_BPLUS, R.ROUTE_YUANSU):
+            for s in route:
+                for c in s.cmds:
+                    a = c.args
+                    if a[:2] in (('U', 'home'), ('ops', 'home_village')) or a[0] in STARTERS:
+                        break
+                    if a[0] in WALKERS or a[:2] == ('ops', 'take224_master'):
+                        bad.append((s.name, a[0]))
+                        break
+        self.assertEqual(bad, [])
