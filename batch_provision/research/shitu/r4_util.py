@@ -30,8 +30,21 @@ MARKET = 300
 SCROLL_LOW = 5
 
 
+def close_dialogs(cs):
+    """Close any NPC dialog left open (user 2026-11-05: a role with a dialog open does not walk, buy_gear 2026-11-02;
+    the cleanup before a rerun left it open, so the rerun failed the same way). Option 0 = 离开."""
+    for c in cs:
+        try:
+            if c.dialog() is not None:
+                t.say(f'[{c.name}] 关掉开着的对话框')
+                c.game.select_dialog(0)
+        except Exception as e:          # a dropped client reads no world: the window check deals with it
+            t.say(f'[{c.name}] 关对话框出错: {e!r}')
+
+
 def home():
     cs = [t.Client(n) for n in (MASTERS[0],) + APPRENTICES]
+    close_dialogs(cs)
     for c in cs:
         c.game.cancel_navigation()
         if c.team():
@@ -71,6 +84,7 @@ def leave(home_if_split=False):
     teleport ...), everybody goes home instead; every step starts from the village (tests/test_restart_from_home),
     while regrouping across maps failed 3 reruns in a row before the relog + home recovery."""
     cs = [t.Client(n) for n in (MASTERS[0],) + APPRENTICES]
+    close_dialogs(cs)
     for c in cs:
         c.game.cancel_navigation()
         if c.team():

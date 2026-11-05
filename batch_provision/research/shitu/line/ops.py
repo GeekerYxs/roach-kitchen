@@ -104,7 +104,9 @@ def master_up():
 
 def home_village():
     from quanshou import scroll
+    from r4_util import close_dialogs
     cs = [t.Client(n) for n in (M,) + APPRENTICES]
+    close_dialogs(cs)                  # an open dialog stops the walk / the scroll (2026-11-05)
     for c in cs:
         c.game.cancel_navigation()
         if c.team():
