@@ -1,7 +1,10 @@
-"""Rescue an apprentice stranded without a return scroll after a failed parallel home operation."""
+"""Rescue an apprentice stranded in 1100 without a return scroll after a failed parallel home operation.
+
+    python -X utf8 rescue_scrollless_apprentice.py 小号名
+"""
 import _bootstrap  # noqa: F401
 import math
-import time
+import sys
 
 import maze_train as m
 import pp_chain
@@ -12,11 +15,13 @@ from provisioner import world as w
 import supply_go
 from factory.phase import SCROLL_ITEM
 
-STRANDED = '元素使02'
+STRANDED = sys.argv[1] if len(sys.argv) > 1 else None
 DESERT_3, RUIN_EAST = 172, 1100
 
 
 def main():
+    if STRANDED not in APPRENTICES:
+        raise t.Stop(f'请指定要救援的小号名（team.toml 里的 {list(APPRENTICES)}），收到：{STRANDED}')
     lead = t.Client(LEADER)
     lost = t.Client(STRANDED)
     if lost.world().map_id == 1:

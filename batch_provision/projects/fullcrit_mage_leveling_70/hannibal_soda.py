@@ -17,6 +17,7 @@ HANNIBAL = 2508
 MAP_ID = 180
 SPOT = (1638, 939)
 SHELF_SLOT = 5
+UNIT_PRICE = 95          # measured 2026-11-04: three buys of 99 each cost 9,500 gold
 ROLES = (LEADER,) + tuple(APPRENTICES)
 
 
@@ -39,6 +40,21 @@ def needs_restock(captain):
     return count(captain) < TRIGGER
 
 
+def check_room_and_gold(captain, need):
+    """Refuse the trip up front when 15 stacks cannot fit or cannot be paid, instead of failing at the shelf."""
+    from policy import stacks_needed
+
+    bag = w.read_bag(captain.mem) or ()
+    stacks = [s.quantity for s in bag if s.item_id == SODA_ID]
+    free = (w.read_bag_capacity(captain.mem) or 0) - len(bag)
+    slots = stacks_needed(stacks, need)
+    if free < slots:
+        raise t.Stop(f'队长背包空格 {free} 不够放 {need} 个劲爆汽水（需要 {slots} 格），取消汉尼拔补给')
+    gold, cost = w.read_gold(captain.mem), need * UNIT_PRICE
+    if gold < cost:
+        raise t.Stop(f'队长金币 {gold} 不够买 {need} 个劲爆汽水（约 {cost}），取消汉尼拔补给')
+
+
 def restock_at_home(roles=ROLES, target=TARGET):
     """Buy verified stacks up to target, returning the whole team to town afterward.
 
@@ -51,6 +67,7 @@ def restock_at_home(roles=ROLES, target=TARGET):
     before = count(captain)
     if before >= target:
         return before
+    check_room_and_gold(captain, target - before)
 
     # The reviewed PP鸡 route uses the shared team's configured roles (leader + four apprentices).
     pp_chain.main('荒芜之地1区', ['平静海岸2区', '龙之都', '恶人山', '苦无沙漠3区'])
