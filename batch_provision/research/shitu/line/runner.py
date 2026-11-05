@@ -156,8 +156,10 @@ class Runner:
         return self.execute([[sys.executable, '-X', 'utf8', 'master_login.py', self.b.master]], self.env(step)) == 0
 
     def cleanup(self, how, step):
+        # 'leave' = rerun in place; a team split over maps goes home instead (user 2026-11-05, r4_util.leave)
         if how != 'none':
-            self.execute([[sys.executable, '-X', 'utf8', 'r4_util.py', how]], self.env(step))
+            self.execute([[sys.executable, '-X', 'utf8', 'r4_util.py', how] + (['--home-if-split'] if how == 'leave' else [])],
+                         self.env(step))
 
     # ---- the ladder ----------------------------------------------------------------------------------------
     def run(self, frm=None, until=None):

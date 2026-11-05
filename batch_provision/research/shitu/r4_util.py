@@ -56,7 +56,11 @@ def home():
         tidy.main(list(APPRENTICES))
 
 
-def leave():
+def leave(home_if_split=False):
+    """Everybody leaves the team where it stands. home_if_split (the supervisor's cleanup before an in-place rerun,
+    user 2026-11-05): when they stand on different maps (an apprentice died in the maze and woke in 逍遥村, a half
+    teleport ...), everybody goes home instead; every step starts from the village (tests/test_restart_from_home),
+    while regrouping across maps failed 3 reruns in a row before the relog + home recovery."""
     cs = [t.Client(n) for n in (MASTERS[0],) + APPRENTICES]
     for c in cs:
         c.game.cancel_navigation()
@@ -64,6 +68,11 @@ def leave():
             c.game.team_leave()
     for c in cs:
         t.wait(lambda: not c.team(), 5, f'{c.name} 离队')
+    if home_if_split:
+        maps = {c.name: c.world().map_id for c in cs}
+        if len(set(maps.values())) > 1:
+            t.say(f'队伍散在不同地图 {maps}，原地重跑改成全员回城')
+            home()
 
 
 def restock(n):
@@ -425,7 +434,7 @@ def space_one(c, n):
 if __name__ == '__main__':
     a = sys.argv[1:]
     try:
-        {'home': lambda: home(), 'leave': lambda: leave(), 'restock_master': lambda: restock_master(int(a[1]) if len(a) > 1 else 100), 'restock': lambda: restock(int(a[1]) if len(a) > 1 else 20),
+        {'home': lambda: home(), 'leave': lambda: leave('--home-if-split' in a), 'restock_master': lambda: restock_master(int(a[1]) if len(a) > 1 else 100), 'restock': lambda: restock(int(a[1]) if len(a) > 1 else 20),
          'steps': lambda: steps(int(a[1])), 'need': lambda: need(int(a[1]), int(a[2])), 'have': lambda: have(int(a[1]), int(a[2])), 'windows': lambda: windows(a[1:]), 'relog': lambda: relog(a[1:]), 'double': lambda: double(), 'double_due': lambda: print(int(double_due())), 'supply': lambda: supply(), 'space': lambda: space(int(a[1]) if len(a) > 1 else 3)}[a[0]]()
     except t.Stop as e:
         t.say(f'停止: {e}')

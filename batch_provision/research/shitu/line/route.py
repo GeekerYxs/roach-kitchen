@@ -85,7 +85,7 @@ ROUTE = (
     # the master talks too: 飞天 / 舔尊 (2026-10-28 batch 3) never ran this line, their PP鸡 permission is unknown
     Step('pp', 'early', (C('supply_go.py'), C('pp_unlock.py', '{M}', '{APPS}')), retry='leave'),
     Step('lunhui', 'early', (PP_COAST, C('lunhui15.py', '{LV:lunhui}')), retry='leave', unless='lv_ge {LV:lunhui}'),
-    Step('maze', 'early', (PP_COAST, C('maze_train.py', '{LV:maze1}', '{LV:maze2}')), retry='leave'),
+    Step('maze', 'early', (PP_COAST, C('maze_train.py', '{LV:maze1}', '{LV:maze2}', '--stay')), retry='leave'),
 
     # ---- mid: 考验一二 -> 八阵图 25 -> 遗忘洞穴 25->28 (+采集) -> 224 -> 地头蛇 -> 通天一 28->33 -> 考验三 -> 二区 ->40
     Step('start', 'mid', (HOME, C('sell_tradable.py', '--safe', '{APPS}'),

@@ -364,7 +364,7 @@ class OwnAccountsAndLevels(unittest.TestCase):
             def argv(name, script):
                 return next(R.expand(c, b, python=()) for c in R.step(name).cmds if c.args[0] == script)[0]
             self.assertEqual(argv('lunhui', 'lunhui15.py'), ['lunhui15.py', '12'])
-            self.assertEqual(argv('maze', 'maze_train.py'), ['maze_train.py', '16', '23'])
+            self.assertEqual(argv('maze', 'maze_train.py'), ['maze_train.py', '16', '23', '--stay'])
             self.assertEqual(argv('bazhen', 'bazhen25.py'), ['bazhen25.py', '23'])
             self.assertEqual(argv('cave', 'cave_train.py'), ['cave_train.py', '27'])
             self.assertEqual(argv('tower1', 'tower28.py'), ['tower28.py', '34'])
@@ -380,7 +380,7 @@ class OwnAccountsAndLevels(unittest.TestCase):
     def test_v5_teams_keep_their_levels(self):
         b = plan.Batch('oa', 1)                                                 # route = "v5", no levels
         maze = next(c for c in R.step('maze').cmds if c.args[0] == 'maze_train.py')     # after PP_COAST (2026-11-05)
-        self.assertEqual(R.expand(maze, b, python=())[0], ['maze_train.py', '19', '23'])
+        self.assertEqual(R.expand(maze, b, python=())[0], ['maze_train.py', '19', '23', '--stay'])
         self.assertEqual(R.fill(R.step('bazhen').unless, b), 'lv_ge 25')
 
     def test_trial_teams_in_config(self):
