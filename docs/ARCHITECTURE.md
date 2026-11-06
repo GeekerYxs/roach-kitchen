@@ -65,7 +65,7 @@
 | | 确保答题器在运行（没开就启动，加锁防两条线同时启动） | `provisioner/quizbot.py` | 全部（料理总大脑、师徒总控、满爆方士、抓宠） |
 | | 登录 / 建角 / 进角色 / 新手出村 | `provisioner/`、`research/shitu/make_apprentices.py`、`master_login.py` | 料理、师徒 |
 | **移动** | 坐 PP鸡（按目的地找路线） | `pp_chain.py` | 师徒、满爆方士 |
-| | 地图能走的格子、路程、「离 NPC 多近就能点」的站位（服务器约 500 像素、隔墙也行，按 300 用）；长路切成每段约 600 像素的路点（`waypoints`，游戏自己寻路长路会卡） | `provisioner/mapgrid.py`（读游戏资源包 `map\mapNNNNN.bar`） | 5 人打 boss |
+| | 地图能走的格子、路程、「离 NPC 多近就能点」的站位（服务器约 500 像素、隔墙也行，按 300 用）；长路切成每段约 600 像素的路点（`waypoints`，游戏自己寻路长路会卡）；**走进去就切图的门**（ResLib NPCDirection 类型 18，不在 maplink 里）登记在 `mapgrid.DOORS`，`load(map, avoid_doors=True)` 把门周围 120 像素当墙，路点就绕开（2026-11-06：龙之都外城 PP鸡 落地直接寻路去交叉口，会踩进连锁商店 map 31） | `provisioner/mapgrid.py`（读游戏资源包 `map\mapNNNNN.bar`）；绕门走 `projects/boss_gear_5/chainsaw.walk / cross` | 5 人打 boss |
 | | 城里走到某点 | `pp_chain.walk`、`zhuanzhi_finish.walk` | 师徒 |
 | | 带队穿地图 / 练级 / 巡逻（一张「每张图怎么走」的表） | `maze_train.py`（及 `go_goal.py`、`tower1_go.py` … 这些配置） | 师徒、满爆方士 |
 | | 回城（全员，徒弟先回、师傅最后） | `r4_util.home` | 师徒、满爆方士 |

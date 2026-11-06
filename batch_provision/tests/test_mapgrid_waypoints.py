@@ -41,5 +41,24 @@ class Waypoints(unittest.TestCase):
         self.assertEqual(g.waypoints((0, 0), (30, 0), step=600), [(30, 0)])
 
 
+class Doors(unittest.TestCase):
+    """2026-11-06 电锯杀人王 line: the PP鸡 path in 龙之都外城 walked into the 连锁商店 door (map 31)."""
+
+    def test_block_walls_off_a_door_and_the_path_goes_round(self):
+        g = grid(['..........'] * 7)
+        door = (50, 30)
+        straight = g.waypoints((0, 30), (90, 30), step=10)
+        self.assertTrue(any(math.dist(p, door) < 20 for p in straight))
+        g.block(door, 20)
+        self.assertFalse(g.walkable(*g.cell(*door)))
+        legs = g.waypoints((0, 30), (90, 30), step=10)
+        self.assertEqual(legs[-1], (90, 30))
+        self.assertTrue(all(math.dist(p, door) > 20 for p in legs))
+
+    def test_outer_city_doors_are_listed(self):
+        from provisioner import mapgrid
+        self.assertIn((1928, 572), mapgrid.DOORS[20])      # 连锁商店 10420
+
+
 if __name__ == '__main__':
     unittest.main()

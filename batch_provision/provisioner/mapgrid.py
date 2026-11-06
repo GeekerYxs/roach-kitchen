@@ -21,6 +21,12 @@ ROOT = Path(__file__).resolve().parents[1]
 CACHE = ROOT / 'runtime' / 'maps'
 ARCHIVES = ('Patch1.Data', 'Patch.Data', 'Update.Data', 'Game.Data')
 REACH = 300
+# Walk-in doors: ResLib NPCDirection type 18 (AutoPath「地图出口」, not in maplink.csv). Stepping onto one changes the
+# map. 2026-11-06 live: the client's own path from the PP鸡 landing (4050,303) in 龙之都外城 to the 交叉口 exit
+# (663,166) walked over 连锁商店 10420 and the team landed in map 31 (837,588); the 2026-11-03 满爆方士 line hit the
+# same door (ruin_east_to_prison.py). load(..., avoid_doors=True) walls them off so waypoints() goes round them.
+DOORS = {20: ((1524, 1512), (1668, 1440), (1928, 572), (4601, 902), (2136, 2412))}
+DOOR_RADIUS = 120
 
 
 def _crypt_table():
@@ -85,6 +91,17 @@ class Grid:
         h = struct.unpack('<11I', data[:44])
         self.sy, self.sx, self.cols, self.rows = h[5], h[6], h[7], h[8]
         self.g = data[44:44 + self.cols * self.rows]
+
+    def block(self, xy, radius):
+        """Treat every cell within radius px of xy as wall (doors, see DOORS)."""
+        g = bytearray(self.g)
+        c0, r0 = self.cell(*xy)
+        rc, rr = int(radius / self.sx) + 1, int(radius / self.sy) + 1
+        for c in range(max(0, c0 - rc), min(self.cols, c0 + rc + 1)):
+            for r in range(max(0, r0 - rr), min(self.rows, r0 + rr + 1)):
+                if math.dist(self.xy(c, r), xy) <= radius:
+                    g[r * self.cols + c] = 0x80
+        self.g = bytes(g)
 
     def cell(self, x, y):
         return round(x / self.sx), round(y / self.sy)
@@ -166,8 +183,9 @@ class Grid:
         return best
 
 
-def load(map_id, gdir=None):
-    """Grid of map_id; cached under runtime/maps (the archives are ~2 GB, one read per map and PC)."""
+def load(map_id, gdir=None, avoid_doors=False):
+    """Grid of map_id; cached under runtime/maps (the archives are ~2 GB, one read per map and PC).
+    avoid_doors: the walk-in doors of DOORS count as wall (default off: the old grids stay as they were)."""
     path = CACHE / f'map{map_id:05d}.bar'
     if not path.is_file():
         data = extract(gdir or game_dir(), f'map\\map{map_id:05d}.bar')
@@ -175,4 +193,8 @@ def load(map_id, gdir=None):
             raise FileNotFoundError(f'游戏资源包里没有 map{map_id:05d}.bar')
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
-    return Grid(path.read_bytes())
+    grid = Grid(path.read_bytes())
+    if avoid_doors:
+        for xy in DOORS.get(map_id, ()):
+            grid.block(xy, DOOR_RADIUS)
+    return grid
