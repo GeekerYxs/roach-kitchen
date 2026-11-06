@@ -72,15 +72,22 @@ def talk(c, npc, steps, d=None):
     if d is None:
         c.game.click_npc(npc)
         d = t.wait(lambda: c.dialog(), 5, f'NPC {npc} 的对话框')
-    for word in steps:
+    for i, word in enumerate(steps):
         opt, label = pick_text(d, word)
         t.say(f'[{c.name}]   选 opt={opt}「{plain(label)}」')
         before = d.text
         c.game.select_dialog(opt)
         time.sleep(0.4)
         d = c.dialog()
-        if d and d.text == before:
+        # a word still to come needs the next page: it may not be there yet after 0.4 s (test machine 2026-11-06:
+        # d was None -> AttributeError on d.options). The last pick may close the dialog: a short look, None if not.
+        if (d and d.text == before) or (d is None and i + 1 < len(steps)):
             d = t.wait(lambda: (x := c.dialog()) and x.text != before and x, 5, f'选「{word}」后的对话')
+        elif d is None:
+            end = time.monotonic() + 1.5
+            while d is None and time.monotonic() < end:
+                time.sleep(0.1)
+                d = c.dialog()
     return d
 
 

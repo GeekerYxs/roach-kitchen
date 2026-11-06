@@ -10,6 +10,9 @@ Recorded 18:07-18:09 (user by hand, 伏地魔1 + 千万1; logs/mem_*.jsonl, net_
   4. master at 341: 正式出师 -> 正式让徒弟出师 (master +583 道德; apprentice +20万 exp / +20万 gold / +40万 潜能);
   5. apprentice leaves the team (0x33).
 Needs one free bag slot for the weapon (the dialog warns).
+Rerun-safe (test machine 2026-11-06, fdm5: a retry restarted at 魔徒E05, already 出师, and 糊涂博士 only offered 离开):
+state.json (bai_shi.mark) 'chushi' = done -> skipped; 'chushi_quest' or the weapon in the bag = step 2 done -> straight
+to step 3.
 """
 import struct
 import sys
@@ -20,6 +23,7 @@ import trial_run as t
 from pp_chain import walk
 from provisioner import world as w
 from take224 import talk
+from bai_shi import done, mark
 
 NPC, XY, WEAPON = 341, (1398, 1329), '狂暴之球棒'
 OP_TEAM_LEAD = 0x35
@@ -32,6 +36,9 @@ def leave(c):
 
 
 def one(master, app):
+    if done(app, 'chushi'):
+        t.say(f'[{app}] state.json 记着已经出师，跳过')
+        return
     m, a = t.Client(master), t.Client(app)
     for c in (m, a):
         if c.dialog():
@@ -41,14 +48,18 @@ def one(master, app):
     gold, level = w.read_gold(a.mem), w.read_level(a.mem)
     d.MAP = 1
     d.regroup(a, [m])                                   # apprentice leads
-    dlg = talk(a, NPC, ['师徒任务', '出师任务', '我已经完成考验了'])
-    opts = [(o, t.plain(l)) for o, l in dlg.options if o]
-    pick = next((o for o, l in opts if WEAPON in l), None)
-    if pick is None:
-        a.game.select_dialog(0)
-        raise t.Stop(f'{app} 奖励列表里没有 {WEAPON}: {t.body(dlg)[:60]} {opts}')
-    a.game.select_dialog(pick)
-    t.wait(lambda: any(s.item_id == 64309 for s in w.read_bag(a.mem)), 5, f'{app} 拿到 {WEAPON}')
+    if done(app, 'chushi_quest') or any(s.item_id == 64309 for s in w.read_bag(a.mem)):
+        t.say(f'[{app}] 出师任务已经做完（state.json / 包里有 {WEAPON}），直接让师傅正式出师')
+    else:
+        dlg = talk(a, NPC, ['师徒任务', '出师任务', '我已经完成考验了']) or t.wait(a.dialog, 5, f'{app} 出师奖励列表')
+        opts = [(o, t.plain(l)) for o, l in dlg.options if o]
+        pick = next((o for o, l in opts if WEAPON in l), None)
+        if pick is None:
+            a.game.select_dialog(0)
+            raise t.Stop(f'{app} 奖励列表里没有 {WEAPON}: {t.body(dlg)[:60]} {opts}')
+        a.game.select_dialog(pick)
+        t.wait(lambda: any(s.item_id == 64309 for s in w.read_bag(a.mem)), 5, f'{app} 拿到 {WEAPON}')
+        mark(app, 'chushi_quest', master=master)
     a.game.send(OP_TEAM_LEAD, struct.pack('<II', 0, m.char_id))
     t.wait(lambda: (m.team() or (0,))[0] == m.char_id, 5, f'{master} 当队长')
     talk(m, NPC, ['正式出师', '正式让徒弟出师'])
@@ -56,6 +67,7 @@ def one(master, app):
     time.sleep(0.5)
     if m.dialog():
         m.game.select_dialog(0)
+    mark(app, 'chushi', master=master)
     leave(a)
     t.say(f'[{app}] 出师：等级 {level} -> {w.read_level(a.mem)}，金币 {gold} -> {w.read_gold(a.mem)}，'
           f'{WEAPON} {w.item_count(w.read_bag(a.mem), 64309)}')

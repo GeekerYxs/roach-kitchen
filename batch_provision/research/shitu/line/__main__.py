@@ -278,7 +278,9 @@ def main(argv):
         return dry_run(cfg)
     if '--team' in argv:                 # manual catch-up of one batch
         team, batch = arg(argv, '--team'), int(arg(argv, '--batch', '1'))
-        b = Team(team, cfg).runner(batch).b
+        tm = Team(team, cfg)
+        data = tm.data                   # test machine 2026-11-06: `data` was unbound here (NameError after a good run)
+        b = tm.runner(batch).b
         if '--apps' in argv:
             keep = arg(argv, '--apps').split(',')
             b.skip = [n for n in b.all_names if n not in keep]
