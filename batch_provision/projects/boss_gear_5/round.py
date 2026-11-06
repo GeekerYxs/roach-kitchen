@@ -1,6 +1,6 @@
 """5-man boss-gear line: run whole 让鹰王倒下 rounds (user 2026-11-06), picking up wherever the team is.
 
-    python -X utf8 round.py [rounds, default 1]
+    python -X utf8 round.py [rounds, default 1]      (round.py 10 = the whole day: it stops at「今日挑战上限」)
 
 One round: (home + PP鸡 to 荒芜之地1区 unless already in 陷阱囚牢) -> take quest if missing -> into the cage ->
 three crystals + 琉璃瓶 + 独眼鹰王 -> home + PP鸡 -> report to 莫吉 (re-takes the quest). Every step skips itself
@@ -47,7 +47,11 @@ def one(n):
 
 def main(rounds):
     for n in range(1, rounds + 1):
-        one(n)
+        try:
+            one(n)
+        except take_eagle.DailyLimit as e:          # 10 a day (live 2026-11-06): done for today, not an error
+            t.say(f'今天打满了，停在第 {n} 轮开头：{e}')
+            return
 
 
 if __name__ == '__main__':

@@ -28,7 +28,7 @@
 现状的两个限制，就是下面规划要解决的：
 
 1. 队伍是通过环境变量（`_bootstrap.py` 设 `SHITU_LEADER` 等）定死的，别的产品线没法传自己的队伍进来。
-2. 没有「今天还能打几次」的概念，也不知道打满 10 次后服务器会怎么样（**待实测**：今天已经打了 6～7 次，再打几轮就能看到）。
+2. 没有「今天还能打几次」的计数。已实测（2026-11-06）：第 11 次**接任务**时莫吉最后一页是「已经超过今日挑战上限了！」，只有「离开」，任务不给；第 10 次交任务时续接也同样被拒。`take_eagle.DailyLimit` 认这句话，`round.py` 停下。
 
 ## 3. 放在哪：`batch_provision/kit/boss/`
 
@@ -42,6 +42,7 @@ batch_provision/kit/
     base.py          一个 boss 任务的「规格」+ 通用的一轮流程（从当前进度接着做、每步可重跑）
     daily.py         每个队长每个 boss 今天打了几次（runtime/boss_daily.json），到上限就不打
     travel.py        带队回城、坐 PP鸡到某张图（显式传队伍，不读环境变量）
+                     地图内少走路：provisioner/mapgrid.py（已有）给出「离 NPC 300 像素内、路最近」的站位
     eagle.py         鹰王（任务 1130）：从 projects/boss_gear_5 搬过来
     tiger.py         虎王（下一步研究）
 ```
@@ -78,7 +79,7 @@ class Eagle(BossTask):
 ## 5. 迁移顺序（每一步都能单独上线，不影响正在跑的队）
 
 1. ✅ 鹰王在 `projects/boss_gear_5/` 跑通（2026-11-06）。
-2. 实测「每天 10 次」：打满后接任务 / 召唤时服务器怎么说，写进 `daily.py` 的注释。
+2. ✅ 实测「每天 10 次」：拦在接任务这一步（见第 2 节）。`daily.py` 可以只靠这句话判断，不一定要自己计数。
 3. 建 `kit/boss/`，把鹰王的逻辑搬进 `eagle.py` + `base.py`，改成显式传队伍；`projects/boss_gear_5/` 的几个脚本改成一行转发，文件名不变。
    加离线测试 `tests/test_boss_eagle.py`（假窗口：瓶子对 / 被传送 / 扣血 / 遇怪打断；从各个进度重跑）。
 4. 加 `daily.py` 和 `round.py --boss --times`。

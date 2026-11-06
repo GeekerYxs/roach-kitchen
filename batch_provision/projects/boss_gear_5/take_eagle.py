@@ -27,6 +27,21 @@ STEPS = ['让鹰王倒下', '请指教', '生不如死', '跟我想的差不多'
 OP_CLICK_NPC, OP_DIALOG = 0x50, 0x51
 PACKET_OPTS = (5, 2, 1, 1, 1, 1)
 PACKET_GAP = 0.3
+# live 2026-11-06 16:38, after the 10th 独眼鹰王 of the day: every page as usual, then「已经超过今日挑战上限了！」
+# with only 离开, and no quest. The re-take page at the 10th hand-in was refused the same way.
+LIMIT_TEXT = '超过今日挑战上限'
+
+
+class DailyLimit(t.Stop):
+    """Today's 10 tries are used up: not an error, the line stops until tomorrow."""
+
+
+def at_limit(lead):
+    d = lead.dialog()
+    if d and LIMIT_TEXT in t.plain(d.text):
+        lead.game.select_dialog(0)
+        return True
+    return False
 
 
 def by_packet(lead):
@@ -55,10 +70,15 @@ def main():
     try:
         t.wait(lambda: not missing(cs), 3, '五人接到任务 1130（发包）')
     except t.Stop:
+        if at_limit(lead):
+            raise DailyLimit('莫吉说「已经超过今日挑战上限了」：今天的鹰王打满了')
         t.say(f'发包后还没接到: {missing(cs)}，改用看着菜单一页页选')
         close_dialogs([lead])
         time.sleep(1)
         talk(lead, MOJI, STEPS)
+        time.sleep(0.5)
+        if at_limit(lead):
+            raise DailyLimit('莫吉说「已经超过今日挑战上限了」：今天的鹰王打满了')
         t.wait(lambda: not missing(cs), 5, '五人接到任务 1130')
     t.say('五人都接到了「让鹰王倒下」（任务 1130）')
 
