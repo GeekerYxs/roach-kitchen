@@ -29,6 +29,7 @@ from quanshou import scroll
 from zhuanzhi_finish import gate
 
 MARKET = 300
+MARKET_LEVEL = 10                      # 自由市场 portal 10213 needs lv 10 (see restock)
 SCROLL_LOW = 5
 
 
@@ -104,6 +105,11 @@ def restock(n):
     def one(name):                     # each buys its own 回城卷, all at once (user 2026-11-01)
         c = t.Client(name)
         if buy_scroll.count(c) >= n:
+            return
+        # Gemini test machine 2026-11-06 (魔徒E12, lv 2): a rerun's home() sent it to 10213 and the portal answered
+        # 「到自由市场需要级别不低于10级才可以！」, the dialog left open broke the next team-up. Not seen here yet.
+        if (lv := w.read_level(c.mem)) < MARKET_LEVEL:
+            t.say(f'[{name}] {lv} 级进不了自由市场，不补回城卷')
             return
         if c.world().map_id != MARKET:
             gate(c, 10213, (1338, 1053), 1, '自由市场', MARKET)

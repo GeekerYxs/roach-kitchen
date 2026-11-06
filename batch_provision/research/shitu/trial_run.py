@@ -215,9 +215,26 @@ def choose(app, dialog, opt, label):
     return wait(lambda: (d := app.dialog()) and d.text != before and d, 5, f'选「{label}」后的新对话')
 
 
+MENU_CLICKS = 3
+
+
 def open_menu(app):
-    app.game.click_npc(NPC)
-    d = wait(lambda: (d := app.dialog()) and '师徒任务' in [l for _, l in d.options] and d, 5, '糊涂博士主菜单')
+    # Gemini test machine 2026-11-06 (fdm5 魔徒E09): one click, no menu in 5 s, three step retries alike. A dialog
+    # left open (another NPC, a portal's refusal) is closed and logged first, so its text shows the real cause; then
+    # the click is repeated (MENU_CLICKS in all).
+    for attempt in range(MENU_CLICKS):
+        if (d := app.dialog()) is not None:
+            say(f'[{app.name}] 点糊涂博士前还开着对话框：{body(d)[:60]} {d.options}，先关掉')
+            app.game.select_dialog(0)
+            time.sleep(0.5)
+        app.game.click_npc(NPC)
+        try:
+            d = wait(lambda: (d := app.dialog()) and '师徒任务' in [l for _, l in d.options] and d, 4, '糊涂博士主菜单')
+            break
+        except Stop:
+            if attempt == MENU_CLICKS - 1:
+                raise
+            say(f'[{app.name}] 糊涂博士没出菜单，再点一次 ({attempt + 2}/{MENU_CLICKS})')
     d = choose(app, d, pick(d, '师徒任务'), '师徒任务')
     return choose(app, d, pick(d, '考验任务'), '考验任务')
 

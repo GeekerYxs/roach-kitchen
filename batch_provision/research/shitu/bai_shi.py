@@ -12,6 +12,7 @@ the server refusing the 确定 (its words are logged; an unknown refusal stops t
 No UI clicks: team / dialog = game functions (DLL command 106), 0x0197 through the client's sender.
 """
 import json
+import math
 import sys
 import time
 
@@ -101,10 +102,16 @@ def team_master_lead(master, app):
             t.say(f'[{c.name}] 先离开现在的队伍 {c.team()}')
             c.game.team_leave()
             t.wait(lambda: not c.team(), 5, f'{c.name} 离队')
-    t.say(f'[{master.name}] 邀请 {app.name} 入队 (0x30)')
-    master.game.team_invite(app.char_id, w.read_level(master.mem), w.read_invite_byte(master.mem), master.name)
-    t.wait(lambda: w.read_team(app.mem).inviter == master.char_id, 5, f'{app.name} 收到邀请')
-    app.game.team_accept()
+    # Gemini test machine 2026-11-06 (伏地魔 / 魔徒E12): a relogged apprentice stood ~283 px from the master and the
+    # bare invite never arrived; the server refuses invites beyond ~150 px (0x46ff 距离太远, well10.py). teamwalk.regroup
+    # walks the apprentice over, closes open dialogs, waits 1.5 s before accepting and cures 距离太远 / 障碍.
+    ms, s = master.world(), app.world()
+    if ms.map_id != s.map_id:
+        raise t.Stop(f'{app.name} 与 {master.name} 不在同一地图：{s.map_id} / {ms.map_id}')
+    import teamwalk
+    teamwalk.MAP = ms.map_id
+    t.say(f'[{master.name}] 邀请 {app.name} 入队，距离 {math.dist((ms.x, ms.y), (s.x, s.y)):.0f} px')
+    teamwalk.regroup(master, [app])
     t.wait(lambda: master.team() == want and app.team() == want, 5, '队伍名单 = [师傅, 徒弟]')
     t.say(f'[{master.name}] 组队成功 {master.team()}')
 
