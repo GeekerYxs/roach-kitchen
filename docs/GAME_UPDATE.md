@@ -49,7 +49,7 @@
 | 0x0047 | 移动物品（穿 / 脱装备、换格） | 12 字节 `<IBBHBBH>` | `game.unequip`、`wear_best.py` | 师徒、料理 |
 | 0x0048 | 丢物品 | `<IBBH>(0, 0, 格, 数量)` | `drop_prank.py`、`trash.py`、`r4_util.space_one`、`master_bag.py`、`farm.py` | 师徒 |
 | 0x0049 | 用物品（吃、开包、回城卷） | 19 字节 `<IIiI>(0,0,-1,0)` + (0, 格, 1) | `game.use_item` | 全部 |
-| 0x0050 / 0x0051 / 0x0055 | 商店：点 NPC、选「购买」、**买 / 卖**（2.100 改过：数量 2 字节） | `<IIBBHBH>`；卖一次最多 20 格 | `factory/supply.py`（`ShopClient`）、`buy_scroll.py`、`buy_gear.py` | 全部 |
+| 0x0050 / 0x0051 / 0x0055 | 商店：点 NPC、选「购买」、**买 / 卖**（2.100 改过：数量 2 字节） | `<IIBBHBH>`；卖一次最多 20 格 | `factory/supply.py`（`ShopClient`）、`buy_scroll.py`、`buy_gear.py`、`projects/boss_gear_5/take_eagle.py`（莫吉接任务，2026-11-06） | 全部 |
 | 0x0060 / 61 / 63 / 65 | 交易：邀请、接受、放东西 / 金币、确认 | 见 `game.py` | `supply_go.trade_until`、`factory/gold.py` | 全部 |
 | 0x0070 | 加天赋点 | 24 字节 `<6i>`，第 N 个 = 某项属性 | `game.add_talent` | 师徒、满爆方士 |
 | 0x0082 / 0x0083 | 飞鞋记点 / 飞回 | 4 个 0 字节（服务器不看） | `game.shoe_record`、`shoe_return` | 师徒、满爆方士、料理 |

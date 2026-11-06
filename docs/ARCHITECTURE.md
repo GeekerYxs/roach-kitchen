@@ -1,6 +1,6 @@
 # 仓库架构：几条产品线 + 一套共用的游戏能力
 
-更新：2026-11-05。给人看，也给接手的 AI 看（AI 另见仓库根目录 `AGENTS.md`）。
+更新：2026-11-06。给人看，也给接手的 AI 看（AI 另见仓库根目录 `AGENTS.md`）。
 
 ## 1. 仓库里有什么
 
@@ -10,6 +10,7 @@
 | **师徒 → 勇者** | 70 级师傅每批带 4 个新号，1 级 → 41 级出师（勇者），每号约 48 万金币 | `python -X utf8 -m line`（在 `research/shitu/` 下） | `batch_provision/research/shitu/`（`line/` = 总控和路线表） | [SHITU_LINE.md](SHITU_LINE.md)、[SHITU_MASTER_GUIDE.md](SHITU_MASTER_GUIDE.md)、[SHITU_PIPELINE.md](SHITU_PIPELINE.md) |
 | **师徒 → 元素使** | 同一条师徒产线，`line.toml` 里 `job = "术士"` 的队走元素使任务 | 同上 | 同上（`route.ROUTE_YUANSU`、`shuidi.py`、`rooms.py`、`fifth.py` …） | `research/shitu/YUANSU_NOTES.md` |
 | **满爆方士带到 70 级** | 无任务练级：满爆方士带 4 个号一路刷到 70 | `projects/fullcrit_mage_leveling_70/run_level_to_70.py` | `batch_provision/projects/fullcrit_mage_leveling_70/` | 该目录 `README.md` |
+| **5 人打 boss** | 5 个 70 级组队打每天限次的 boss 任务（现在：鹰王，任务 1130） | `projects/boss_gear_5/round.py N` | `batch_provision/projects/boss_gear_5/`（以后能力搬进 `kit/boss/`） | [BOSS_TASKS.md](BOSS_TASKS.md)、该目录 `README.md` |
 | **抓一级宝宝** | 巡逻、认出一级目标、用捕捉道具 | `抓宠一级宝宝/runner.py` | `抓宠一级宝宝/` | 该目录 `README.md`、`研究记录.md` |
 | 七一领工资 / 金鼓刷怪（研究） | 小实验 | 见目录 | `research/qiyi/`、`research/jingu/` | `research/qiyi/FLOW.md` |
 
@@ -87,6 +88,7 @@
 | | 按规则卖（`--safe`、`--stones`、`--weapons` …） | `sell_tradable.py` | 师徒、满爆方士 |
 | | 队长补给（料理工位：回城卷、萝卜糕、甜点） | `factory/supply.py` | 料理 |
 | | 队长补蓝：汉尼拔买劲爆汽水（三轮实测） | `projects/fullcrit_mage_leveling_70/hannibal_soda.py` | 满爆方士 |
+| **boss 任务** | 打一轮限次 boss（接任务 → 去 → 准备 + 打 → 交）；规划成任何队伍都能调用 | 现在 `projects/boss_gear_5/`，规划 `kit/boss/`（见 [BOSS_TASKS.md](BOSS_TASKS.md)） | 5 人打 boss；规划给满爆方士 58 级顺路打 |
 | **背包** | 物品分类（能不能卖、是不是任务品） | `factory/items.py`、`factory/data/items.csv` | 全部 |
 | | 腾空格（杂物 → 整人道具 → 其他杂物） | `r4_util.space_one`、`r4_util.drop_order` | 师徒 |
 | | 定时丢葫芦 / 特赦令 / 整人道具，回城卖武器 | `trash.py` | 师徒 |
@@ -154,6 +156,7 @@ batch_provision/
 | 师徒任务的游戏事实（NPC、坐标、对话、奖励） | [SHITU_PIPELINE.md](SHITU_PIPELINE.md)、`research/shitu/ANALYSIS.md`、`GATHER.md` |
 | 师徒线每个脚本是干什么的 | `batch_provision/research/shitu/README.md` |
 | 各张图练级多快 | [LEVELING_STAGE0.md](LEVELING_STAGE0.md)、`research/shitu/EXP_MAP_TRIAL.md` |
+| boss 任务（鹰王已做，虎王待研究）怎么做成共用能力 | [BOSS_TASKS.md](BOSS_TASKS.md) |
 | 战斗记录 | [BATTLELOG.md](BATTLELOG.md) |
 | 宠物连续施法、方士天之箭 | [PET_MAGIC_CONTINUOUS_CASTING_AND_TIANZHIJIAN.md](PET_MAGIC_CONTINUOUS_CASTING_AND_TIANZHIJIAN.md) |
 | **游戏更新以后做什么**（地址、封包、实测；地址档案） | [GAME_UPDATE.md](GAME_UPDATE.md)；2.101 那次的逐项核对 [GAME_UPDATE_2101.md](GAME_UPDATE_2101.md) |
