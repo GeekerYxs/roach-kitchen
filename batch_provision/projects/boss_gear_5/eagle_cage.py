@@ -215,18 +215,24 @@ def crystal(lead, name, item, bottles):
 def summon(lead):
     _, spot = nearest(lead, {LIULI: LIULI_XY})
     walk(lead, spot, '琉璃瓶的点击位')
+    start_boss(lead, LIULI, '召唤', '琉璃瓶')
+
+
+def start_boss(lead, npc, word, what):
+    """Click the boss NPC (raw 0x50), pick the option containing `word`, until the battle starts. Shared with
+    tiger_fight.py (2026-11-06: 虎力仙「开打」behaved the same: the first pick started nothing, the second did)."""
     for attempt in range(1, 5):
         settle(lead)
-        click(lead, LIULI)                        # raw 0x50 opened the menu from 100..500 px (2026-11-06)
+        click(lead, npc)                          # raw 0x50 opened the menu from 100..500 px (2026-11-06)
         try:
-            d = t.wait(lambda: lead.dialog(), 5, '琉璃瓶菜单')
+            d = t.wait(lambda: lead.dialog(), 5, f'{what}菜单')
         except t.Stop:
             # live 2026-11-06 13:48: an encounter started with the click and swallowed it -> fight, click again
-            t.say(f'第 {attempt} 次点琉璃瓶没出菜单{"（遇怪了）" if lead.world().in_battle else ""}，再点')
+            t.say(f'第 {attempt} 次点{what}没出菜单{"（遇怪了）" if lead.world().in_battle else ""}，再点')
             continue
-        opt = next((o for o, l in d.options if '召唤' in t.plain(l)), None)
+        opt = next((o for o, l in d.options if word in t.plain(l)), None)
         if opt is None:
-            raise t.Stop(f'琉璃瓶菜单里没有「召唤鹰王战斗」: {[t.plain(l) for _, l in d.options]}')
+            raise t.Stop(f'{what}菜单里没有「{word}」: {[t.plain(l) for _, l in d.options]}')
         lead.game.select_dialog(opt)
         end = time.monotonic() + 8
         while time.monotonic() < end and not lead.world().in_battle:
@@ -240,7 +246,7 @@ def summon(lead):
         if boss_quiz.kicked(lead):
             raise t.Stop(f'[{LEADER}] boss 题答错被踢下线，重登后重跑这一步')
         time.sleep(1)
-    raise t.Stop('点了 4 次琉璃瓶都没进战斗')
+    raise t.Stop(f'点了 4 次{what}都没进战斗')
 
 
 def main():
