@@ -4,7 +4,9 @@ walking) and pick options by word, logging every page.
     python -X utf8 probe_leaf.py                       (state only)
     python -X utf8 probe_leaf.py <npc id> [word ...]   (click, then pick the option holding each word in turn)
     python -X utf8 probe_leaf.py - [word ...]          (the dialog already open: just pick)
+    PROBE_QUEST=518 python -X utf8 probe_leaf.py ...   (another quest's steps; 2026-11-06 金刚猴)
 """
+import os
 import sys
 import time
 
@@ -14,8 +16,9 @@ import trial_run as t
 from eagle_cage import click
 from provisioner import world as w
 
-QUEST = 673
-ITEMS = {11173: "拜山帖", 11169: "老树根", 11172: "老树叶", 11026: "传送石", 11040: "传送石b"}
+QUEST = int(os.environ.get("PROBE_QUEST", "673"))
+ITEMS = {11173: "拜山帖", 11169: "老树根", 11172: "老树叶", 11026: "传送石", 11040: "传送石b",
+         11170: "定土神针", 11171: "鲜花铠甲"}
 
 
 def report(cs, why):

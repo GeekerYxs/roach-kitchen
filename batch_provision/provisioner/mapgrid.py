@@ -124,6 +124,29 @@ class Grid:
                     heapq.heappush(heap, (nd, n))
         return dist
 
+    def waypoints(self, start_xy, goal_xy, step=600):
+        """Points along the shortest walkable path, about `step` px of path apart, ending at goal_xy (None: no path).
+        2026-11-06 秘密宝窟 live: the client's path-finder hung for 8 min on a 6650 px walk it had done the other way
+        round; short legs between these points do not depend on it finding the whole way."""
+        dist = self.distances(goal_xy)
+        cur = self.nearest_walkable(*self.cell(*start_xy))
+        if cur not in dist:
+            return None
+        out, since = [], 0.0
+        while dist[cur] > 0:
+            c, r = cur
+            nxt = min(((c + dc, r + dr) for dc in (-1, 0, 1) for dr in (-1, 0, 1) if (dc or dr)),
+                      key=lambda n: dist.get(n, math.inf))
+            if dist.get(nxt, math.inf) >= dist[cur]:
+                break
+            since += dist[cur] - dist[nxt]
+            cur = nxt
+            if since >= step and dist[cur] > step / 2:
+                out.append(self.xy(*cur))
+                since = 0.0
+        out.append(tuple(goal_xy))
+        return out
+
     def roomy(self, c, r):
         """Not hugging a wall: the client walks there without stalling against the edge."""
         return all(self.walkable(c + a, r + b) for a in (-1, 0, 1) for b in (-2, 0, 2))

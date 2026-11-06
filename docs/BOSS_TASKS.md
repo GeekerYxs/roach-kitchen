@@ -45,7 +45,18 @@
 | 回城 PP鸡回克拉苏交任务并续接 | `handin_leaf.py` |
 | 从当前进度接着跑 N 轮 | `round_leaf.py N` |
 
-三个 boss 共用的东西：`take_eagle.DailyLimit / at_limit`（今日上限那句话两边一样）、`eagle_cage.start_boss`（点 boss → 选「开打」→
+金刚猴（任务 518，38 级）也在同一个目录（2026-11-06 跑通）：
+
+| 步骤 | 脚本 |
+|---|---|
+| 回城 → 组队 → PP鸡到圣人谷 → 走进迷惑森林1区到龙上利 | `go_forest1.py` |
+| 接任务（龙上利；缺任务的队员离队自己接再拉回） | `take_monkey.py` |
+| 进秘密宝窟 | `enter_baoku.py` |
+| 一层路上打出定土神针 → 点「秘密宝窟二层」→ 二层巡逻打出鲜花铠甲 → 打变形金猴 | `monkey_fight.py` |
+| 回城走回龙上利交任务并续接 | `handin_monkey.py` |
+| 从当前进度接着跑 N 轮 | `round_monkey.py N` |
+
+四个 boss 共用的东西：`take_eagle.DailyLimit / at_limit`（今日上限那句话两边一样）、`eagle_cage.start_boss`（点 boss → 选「开打」→
 第一次没进战斗就再点）、`eagle_cage.click / settle`、`tiger_fight.fight_all / walk / menu / pick`（`walk` 可以传地图）、`tiger.open_npc / regroup / close`。搬进 `kit/boss/` 时这些进 `base.py`。
 
 游戏事实（任务规则、瓶子、惩罚、boss 题）写在 `projects/boss_gear_5/README.md` 和各脚本开头的注释里。
@@ -71,6 +82,7 @@ batch_provision/kit/
     eagle.py         鹰王（任务 1130）：从 projects/boss_gear_5 搬过来
     tiger.py         虎力仙（任务 1185）：从 projects/boss_gear_5 搬过来
     leaf.py          老树叶（任务 673）：从 projects/boss_gear_5 搬过来
+    monkey.py        金刚猴（任务 518）：从 projects/boss_gear_5 搬过来
 ```
 
 产品线只负责「什么时候打、打几次」：
@@ -136,3 +148,11 @@ class Eagle(BossTask):
   二层打对的老树随从拿老树根，再打黑山老妖拿老树叶。错的护卫 / 随从打赢了什么都不给。
 - 打 boss 五个人都出手（`fight_all`）；黑山老妖第一次「开打」就开战。
 - 奖励：每人 9840 经验 + 1440 潜能；交任务后「接受」续接。48 级，满爆方士线 47→70 那段也够格。
+
+## 9. 金刚猴已知规矩（摘要，细节见 `projects/boss_gear_5/README.md`）
+
+- 龙上利（NPC 1707，迷惑森林1区 map 150 (1746,206)）接 / 交；迷惑森林1区没有 PP鸡，从圣人谷走进去约 2 分钟。队长接 = 全队接，队长交 = 全队交。
+- 秘密宝窟（map 850）分几块走不通：入口落在一层；一层的野怪流浪蟠桃怪掉**定土神针**，点「秘密宝窟二层」NPC 10218 全队到变形金猴那层；
+  二层的野人狗仔队掉**鲜花铠甲**（每人各掉各的）。**谁点「开打」谁要两样都有**（用户 2026-11-06），所以巡逻到队长两样齐。
+- 变形金猴第一次「开打」不进战斗，第二次才开打（`start_boss`）；五人都出手约 40 秒，五人任务一起过，道具收走。
+- 奖励：每人 5400 经验 + 950 潜能；交任务后「接受」续接。38 级，满爆方士线、师徒线后段都够格。
