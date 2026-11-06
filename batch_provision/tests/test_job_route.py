@@ -81,6 +81,7 @@ class Yuansu(unittest.TestCase):
         f = [c.args for c in self.route[self.names.index('finish')].cmds]
         self.assertNotIn('give_gold.py', [a[0] for a in f])
         self.assertEqual(f[f.index(('U', 'home')) + 1], ('jiong.py', '{APPS}'))
+        self.assertEqual(f[-1], ('ops', 'close', '{APPS}'))          # user 2026-11-06: finished windows closed
         brave = [c.args[0] for c in R.ROUTE_BPLUS[[s.name for s in R.ROUTE_BPLUS].index('finish')].cmds]
         self.assertIn('give_gold.py', brave)
         self.assertNotIn('jiong.py', brave)

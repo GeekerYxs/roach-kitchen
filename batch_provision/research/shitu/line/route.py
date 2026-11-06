@@ -431,7 +431,10 @@ def _yuansu():
             # the bag's 囧盒仔 opened and that pet sent out to fight (jiong.py)
             cmds = tuple(c for c in s.cmds if c.args[0] != 'give_gold.py')
             i = next(k for k, c in enumerate(cmds) if c.args == ('U', 'home'))
-            s = Step(s.name, s.stage, cmds[:i + 1] + (C('jiong.py', '{APPS}'),) + cmds[i + 1:], s.retry, s.unless, s.env)
+            # user 2026-11-06: the finished 元素使 windows are closed at the very end (each team ran one batch on its
+            # own accounts, so no next batch's close_prev ever closed them: ys4 / ys5 sat online for hours)
+            s = Step(s.name, s.stage, cmds[:i + 1] + (C('jiong.py', '{APPS}'),) + cmds[i + 1:]
+                     + (C('ops', 'close', '{APPS}', soft=True),), s.retry, s.unless, s.env)
         if s.name in BRAVE:
             continue
         out.append(s)
