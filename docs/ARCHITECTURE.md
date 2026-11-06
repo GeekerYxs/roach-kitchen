@@ -157,7 +157,7 @@ batch_provision/
 | 师徒任务的游戏事实（NPC、坐标、对话、奖励） | [SHITU_PIPELINE.md](SHITU_PIPELINE.md)、`research/shitu/ANALYSIS.md`、`GATHER.md` |
 | 师徒线每个脚本是干什么的 | `batch_provision/research/shitu/README.md` |
 | 各张图练级多快 | [LEVELING_STAGE0.md](LEVELING_STAGE0.md)、`research/shitu/EXP_MAP_TRIAL.md` |
-| boss 任务（鹰王、虎力仙、老树叶、金刚猴已做）怎么做成共用能力 | [BOSS_TASKS.md](BOSS_TASKS.md) |
+| boss 任务（鹰王、虎力仙、老树叶、金刚猴已做；葵花宝典是单次任务，只记了研究）怎么做成共用能力 | [BOSS_TASKS.md](BOSS_TASKS.md) |
 | 战斗记录 | [BATTLELOG.md](BATTLELOG.md) |
 | 宠物连续施法、方士天之箭 | [PET_MAGIC_CONTINUOUS_CASTING_AND_TIANZHIJIAN.md](PET_MAGIC_CONTINUOUS_CASTING_AND_TIANZHIJIAN.md) |
 | **游戏更新以后做什么**（地址、封包、实测；地址档案） | [GAME_UPDATE.md](GAME_UPDATE.md)；2.101 那次的逐项核对 [GAME_UPDATE_2101.md](GAME_UPDATE_2101.md) |
