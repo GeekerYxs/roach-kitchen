@@ -34,8 +34,19 @@
 | 回去交任务并续接 | `handin_tiger.py` |
 | 从当前进度接着跑 N 轮 | `round_tiger.py N` |
 
-两个 boss 共用的东西：`take_eagle.DailyLimit / at_limit`（今日上限那句话两边一样）、`eagle_cage.start_boss`（点 boss → 选「开打」→
-第一次没进战斗就再点）、`eagle_cage.click / settle`。搬进 `kit/boss/` 时这些进 `base.py`。
+老树叶（任务 673，48 级）也在同一个目录（2026-11-06 跑通）：
+
+| 步骤 | 脚本 |
+|---|---|
+| 回城 → 组队 → PP鸡到迷惑森林3区（落地就能点克拉苏） | `go_forest3.py` |
+| 接任务（克拉苏；缺任务的队员离队自己接再拉回） | `take_leaf.py` |
+| 进失落之地 | `enter_lost.py` |
+| 对的护卫 → 石碑传送石 + 暗天爪牙 + 传送门到二层 → 对的随从 → 黑山老妖 | `leaf_fight.py` |
+| 回城 PP鸡回克拉苏交任务并续接 | `handin_leaf.py` |
+| 从当前进度接着跑 N 轮 | `round_leaf.py N` |
+
+三个 boss 共用的东西：`take_eagle.DailyLimit / at_limit`（今日上限那句话两边一样）、`eagle_cage.start_boss`（点 boss → 选「开打」→
+第一次没进战斗就再点）、`eagle_cage.click / settle`、`tiger_fight.fight_all / walk / menu / pick`（`walk` 可以传地图）、`tiger.open_npc / regroup / close`。搬进 `kit/boss/` 时这些进 `base.py`。
 
 游戏事实（任务规则、瓶子、惩罚、boss 题）写在 `projects/boss_gear_5/README.md` 和各脚本开头的注释里。
 
@@ -59,6 +70,7 @@ batch_provision/kit/
                      地图内少走路：provisioner/mapgrid.py（已有）给出「离 NPC 300 像素内、路最近」的站位
     eagle.py         鹰王（任务 1130）：从 projects/boss_gear_5 搬过来
     tiger.py         虎力仙（任务 1185）：从 projects/boss_gear_5 搬过来
+    leaf.py          老树叶（任务 673）：从 projects/boss_gear_5 搬过来
 ```
 
 产品线只负责「什么时候打、打几次」：
@@ -116,3 +128,11 @@ class Eagle(BossTask):
 - 打 boss 要**五个人都出手**：只有队长出手时，砸 2 根柱子也输过一次。`tiger_fight.fight_all` 给全队跑 `Caster`，搬家时放进 `base.py`。
 - 默认隔墙砸邪蛇 4092、蛟龙 4089（老虎房间附近，约 500 像素隔墙可点），再打虎力仙 1168（第一次「开打」不进战斗，再点一次）。
 - 奖励：每人 16980 经验 + 1860 潜能；交任务后直接「接受任务」续接。
+
+## 8. 老树叶已知规矩（摘要，细节见 `projects/boss_gear_5/README.md`）
+
+- 克拉苏（NPC 1903，迷惑森林3区 (3294,171)）接 / 交，PP鸡落地点就能点到；队长接 = 全队接，队长交 = 全队交。
+- 失落之地（map 950）分两层，走不过去：一层打对的老树护卫拿拜山帖；四块石碑里一块有传送石（队长拿），打暗天爪牙后进传送门到二层；
+  二层打对的老树随从拿老树根，再打黑山老妖拿老树叶。错的护卫 / 随从打赢了什么都不给。
+- 打 boss 五个人都出手（`fight_all`）；黑山老妖第一次「开打」就开战。
+- 奖励：每人 9840 经验 + 1440 潜能；交任务后「接受」续接。48 级，满爆方士线 47→70 那段也够格。

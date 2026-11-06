@@ -54,13 +54,14 @@ def spot(lead, xy, reach):
     return hit[1] if hit else xy
 
 
-def walk(lead, xy, why):
+def walk(lead, xy, why, map_id=tg.JINGU, where='禁锢之地', fix='enter_jingu.py'):
+    """map_id / where / fix: 2026-11-06 leaf_fight.py walks 失落之地 (map 950) with the same loop."""
     for attempt in range(6):                  # battles on the way eat pp_chain.walk's 120 s (eagle 12:57)
         fight_out(lead, 300)
-        if lead.world().map_id != tg.JINGU:
-            raise t.Stop(f'[{LEADER}] 不在禁锢之地了（map {lead.world().map_id}），先跑 enter_jingu.py')
+        if lead.world().map_id != map_id:
+            raise t.Stop(f'[{LEADER}] 不在{where}了（map {lead.world().map_id}），先跑 {fix}')
         try:
-            pp_chain.walk(lead, tg.JINGU, xy, why)
+            pp_chain.walk(lead, map_id, xy, why)
             break
         except t.Stop:
             if attempt == 5:
