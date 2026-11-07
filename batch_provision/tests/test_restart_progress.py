@@ -221,6 +221,19 @@ class KillCounters(unittest.TestCase):
         self.assertEqual(yaodao.kill_count('你已经杀死了3个色妖道，需要5个'), 3)
         self.assertEqual(yaodao.kill_count('你已经杀死了5个色妖道，可以回去找虫洞法师了'), 5)
 
+    def test_boxer_patterns_skip_the_order_texts(self):
+        """quanshou / quan100 also read the tap history (2026-11-01 w6): the order's own text must not count."""
+        import quanshou
+        import quan100  # noqa: F401  (sets quanshou.KILLS to the 100Kg pattern)
+        import importlib
+        k100 = quanshou.KILLS
+        self.assertIsNone(k100.search('接受了任务：战士的试炼 去无尽平原3区杀死40个100Kg级拳手'))
+        self.assertEqual(int(k100.search('你已经杀死了40个100Kg级拳手').group(1)), 40)
+        importlib.reload(quanshou)
+        k75 = quanshou.KILLS
+        self.assertIsNone(k75.search('接受了任务：力量的考验 | 去夕阳草原杀死5只75kg级拳手'))   # zhuanzhi_take.py doc
+        self.assertEqual(int(k75.search('已经杀死了5个75Kg级拳手').group(1)), 5)
+
     def test_yaodao_reads_the_kills_already_in_the_tap_file(self):
         import yaodao
 
