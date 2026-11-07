@@ -1,10 +1,12 @@
 """Farm a quest drop with the team until every apprentice holds NEED of ITEM (2026-11-03, 元素使 team's 187 / 189).
 
-    python -X utf8 research/shitu/farm.py [--stay] MAP X Y ITEM NEED [GO_SCRIPT ARG ...]
+    python -X utf8 research/shitu/farm.py [--stay] [--past QID:N] MAP X Y ITEM NEED [GO_SCRIPT ARG ...]
 
   MAP X Y      patrol around (X, Y) on map MAP (maze_train: the master leads, casts, revives; points probed around it)
   ITEM NEED    stop once every apprentice's bag holds NEED of item ITEM (logged whenever a count changes)
   GO_SCRIPT    run first when the leader is not on MAP yet, e.g. desert_go.py 1062 1221 / guji_entrance.py
+  --past QID:N an apprentice whose quest QID is done or has N+ steps already handed the items in: counts as done
+               (2026-11-07; the step's own `U need QID N` gate is the right N)
 Afterwards everybody leaves the team and scrolls home (--stay: the team stays where it is, e.g. 189's 仙人掌果肉 go
 to 火蜥蜴 on the same map). The same pattern as shuidi.py (books) and stones.py (魔法石);
 the drops seen so far were team-wide (every member got each one).
@@ -16,6 +18,7 @@ import subprocess
 import sys
 
 import maze_train as m
+import progress
 import quanshou as q
 from factory.items import load_items
 from provisioner import world as w
@@ -50,30 +53,43 @@ def make_room(c, items):
 
 
 class Count:
-    def __init__(self, apps, item, need, name):
+    """done_when: every apprentice holds `need` of `item`, or (past = (qid, n)) has quest qid done / at n+ steps, i.e.
+    already handed the items in (2026-11-07 r4ys25: a rerun after one hand-in waited for drops that never come)."""
+    def __init__(self, apps, item, need, name, past=None):
         self.apps, self.item, self.need, self.name, self.last = apps, item, need, name, {}
+        self.past = past
         self.items = load_items()
+
+    def handed_in(self, c):
+        return self.past is not None and progress.past(w.read_quest(c.mem, self.past[0]), self.past[1])
 
     def __call__(self):
         for c in self.apps:
-            if w.read_bag_capacity(c.mem) - len(w.read_bag(c.mem)) < MIN_FREE:
-                make_room(c, self.items)
-            n = w.item_count(w.read_bag(c.mem), self.item)
+            if self.handed_in(c):
+                n = 'in'
+            else:
+                if w.read_bag_capacity(c.mem) - len(w.read_bag(c.mem)) < MIN_FREE:
+                    make_room(c, self.items)
+                n = w.item_count(w.read_bag(c.mem), self.item)
             if n != self.last.get(c.name):
-                t.say(f'[{c.name}] {self.name} {n}/{self.need}')
+                t.say(f'[{c.name}] {self.name} ' + ('已交，不用再刷' if n == 'in' else f'{n}/{self.need}'))
                 self.last[c.name] = n
-        return all(self.last[c.name] >= self.need for c in self.apps)
+        return all(v == 'in' or v >= self.need for v in (self.last[c.name] for c in self.apps))
 
 
-def main(map_id, xy, item, need, go, stay=False):
+def main(map_id, xy, item, need, go, stay=False, past=None):
     name = load_items().get(item)
     name = name.name if name else str(item)
     apps = [t.Client(n) for n in m.APPRENTICES]
-    if go and t.Client(m.LEADER).world().map_id != map_id:
-        subprocess.run([sys.executable, '-X', 'utf8', *go], check=True)
-    m.STAGES = (dict(name=f'地图 {map_id} 刷 {name}', maze=map_id, until=None, patrol_a=xy, patrol_b=None, legs={},
-                     done_when=Count(apps, item, need, name)),)
-    m.main()
+    count = Count(apps, item, need, name, past)
+    if count():          # a rerun after the hand-in, or every bag already full of it: no trip, no farming
+        t.say(f'每个徒弟都已有 {need} 个{name}或已交，不用再刷')
+    else:
+        if go and t.Client(m.LEADER).world().map_id != map_id:
+            subprocess.run([sys.executable, '-X', 'utf8', *go], check=True)
+        m.STAGES = (dict(name=f'地图 {map_id} 刷 {name}', maze=map_id, until=None, patrol_a=xy, patrol_b=None,
+                         legs={}, done_when=count),)
+        m.main()
     if stay:
         return
     allc = [t.Client(n) for n in (m.LEADER,) + m.HELPERS] + apps
@@ -90,8 +106,13 @@ if __name__ == '__main__':
     a = sys.argv[1:]
     stay = '--stay' in a
     a = [x for x in a if x != '--stay']
+    past = None
+    if '--past' in a:
+        i = a.index('--past')
+        past = progress.parse(a[i + 1])
+        del a[i:i + 2]
     try:
-        main(int(a[0]), (int(a[1]), int(a[2])), int(a[3]), int(a[4]), a[5:], stay)
+        main(int(a[0]), (int(a[1]), int(a[2])), int(a[3]), int(a[4]), a[5:], stay, past)
     except t.Stop as e:
         t.say(f'停止: {e}')
         raise SystemExit(1)

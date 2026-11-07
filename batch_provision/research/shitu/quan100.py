@@ -21,6 +21,9 @@ m.STAGES = (
 
 
 class Kills(quanshou.Kills):
+    # 2026-11-07: an apprentice that already handed the kills in (181 (1,) -> (2,2,1), logs 07:51) counts as done
+    PAST = (181, 3, N)
+
     def __call__(self):
         super().__call__()
         for n, v in self.count.items():
@@ -36,6 +39,9 @@ if __name__ == '__main__':
         raise SystemExit(0)
     try:
         m.STAGES[0]['done_when'] = Kills([m.t.Client(n) for n in m.APPRENTICES])
+        if all(v >= N for v in m.STAGES[0]['done_when'].count.values()):
+            m.t.say(f'40 个拳手全员已打够或已交（任务 181 已过这一步）: {m.STAGES[0]["done_when"].count}，跳过')
+            raise SystemExit(0)
         m.main()
         m.t.say(f'40 个拳手都够了: {m.STAGES[0]["done_when"].count}')
     except m.t.Stop as e:

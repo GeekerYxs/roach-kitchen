@@ -7,7 +7,7 @@ Recorded 2026-10-27 01:54:57 (十万1 by hand, lv25, ANALYSIS.md section 11): Cl
 「可以！」->「接受任务。」-> 0x46ff「接受了任务：力量的考验 | 去夕阳草原杀死5只75kg级拳手」, quest tree 24/0 = 000001.
 Hand-in (recorded 02:03:35, 十万1 by hand, after 「已经杀死了5个75Kg级拳手」— the quest tree does NOT show the kills,
 it stays steps (0,0,1)): ClickNpc(304) ->「★力量的考验［进行中］」->「知道了！」-> steps (0,0,2,0,1) =
-「去梦幻岛找神仙姐姐」. A role whose steps are not (0,0,1) is skipped.
+「去梦幻岛找神仙姐姐」. A role not at that step (3 step bytes; by count only, see progress.py) is skipped.
 Skips a role whose task 24 is already active. Walks there from map 1 / 8 (navigate(8, ...) crosses 逍遥村 -> 就职所).
 """
 import math
@@ -15,6 +15,7 @@ import os
 import sys
 import time
 
+import progress
 import trial_run as t
 from bai_shi import mark
 from provisioner import world as w
@@ -30,6 +31,8 @@ JOBS = {
 JOB = os.environ.get('SHITU_JOB', '战士')
 MAP = 8
 NPC, XY, QUEST, STEPS, TITLE = JOBS[JOB]
+# what the hand-in takes: 战士 the 5 拳手 kills (no item), 术士 3 本《看我七十二变》 (10549, shuidi.py)
+ITEM_WORD, BOOKS = {'战士': ('拳手', None), '术士': ('魔法书', (10549, 3))}[JOB]
 
 
 def go(c):
@@ -57,17 +60,26 @@ def take(c):
 
 
 def handin(c):
+    # 2026-11-07 r4ys25: after a relog the server's bytes for the skipped steps are garbage ((0,2,1), (0,46,1) for
+    # the same (0,0,1)), so the step is judged by the step count only (progress.py), never by the tuple
     q = w.read_quest(c.mem, QUEST)
-    if tuple(q.steps) != (0, 0, 1):
-        t.say(f'[{c.name}] 任务 {QUEST} 不在打拳手这一步 {q}，跳过')
+    if progress.past(q, progress.CLASS_ITEMS + 1):
+        t.say(f'[{c.name}] 任务 {QUEST} 已经交过{ITEM_WORD} {q}，跳过')
         return
+    if not progress.at(q, progress.CLASS_ITEMS):
+        t.say(f'[{c.name}] 任务 {QUEST} 不在交{ITEM_WORD}这一步 {q}，跳过')
+        return
+    if BOOKS and w.item_count(w.read_bag(c.mem), BOOKS[0]) < BOOKS[1]:
+        # the step fails, the rerun farms again (shuidi.Books still counts this one); a talk now would hand in nothing
+        raise t.Stop(f'{c.name} 《看我七十二变》不到 {BOOKS[1]} 本，交不了')
     go(c)
     talk(c, NPC, [TITLE, '知道了'])
-    t.wait(lambda: tuple(w.read_quest(c.mem, QUEST).steps) != (0, 0, 1), 5, f'{c.name} 任务 {QUEST} 进到下一步')
+    t.wait(lambda: progress.past(w.read_quest(c.mem, QUEST), progress.CLASS_ITEMS + 1), 5,
+           f'{c.name} 任务 {QUEST} 进到下一步')
     time.sleep(0.6)
     q = w.read_quest(c.mem, QUEST)
     mark(c.name, 'zhuanzhi_quanshou', steps=list(q.steps))
-    t.say(f'[{c.name}] 拳手交了，任务 {QUEST} {q}（下一步：去梦幻岛找神仙姐姐）')
+    t.say(f'[{c.name}] {ITEM_WORD}交了，任务 {QUEST} {q}（下一步：去梦幻岛找神仙姐姐）')
 
 
 if __name__ == '__main__':

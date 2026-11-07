@@ -391,10 +391,27 @@ def need(qid, n):
     t.say(f'任务 {qid} 全员已到第 {n} 步')
 
 
-def have(item, n):
+def have(item, n, *alts):
     """Gate like need(), by the bag: every apprentice holds at least n of item (元素使 route, 189: the quest tree does not
-    show which element an apprentice already has)."""
-    short = {name: c for name in APPRENTICES if (c := w.item_count(w.read_bag(t.Client(name).mem), item)) < n}
+    show which element an apprentice already has).
+    alts (2026-11-07, the r4ys25 books loop): an apprentice also passes when it holds any of these instead - 'ITEM'
+    (what the item was traded for, e.g. 机器娃娃 -> 风之气息) or 'QID:N' (quest QID done / at N+ steps: handed in).
+    Without them a rerun after one hand-in stopped on the gate for ever (the item is gone)."""
+    import progress
+
+    def passed(name):
+        c = t.Client(name)
+        bag = w.read_bag(c.mem)
+        for a in alts:
+            if ':' in a:
+                if progress.past(w.read_quest(c.mem, progress.parse(a)[0]), progress.parse(a)[1]):
+                    return True
+            elif w.item_count(bag, int(a)):
+                return True
+        return False
+
+    short = {name: c for name in APPRENTICES
+             if (c := w.item_count(w.read_bag(t.Client(name).mem), item)) < n and not passed(name)}
     if short:
         raise t.Stop(f'物品 {item} 不够 {n}: {short}')
     t.say(f'物品 {item} 全员已有 {n}')
@@ -464,7 +481,7 @@ if __name__ == '__main__':
     a = sys.argv[1:]
     try:
         {'home': lambda: home(), 'leave': lambda: leave('--home-if-split' in a), 'restock_master': lambda: restock_master(int(a[1]) if len(a) > 1 else 100), 'master_supply': lambda: __import__('master_supply').ensure(MASTERS[0]), 'restock': lambda: restock(int(a[1]) if len(a) > 1 else 20),
-         'steps': lambda: steps(int(a[1])), 'need': lambda: need(int(a[1]), int(a[2])), 'have': lambda: have(int(a[1]), int(a[2])), 'windows': lambda: windows(a[1:]), 'relog': lambda: relog(a[1:]), 'double': lambda: double(), 'double_due': lambda: print(int(double_due())), 'supply': lambda: supply(), 'space': lambda: space(int(a[1]) if len(a) > 1 else 3)}[a[0]]()
+         'steps': lambda: steps(int(a[1])), 'need': lambda: need(int(a[1]), int(a[2])), 'have': lambda: have(int(a[1]), int(a[2]), *a[3:]), 'windows': lambda: windows(a[1:]), 'relog': lambda: relog(a[1:]), 'double': lambda: double(), 'double_due': lambda: print(int(double_due())), 'supply': lambda: supply(), 'space': lambda: space(int(a[1]) if len(a) > 1 else 3)}[a[0]]()
     except t.Stop as e:
         t.say(f'停止: {e}')
         raise SystemExit(1)

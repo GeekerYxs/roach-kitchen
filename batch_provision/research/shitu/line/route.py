@@ -372,8 +372,10 @@ YUANSU_LATE = (
                               C('pp_chain.py', '乌龙村', '平静海岸2区'), tn(15, 203, 498, 249, '术士的试炼', 187),
                               C('U', 'need', '187', '6')), env={'SHITU_QID': '187'}),
     # 奥里雷西亚 -> 苦无沙漠1区 猥琐教打杂的 10 神仙姐姐的画像 -> 奥里雷西亚 (the teleport offer is declined here)
+    # --past 187:8 (2026-11-07, the r4ys25 books loop): on a rerun, who already handed the 画像 in is not farmed for
     Step('y_huaxiang', 'late', (HOME, DRAGON, tn(*LADY, '术士的试炼|说吧|太可恶|明白', 187), C('U', 'space', '6'),
-                                C('farm.py', '170', '1062', '1221', '10716', '10', 'desert_go.py', '1062', '1221'),
+                                C('farm.py', '--past', '187:8', '170', '1062', '1221', '10716', '10',
+                                  'desert_go.py', '1062', '1221'),
                                 DRAGON, tn(*LADY, '术士的试炼|哦，啊|好的|考虑', 187),
                                 C('U', 'need', '187', '8')), env={'SHITU_QID': '187'}),
     # 死鸟人: one-by-one teleports + the master walks in, a 女神奖杯 each -> 奥里雷西亚: 187 done (奖学金)
@@ -401,12 +403,13 @@ YUANSU_LATE = (
                             C('farm.py', '--stay', '150', '3700', '2181', '10729', '5'),
                             C('mole.py', '{M}', '{APPS}'), C('U', 'have', '10721', '1')), env={'SHITU_QID': '189'}),
     # 杰克·卡尔 机器娃娃 -> 风娃娃 风之气息
-    Step('y_wind2', 'late', (HOME, DRAGON, tn(*JACK, '元素使|谢谢', 189), C('U', 'have', '10730', '1'),
+    # U have ... 10719 / 189:9 (2026-11-07, the r4ys25 books loop): on a rerun, who already traded the item on passes
+    Step('y_wind2', 'late', (HOME, DRAGON, tn(*JACK, '元素使|谢谢', 189), C('U', 'have', '10730', '1', '10719'),
                              HOME, *TO_RUIN, tn(1000, 1132, 4134, 3957, '元素使|给你', 189),
                              C('U', 'have', '10719', '1')), env={'SHITU_QID': '189'}),
     # 通天塔3号房 第五元素 (rooms.py, then fifth.py one by one as leader) -> 奥里雷西亚
     Step('y_fifth', 'late', (HOME, C('rooms.py', '{A0}', '{M}', '{APPS}'), C('fifth.py', '{APPS}'),
-                             C('U', 'have', '10732', '1'), HOME, DRAGON, tn(*LADY, '元素使的考验|给你吧', 189),
+                             C('U', 'have', '10732', '1', '189:9'), HOME, DRAGON, tn(*LADY, '元素使的考验|给你吧', 189),
                              C('U', 'need', '189', '9')), env={'SHITU_QID': '189'}),
 )
 # 乐乐姐 35 级 恶魔白装: 5 pieces, each checked in the bag, right after packs filled it (user 2026-11-05: room first)

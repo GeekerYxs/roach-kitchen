@@ -16,6 +16,7 @@ time, so the roles go one after another (09:14 three at once: only the first got
 import sys
 import time
 
+import progress
 import trial_run as t
 from common import APPRENTICES, MASTERS
 from provisioner import world as w
@@ -96,8 +97,17 @@ def take_lead(c):
     t.say(f'[{c.name}] 当队长（{lead.name} 交过来）')
 
 
+def handed_in(c):
+    """189 past the 第五元素 (given to 奥里雷西亚: y_fifth's `U need 189 9`). 2026-11-07 (the r4ys25 books loop): a rerun
+    after one hand-in tried the floor for it again, without the 火 / 水 it had used up, and failed every time."""
+    return progress.past(w.read_quest(c.mem, 189), 9)
+
+
 def one(name):
     c = t.Client(name)
+    if handed_in(c):
+        t.say(f'[{name}] 第五元素已交给奥里雷西亚，跳过')
+        return
     if w.item_count(w.read_bag(c.mem), ITEM):
         t.say(f'[{name}] 已经有第五元素')
         return

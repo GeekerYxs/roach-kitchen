@@ -56,7 +56,9 @@
 - `teamwalk.py`：`lead_to`、`past`、`step_to`、`regroup`、`regroup_all`、`settle`（解散前等全队站稳）、`fight_out`、`leave_all`、`each`、
   `click_here`（先原地点 NPC）、`Escaper`（只逃跑）。**新写的带队脚本都用这几个。**
 - `revive.py`：战斗里复活倒下的徒弟。`boss_quiz.py`：boss 开打题（答题器优先，这里兜底）。`boss_fight.py`：徒弟带队开打 NPC 战斗。
-- `farm.py`：带队刷某个掉落直到每人够数。
+- `farm.py`：带队刷某个掉落直到每人够数；`--past QID:N` = 任务 QID 已到第 N 步（已交过）的人算够数。
+- `progress.py`：按**任务步数的个数**判断进度（`at` / `past`），不看具体数值——重登后被跳过的那几格会读到乱值
+  （2026-11-07 r4ys25：同一个 (0,0,1) 读成 (0,46,1)）。刷物品再交 NPC 的脚本都用它把「已交过的人」算成完成。
 
 **NPC 对话**
 - `take224.talk`：点 NPC 按关键词一层层选。`talk_chain.py`：城里每人同时走去对话。`team_npc.py`：野外队长带到、全员同时对话。

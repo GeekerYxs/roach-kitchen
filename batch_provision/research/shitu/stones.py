@@ -12,12 +12,20 @@ import subprocess
 import sys
 
 import maze_train as m
+import progress
 import quanshou as q
 from provisioner import world as w
 t = m.t
 
 PERFECT, FLAWED, NEED = 10712, 10713, 10
+QUEST, PAST = 187, 3
 SPOT = (2542, 3442)
+
+
+def handed_in(c):
+    """187 past the stones: 清明长老 took them for the 能量石, (2,1) -> (2,2,1) (YUANSU_NOTES.md 187 live 2026-11-03).
+    2026-11-07 (the r4ys25 books loop): a rerun of y_stone after one apprentice's 清明长老 must not wait for its stones."""
+    return progress.past(w.read_quest(c.mem, QUEST), PAST)
 
 
 class Stones:
@@ -26,23 +34,30 @@ class Stones:
 
     def __call__(self):
         for c in self.apps:
-            bag = w.read_bag(c.mem)
-            n = (w.item_count(bag, PERFECT), w.item_count(bag, FLAWED))
+            if handed_in(c):
+                n = 'in'
+            else:
+                bag = w.read_bag(c.mem)
+                n = (w.item_count(bag, PERFECT), w.item_count(bag, FLAWED))
             if n != self.last.get(c.name):
-                t.say(f'[{c.name}] 魔法石 完美 {n[0]}/{NEED}，有瑕疵 {n[1]}')
+                t.say(f'[{c.name}] 魔法石 ' + ('已交清明长老，不用再刷' if n == 'in' else f'完美 {n[0]}/{NEED}，有瑕疵 {n[1]}'))
                 self.last[c.name] = n
         # every battle so far gave each apprentice 1 完美 + 1 有瑕疵 (00:38-00:39, team-wide like the 水滴精灵 books), so
         # 10 完美 (优秀, 完美无暇的能量石) costs ~5 battles more than 10 of either: wait for 10 完美
-        return all(self.last[c.name][0] >= NEED for c in self.apps)
+        return all(v == 'in' or v[0] >= NEED for v in (self.last[c.name] for c in self.apps))
 
 
 def main(spot):
     apps = [t.Client(n) for n in m.APPRENTICES]
-    if t.Client(m.LEADER).world().map_id != 650:
-        subprocess.run([sys.executable, '-X', 'utf8', 'guji_entrance.py'], check=True)
-    m.STAGES = (dict(name='逍遥古迹 精灵巫师', maze=650, until=None, patrol_a=spot, patrol_b=None,
-                     legs={650: ('walk', 650, spot)}, done_when=Stones(apps)),)
-    m.main()
+    stones = Stones(apps)
+    if stones():         # a rerun after 清明长老 (2026-11-07): no farming, only the trip home below
+        t.say('每个徒弟都已有 10 颗完美魔法石或已交清明长老，不用再刷')
+    else:
+        if t.Client(m.LEADER).world().map_id != 650:
+            subprocess.run([sys.executable, '-X', 'utf8', 'guji_entrance.py'], check=True)
+        m.STAGES = (dict(name='逍遥古迹 精灵巫师', maze=650, until=None, patrol_a=spot, patrol_b=None,
+                         legs={650: ('walk', 650, spot)}, done_when=stones),)
+        m.main()
     allc = [t.Client(n) for n in (m.LEADER,) + m.HELPERS] + apps
     for c in allc:
         if c.team():

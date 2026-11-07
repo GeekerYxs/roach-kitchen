@@ -25,6 +25,17 @@ def run(script, *args):
 
 def main(leader, master, apps):
     import os
+    # 2026-11-07 (the r4ys25 books loop): on a rerun only who still lacks the 第五元素 needs 3号房, and the leader must be
+    # one of them (a quest holder clicks the 石像; one that handed in may get only the inscription, like the master)
+    import fifth
+    from provisioner import world as w
+    todo = [n for n in apps if not fifth.handed_in(t.Client(n)) and not w.item_count(w.read_bag(t.Client(n).mem), fifth.ITEM)]
+    if not todo:
+        t.say('每个徒弟都已有第五元素或已交，不用去 3号房')
+        return
+    if leader not in todo:
+        t.say(f'{leader} 已有第五元素或已交，改由 {todo[0]} 带队进 3号房')
+        leader = todo[0]
     m = t.Client(master)
     if m.world().map_id not in (280, 295, 291, 297):
         run('tower1_go.py')               # the master takes the team into 通天塔一区 (its landing spot)

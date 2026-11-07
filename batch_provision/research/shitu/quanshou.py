@@ -10,6 +10,7 @@ import re
 import time
 
 import maze_train as m
+import progress
 from bai_shi import done, mark
 from monitor import Tap, texts
 from factory.phase import SCROLL_ITEM
@@ -29,11 +30,19 @@ COLOR = re.compile(r'#[0-9A-Fa-f]{6}#')
 
 class Kills:
     """done_when of the stage: every apprentice's tap showed 「已经杀死了5个75Kg级拳手」 (colour codes stripped)."""
+    PAST = (24, progress.CLASS_ITEMS + 1, 5)     # (quest, step count after the hand-in, the full count)
+
     def __init__(self, apps):
         self.taps = {c.name: Tap(c.pid, from_end=True) for c in apps}
         for tap in self.taps.values():
             tap.ready()
         self.count = {n: 5 if done(n, 'kills5') else 0 for n in self.taps}
+        # 2026-11-07 (r4ys25 books, same pattern): an apprentice whose task is already past this step (handed in)
+        # never gets the kill text again; without a kills5 mark (state lost / another machine) it would block the team
+        qid, n_past, full = self.PAST
+        for c in apps:
+            if progress.past(w.read_quest(c.mem, qid), n_past):
+                self.count[c.name] = max(self.count[c.name], full)
         # 2026-11-01 w6: the line was restarted seconds after the 5th kill, before the mark; the rerun waited 25 min
         # for a text that never comes again. The tap file holds this login's packets: read the kills already there
         for c in apps:

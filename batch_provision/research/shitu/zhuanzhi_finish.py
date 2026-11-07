@@ -8,12 +8,14 @@ Recorded 2026-10-27 02:06:38 (十万1 by hand, ANALYSIS.md section 11.2), every 
       -> 0x46ff「职业变更了，现在是战士了」「任务：力量的考验完成了」(task 24 done) + 新手洗点卡, 1000 exp, 210 潜能
       ->「你已经是一个优秀的战士了…」「接受」-> task 107「光荣的使命」(the user accepted it, so do we)
   map 270 传送门 NPC 23 (954,507)「逍遥村西区」-> map 1 (1110,1173)
-Precondition: task 24 at steps (0,0,2,0,1). A role with task 24 done skips the 神仙姐姐 part.
+Precondition: task 24 at steps (0,0,2,0,1) (checked by the step count only, see progress.py). A role with task 24
+done skips the 神仙姐姐 part.
 """
 import math
 import sys
 import time
 
+import progress
 import trial_run as t
 from bai_shi import mark
 from provisioner import world as w
@@ -52,7 +54,8 @@ def gate(c, npc, xy, map_from, label, map_to):
 def finish(c):
     q = w.read_quest(c.mem, QUEST)
     if not q.done:
-        if tuple(q.steps) != (0, 0, 2, 0, 1):
+        # by the step count (5 bytes) only: 2026-11-07 r4ys25 read (0,2,2,0,1) / (0,46,2,3,1) after a relog (progress.py)
+        if not progress.at(q, progress.CLASS_FAIRY):
             raise t.Stop(f'{c.name} 任务 {QUEST} 不在「去梦幻岛找神仙姐姐」这一步: {q}')
         if c.world().map_id != ISLAND:
             gate(c, GATE_VILLAGE, GATE_VILLAGE_XY, 1, '梦幻岛', ISLAND)

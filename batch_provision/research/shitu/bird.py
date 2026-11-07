@@ -15,7 +15,7 @@ import boss_fight
 import trial_run as t
 from provisioner import world as w
 
-TROPHY, BIRD, BIRD_XY = 10718, 1131, (7734, 1380)
+TROPHY, BIRD, BIRD_XY, QUEST = 10718, 1131, (7734, 1380), 187
 
 
 def run(script, *args):
@@ -23,6 +23,14 @@ def run(script, *args):
 
 
 def main(master, apps):
+    # 2026-11-07 (the r4ys25 books loop): a rerun of y_bird after some apprentices handed in at 奥里雷西亚 (187 done)
+    # must not send them back to 死鸟人 nor wait for their 女神奖杯
+    gone = [n for n in apps if w.read_quest(t.Client(n).mem, QUEST).done]
+    if gone:
+        t.say(f'任务 187 已完成，不用再打死鸟人: {gone}')
+    apps = [n for n in apps if n not in gone]
+    if not apps:
+        return
     left = [n for n in apps if t.Client(n).world().map_id != 800]
     if left:
         run('team_npc.py', 20, 633, 3064, 1964, '术士的试炼|现在就走', 187, master, *left, '--no-regroup')

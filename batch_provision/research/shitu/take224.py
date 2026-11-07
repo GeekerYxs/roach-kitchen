@@ -128,7 +128,7 @@ def hand_in(c):
 
 def take(c):
     q = w.read_quest(c.mem, 224)
-    if q.active and tuple(q.steps) == (2, 1):
+    if q.active and len(q.steps) == 2:      # (2,1); by the count only (progress.py, 2026-11-07 relog garbage)
         hand_in(c)
     if w.read_quest(c.mem, 224).active:
         t.say(f'[{c.name}] 任务 224 已经接了 {w.read_quest(c.mem, 224)}')

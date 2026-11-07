@@ -64,8 +64,11 @@ def cond(name, *args):
     if name == 'master_off':  # on none of these maps
         return t.Client(M).world().map_id not in {int(a) for a in args}
     if name == 'kills5':      # somebody still needs the 5 拳手 of 任务 24 (state mark kills5 = already counted)
+        # by the step count only (progress.py): 2026-11-07 r4ys25 read (0,2,1) / (0,46,1) for (0,0,1) after a relog,
+        # the tuple test then skipped the 拳手 and the hand-in, and zhuanzhi_finish stopped on every rerun
+        import progress
         from bai_shi import done
-        return any(tuple(w.read_quest(t.Client(n).mem, 24).steps) == (0, 0, 1) and not done(n, 'kills5')
+        return any(progress.at(w.read_quest(t.Client(n).mem, 24), progress.CLASS_ITEMS) and not done(n, 'kills5')
                    for n in APPRENTICES)
     raise SystemExit(f'unknown condition {name}')
 
