@@ -88,6 +88,11 @@
 1. 队伍是通过环境变量（`_bootstrap.py` 设 `SHITU_LEADER` 等）定死的，别的产品线没法传自己的队伍进来。
 2. 没有「今天还能打几次」的计数。已实测（2026-11-06）：第 11 次**接任务**时莫吉最后一页是「已经超过今日挑战上限了！」，只有「离开」，任务不给；第 10 次交任务时续接也同样被拒。`take_eagle.DailyLimit` 认这句话，`round.py` 停下。
 
+### 开跑初始化（2026-11-07）
+
+6 个 `round_*.py` 开跑前全员放弃这只 boss 的任务、队长重接；每轮开头全队进度不一样也这样做（不硬交）；打没打完只看队长。
+放弃任务不收走任务道具，所以初始化也丢这只 boss 自己的任务道具。共用模块 `projects/boss_gear_5/reset_quest.py`（放弃任务发包 0xA0 `<I 0><I 任务号>`，2026-11-07 老树叶实测通过），以后搬进 `kit/boss/`。细节见 `projects/boss_gear_5/README.md`「开跑初始化」。
+
 ## 3. 放在哪：`batch_provision/kit/boss/`
 
 按 [ARCHITECTURE.md](ARCHITECTURE.md) 第 6 节的方向，共用能力以后都进 `batch_provision/kit/`。boss 任务是第一批正式放进去的能力：

@@ -13,6 +13,8 @@ from _bootstrap import ROLES
 
 import trial_run as t
 
+import reset_quest as rq
+
 import enter_lost
 import go_forest3
 import handin_leaf
@@ -26,7 +28,10 @@ def one(n):
     t.say(f'===== 老树叶第 {n} 轮开始 =====')
     t0 = time.monotonic()
     cs = [t.Client(r) for r in ROLES]
-    if not any(lf.ready(c) for c in cs):
+    # user 2026-11-07: mixed progress (one role still at an old (2,1)) -> everyone drops it, the round re-takes it;
+    # then the leader alone decides fight-or-report (any(ready) skipped the fight and handin_* stopped)
+    rq.check_same(cs, (lf.QUEST,), '传说中的老树叶', lf.ITEMS)
+    if not lf.ready(cs[0]):
         if not enter_lost.in_lost(cs) or not all(lf.has_quest(c) for c in cs):
             go_forest3.main()                 # skips itself when the full team is in 152 already
             take_leaf.main()
@@ -38,6 +43,7 @@ def one(n):
 
 
 def main(rounds):
+    rq.start_of_run((lf.QUEST,), '传说中的老树叶', lf.ITEMS)     # user 2026-11-07: forced fresh start once per run
     for n in range(1, rounds + 1):
         try:
             one(n)

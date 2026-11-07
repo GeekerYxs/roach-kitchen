@@ -13,11 +13,16 @@ from _bootstrap import ROLES
 
 import trial_run as t
 
+import reset_quest as rq
+
 import eagle_cage
 import enter_cage
 import go_desert1
 import handin_eagle
 import take_eagle
+
+# 2026-11-07: an old round's crystals are dropped with the quest at the reset
+CRYSTALS = {k[2]: k[0] for k in eagle_cage.KINDS}
 
 
 def to_desert(cs):
@@ -34,8 +39,11 @@ def one(n):
     t.say(f'===== 第 {n} 轮开始 =====')
     t0 = time.monotonic()
     cs = [t.Client(r) for r in ROLES]
-    if not any(handin_eagle.ready(c) for c in cs):
-        if not enter_cage.in_cage(cs):
+    # user 2026-11-07: mixed progress (one role still at an old (2,1)) -> everyone drops it, the round re-takes it;
+    # then the leader alone decides fight-or-report (any(ready) skipped the fight and handin_* stopped)
+    rq.check_same(cs, (take_eagle.QUEST,), '让鹰王倒下', CRYSTALS)
+    if not handin_eagle.ready(cs[0]):
+        if not enter_cage.in_cage(cs) or take_eagle.missing(cs):   # 2026-11-07: after a reset inside the cage
             to_desert(cs)
             take_eagle.main()
             enter_cage.main()
@@ -46,6 +54,7 @@ def one(n):
 
 
 def main(rounds):
+    rq.start_of_run((take_eagle.QUEST,), '让鹰王倒下', CRYSTALS)     # user 2026-11-07: forced fresh start once per run
     for n in range(1, rounds + 1):
         try:
             one(n)

@@ -13,6 +13,8 @@ from _bootstrap import ROLES
 
 import trial_run as t
 
+import reset_quest as rq
+
 import enter_baoku
 import go_forest1
 import handin_monkey
@@ -26,7 +28,10 @@ def one(n):
     t.say(f'===== 金刚猴第 {n} 轮开始 =====')
     t0 = time.monotonic()
     cs = [t.Client(r) for r in ROLES]
-    if not any(mk.ready(c) for c in cs):
+    # user 2026-11-07: mixed progress (one role still at an old (2,1)) -> everyone drops it, the round re-takes it;
+    # then the leader alone decides fight-or-report (any(ready) skipped the fight and handin_* stopped)
+    rq.check_same(cs, (mk.QUEST,), '金刚猴的挑战书', mk.ITEMS)
+    if not mk.ready(cs[0]):
         if not enter_baoku.in_baoku(cs) or not all(mk.has_quest(c) for c in cs):
             go_forest1.main()                 # skips the PP鸡 when the full team is in 150 already
             take_monkey.main()
@@ -38,6 +43,7 @@ def one(n):
 
 
 def main(rounds):
+    rq.start_of_run((mk.QUEST,), '金刚猴的挑战书', mk.ITEMS)     # user 2026-11-07: forced fresh start once per run
     for n in range(1, rounds + 1):
         try:
             one(n)

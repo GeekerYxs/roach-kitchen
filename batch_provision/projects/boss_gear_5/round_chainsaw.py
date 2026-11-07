@@ -15,6 +15,8 @@ from _bootstrap import ROLES
 
 import trial_run as t
 
+import reset_quest as rq
+
 import chainsaw as cz
 import enter_prison
 import go_laoliu
@@ -23,12 +25,18 @@ import prison_fight
 import take_chainsaw
 from take_eagle import DailyLimit
 
+# 2026-11-07: 1853 死亡游戏 (leader only, the prison 机关 gives it again) is dropped with 1852 at the reset
+QUESTS = (cz.QUEST, 1853)
+
 
 def one(n):
     t.say(f'===== 电锯杀人王第 {n} 轮开始（{len(ROLES)} 人：{"、".join(ROLES)}）=====')
     t0 = time.monotonic()
     cs = [t.Client(r) for r in ROLES]
-    if not any(cz.ready(c) for c in cs):
+    # user 2026-11-07: mixed progress (one role still at an old (2,1)) -> everyone drops it, the round re-takes it;
+    # then the leader alone decides fight-or-report (any(ready) skipped the fight and handin_* stopped)
+    rq.check_same(cs, QUESTS, '惊魂监狱的杀人狂', cz.KEYS)
+    if not cz.ready(cs[0]):
         if not enter_prison.in_prison(cs) or not all(cz.has_quest(c) for c in cs):
             go_laoliu.main()                  # skips the PP鸡 when the full team is in 龙之都外城 already
             take_chainsaw.main()
@@ -40,6 +48,7 @@ def one(n):
 
 
 def main(rounds):
+    rq.start_of_run(QUESTS, '惊魂监狱的杀人狂', cz.KEYS)     # user 2026-11-07: forced fresh start once per run
     for n in range(1, rounds + 1):
         try:
             one(n)

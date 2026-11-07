@@ -12,6 +12,8 @@ from _bootstrap import ROLES
 
 import trial_run as t
 
+import reset_quest as rq
+
 import enter_jingu
 import go_desert2
 import handin_tiger
@@ -34,7 +36,10 @@ def one(n):
     t.say(f'===== 虎力仙第 {n} 轮开始 =====')
     t0 = time.monotonic()
     cs = [t.Client(r) for r in ROLES]
-    if not any(tg.ready(c) for c in cs):
+    # user 2026-11-07: mixed progress (one role still at an old (2,1)) -> everyone drops it, the round re-takes it;
+    # then the leader alone decides fight-or-report (any(ready) skipped the fight and handin_* stopped)
+    rq.check_same(cs, (tg.QUEST,), '玩死虎力仙')
+    if not tg.ready(cs[0]):
         if not enter_jingu.in_jingu(cs) or not all(tg.has_quest(c) for c in cs):
             to_wangyong(cs)
             take_tiger.main()
@@ -46,6 +51,7 @@ def one(n):
 
 
 def main(rounds):
+    rq.start_of_run((tg.QUEST,), '玩死虎力仙')     # user 2026-11-07: forced fresh start once per run
     for n in range(1, rounds + 1):
         try:
             one(n)

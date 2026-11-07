@@ -13,6 +13,8 @@ from _bootstrap import ROLES
 
 import trial_run as t
 
+import reset_quest as rq
+
 import enter_ruins
 import go_kuwu2
 import gouzei as gz
@@ -26,7 +28,10 @@ def one(n):
     t.say(f'===== 狗贼贼第 {n} 轮开始 =====')
     t0 = time.monotonic()
     cs = [t.Client(r) for r in ROLES]
-    if not any(gz.ready(c) for c in cs):
+    # user 2026-11-07: mixed progress (one role still at an old (2,1)) -> everyone drops it, the round re-takes it;
+    # then the leader alone decides fight-or-report (any(ready) skipped the fight and handin_* stopped)
+    rq.check_same(cs, (gz.QUEST,), '突出虫围', gz.ITEMS)
+    if not gz.ready(cs[0]):
         if not enter_ruins.in_ruins(cs) or not all(gz.has_quest(c) for c in cs):
             go_kuwu2.main()                   # skips the PP鸡 when the full team is in 171 / 172 already
             take_gouzei.main()
@@ -38,6 +43,7 @@ def one(n):
 
 
 def main(rounds):
+    rq.start_of_run((gz.QUEST,), '突出虫围', gz.ITEMS)     # user 2026-11-07: forced fresh start once per run
     for n in range(1, rounds + 1):
         try:
             one(n)

@@ -91,6 +91,7 @@
 | | 队长补给（料理工位：回城卷、萝卜糕、甜点） | `factory/supply.py` | 料理 |
 | | 队长补蓝：汉尼拔买劲爆汽水（三轮实测） | `projects/fullcrit_mage_leveling_70/hannibal_soda.py` | 满爆方士 |
 | **boss 任务** | 打一轮限次 boss（接任务 → 去 → 准备 + 打 → 交）；规划成任何队伍都能调用 | 现在 `projects/boss_gear_5/`，规划 `kit/boss/`（见 [BOSS_TASKS.md](BOSS_TASKS.md)） | 5 人打 boss；规划给满爆方士 58 级顺路打 |
+| | 放弃任务（发包 0xA0 `<I 0><I 任务号>`，客户端任务窗口「放弃」同一个调用）；全队进度不一致时全员放弃、队长重接（只放弃给定的任务号，不碰剧情任务） | `projects/boss_gear_5/reset_quest.py`（`reset`、`same_progress`、`start_of_run`、`check_same`） | 5 人打 boss（6 个 `round_*.py` 开跑前和每轮开头） |
 | **背包** | 物品分类（能不能卖、是不是任务品） | `factory/items.py`、`factory/data/items.csv` | 全部 |
 | | 腾空格（杂物 → 整人道具 → 其他杂物） | `r4_util.space_one`、`r4_util.drop_order` | 师徒 |
 | | 定时丢葫芦 / 特赦令 / 整人道具，回城卖武器 | `trash.py` | 师徒 |
