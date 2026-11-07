@@ -61,6 +61,7 @@
 | **连接窗口** | 找窗口、读内存、发命令（`Client`）；等待；日志 `say` | `research/shitu/trial_run.py`、`common.py`、`provisioner/` | 全部 |
 | | 几个号同时做各自的事 `each` | `trial_run.each`、`teamwalk.each` | 师徒 |
 | | 掉线检测（30 秒读不到人物就报错）、答题弹窗 90 秒没人答就报错 | `trial_run.Gone` | 师徒、满爆方士 |
+| | 队员本地卡在旧战斗（队长又打完 3 场它还在战斗中）：关它的窗口、报错，重跑时重登 | `trial_run.StuckBattle` | 师徒（古井、轮回、迷宫、通天塔） |
 | | 关掉开着的对话框（回城 / 离队前） | `r4_util.close_dialogs` | 师徒、满爆方士 |
 | | 确保答题器在运行（没开就启动，加锁防两条线同时启动） | `provisioner/quizbot.py` | 全部（料理总大脑、师徒总控、满爆方士、抓宠） |
 | | 登录 / 建角 / 进角色 / 新手出村 | `provisioner/`、`research/shitu/make_apprentices.py`、`master_login.py` | 料理、师徒 |

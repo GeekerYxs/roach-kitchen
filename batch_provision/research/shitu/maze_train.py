@@ -240,6 +240,7 @@ def main():
     battles, stage_battles, in_battle, last_levels, t0 = 0, 0, False, None, time.monotonic()
     fallen, falls = set(), {}
     gone = t.Gone()                      # a dropped client: fail after 30 s, not the 15-min watchdog (2026-11-05)
+    stuck = t.StuckBattle(cs, LEADER)    # a client frozen in an old battle: close it, Stop (2026-11-07)
     import trash
     trasher = trash.Trasher([cs[n] for n in APPRENTICES if n in cs])     # 葫芦 / 特赦令 / 整人道具 every 20 min
     while True:
@@ -273,6 +274,7 @@ def main():
             if sts[LEADER].nav_active:
                 lead.game.cancel_navigation()
             raise t.Stop(f'{missing} 不在 {LEADER} 的队里了（掉线或死亡？）')
+        stuck.tick(sts, battles)
         levels = {n: w.read_level(cs[n].mem) for n in APPRENTICES}
         if levels != last_levels:
             t.say(f'等级 {levels}，战斗 {battles} 场，用时 {(now - t0) / 60:.1f} 分')

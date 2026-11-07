@@ -117,6 +117,42 @@ class Gone:
         return True
 
 
+STUCK_BATTLES = 3     # leader battles a member may stay "in battle" through before its client counts as frozen
+
+
+def _close_windows(clients, names):
+    from r4_util import close_window   # lazy: r4_util imports this module
+    return {n: close_window(n, clients[n].pid) for n in names}
+
+
+class StuckBattle:
+    """For the team leveling loops (Gemini test machine 2026-11-07, c1 batch 2, 伏一勇06 in 通天塔一区): one member's
+    client froze in an old battle (in_battle / busy, level 31, position fixed) while the server had it follow the
+    leader and level up to 36; the loop waited 47 min on min(levels). Gone, the team check and b.me.dead all looked
+    fine. A member battle ends with the leader's, so a member still in battle while the leader is out, after the
+    leader started STUCK_BATTLES battles, is frozen: its window is closed (the rerun's window check logs it in again,
+    as the live fix did 05:57) and Stop. A plain in_battle mismatch timer would not do: the leader is back in a
+    battle every ~20 s, which matches the frozen True and resets it.
+    tick(states, battles): battles = the loop's count of leader battle starts."""
+    def __init__(self, clients, leader, limit=STUCK_BATTLES, close=_close_windows):
+        self.clients, self.leader, self.limit, self.close, self.since = clients, leader, limit, close, {}
+
+    def tick(self, states, battles):
+        for n, s in states.items():
+            if n == self.leader or s is None or not s.in_battle:
+                self.since.pop(n, None)
+            else:
+                self.since.setdefault(n, battles)
+        lead = states.get(self.leader)
+        if lead is None or lead.in_battle:
+            return
+        stuck = sorted(n for n, b in self.since.items() if battles - b >= self.limit)
+        if stuck:
+            closed = self.close(self.clients, stuck)
+            raise Stop(f'{stuck} 本地还卡在旧战斗里（{self.leader} 已经又打了 {self.limit} 场），'
+                       f'关窗交给产线重登后重跑: {closed}')
+
+
 def wait(cond, timeout, what):
     end = time.monotonic() + timeout
     while time.monotonic() < end:

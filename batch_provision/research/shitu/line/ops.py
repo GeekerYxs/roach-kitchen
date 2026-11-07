@@ -125,6 +125,7 @@ def home_village():
 
 
 def q94():
+    from take224 import talk           # Gemini test machine 2026-11-07: 6cfed39 dropped it with fairy's -> NameError
     from zhuanzhi_finish import walk
     def one(n):                        # each hands in 94 at NPC 308 on its own, all at once (user 2026-11-01)
         c = t.Client(n)
