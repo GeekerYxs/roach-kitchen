@@ -16,6 +16,8 @@ fields and mazes. clean walks to the shop only on map 1 (逍遥村); elsewhere i
 import json
 import sys
 
+import keep_items
+
 KEEP_TYPES = {0x400, 0x2000, 0x824}      # 辅助品 (bought drinks / scrolls), 任务品, 任务触发道具
 VILLAGE, SHOP_XY = 1, (1338, 1155)
 
@@ -37,7 +39,7 @@ def new_slots(bag, kinds, items):
     sell, drop = [], []
     for s in bag:
         it = items.get(s.item_id)
-        if s.item_id in kinds or it is None or it.type in KEEP_TYPES or it.important:
+        if s.item_id in kinds or it is None or it.type in KEEP_TYPES or it.important or keep_items.kept(it):
             continue
         (sell if it.tradable else drop).append(s)
     return sell, drop

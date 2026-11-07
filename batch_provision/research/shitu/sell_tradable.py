@@ -22,6 +22,7 @@ Evidence (02:55 十万1): of 35 slots, all 13 tradable ones sold and all 22 不�
 import os
 import sys
 
+import keep_items
 import trial_run as t
 from common import APPRENTICES, MASTERS
 from factory.items import EQUIP_TYPES, load_items
@@ -104,6 +105,7 @@ def one(n, mode, items, nm):
     walk(c, 1, (1338, 1155), '宠物商人小美')
     bag = w.read_bag(c.mem)
     sell = [s for s in bag if s.item_id in items and items[s.item_id].tradable
+            and not keep_items.kept(items[s.item_id])        # user 2026-11-07: 通关钥匙 / 温泉消费券 are never sold
             and (wanted(items[s.item_id], mode) or (weapons and items[s.item_id].type == WEAPON))]
     if weapons:
         stuck = [nm(s.item_id) for s in bag if (it := items.get(s.item_id)) and it.type == WEAPON and not it.tradable]

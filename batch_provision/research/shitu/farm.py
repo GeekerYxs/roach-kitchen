@@ -17,6 +17,7 @@ e.g. 187 step 6, 10 神仙姐姐的画像 (10716) from 猥琐教打杂的 opposi
 import subprocess
 import sys
 
+import keep_items
 import maze_train as m
 import progress
 import quanshou as q
@@ -30,7 +31,9 @@ MIN_FREE = 4         # free bag slots kept while farming (a full bag silently lo
 
 def junk(it):
     """User 2026-11-03: the apprentices just drop 技能石, the three 葫芦 and every 杂物."""
-    return it is not None and ('技能石' in it.name or '葫芦' in it.name or it.type == 0x1000)
+    if it is None or it.important or keep_items.kept(it):    # user 2026-11-07: 御通关钥匙 / 御温泉消费券 were dropped here
+        return False
+    return '技能石' in it.name or '葫芦' in it.name or it.type == 0x1000
 
 
 def make_room(c, items):

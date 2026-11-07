@@ -18,7 +18,7 @@ LOG = Path(tempfile.mkdtemp()) / 'drop_log.tsv'
 
 ITEMS = {
     31801: NS(name='紫金红葫芦', type=0x400, tradable=True), 31802: NS(name='黄玉葫芦', type=0x400, tradable=True),
-    31803: NS(name='碧玉葫芦', type=0x400, tradable=True), 32068: NS(name='特赦令', type=0x400, tradable=True),
+    31803: NS(name='碧玉葫芦', type=0x400, tradable=True), 32068: NS(name='(御)特赦令', type=0x400, tradable=True),
     50: NS(name='定身丸', type=0x802, tradable=True), 9801: NS(name='回城卷', type=0x400, tradable=True),
     118: NS(name='专打屁屁扳手', type=0x103, tradable=True), 7: NS(name='破布', type=0x1000, tradable=True),
 }
@@ -54,7 +54,7 @@ class Drop(unittest.TestCase):
 
     def test_drops_only_trash(self):
         c = Role('a', [31801, 31802, 31803, 32068, 50, 9801, 118, 7])
-        self.assertEqual(sorted(self.run_drop(c)), sorted(['紫金红葫芦', '黄玉葫芦', '碧玉葫芦', '特赦令', '定身丸']))
+        self.assertEqual(sorted(self.run_drop(c)), sorted(['紫金红葫芦', '黄玉葫芦', '碧玉葫芦', '(御)特赦令', '定身丸']))
         self.assertEqual(len(c.sent), 5)
         self.assertTrue(all(op == 0x48 for op, _ in c.sent))
 
@@ -99,7 +99,7 @@ class NameFile(unittest.TestCase):
         from factory.items import load_items
         got, warn = trash.check_names(trash.parse(trash.NAMES_FILE.read_text(encoding='utf-8')), load_items())
         self.assertEqual(warn, [])
-        self.assertTrue({'锁住的藏宝盒', '特赦令', '碧玉葫芦', '黄玉葫芦', '紫金红葫芦'} <= got)
+        self.assertTrue({'锁住的藏宝盒', '(御)特赦令', '碧玉葫芦', '黄玉葫芦', '紫金红葫芦'} <= got)
 
     def test_reread_on_edit(self):
         f = Path(tempfile.mkdtemp()) / 'names.txt'

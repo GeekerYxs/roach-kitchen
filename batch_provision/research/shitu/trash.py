@@ -23,6 +23,7 @@ import struct
 import time
 from pathlib import Path
 
+import keep_items
 import trial_run as t
 from provisioner import world as w
 
@@ -72,16 +73,33 @@ def guard(item_id, it):
         return '装备'
     if item_id in SUPPLY:
         return '补给品'
+    if keep_items.kept(it):
+        return '通关钥匙 / 温泉消费券'
     return None
 
 
+STONE_TYPE = 2081                 # ItemLib type of the 技能石-xx系-yyyN级 stones (499 of them; 混沌技能石 is another type)
+KINDS = {'@技能石': '所有技能石（技能石-开头，不含标了重要的）'}
+
+
+def is_stone(it):
+    """A skill stone by type + name prefix, not an important one (user 2026-11-07: write @技能石 to drop all)."""
+    return it.type == STONE_TYPE and it.name.startswith('技能石-') and not getattr(it, 'important', False)
+
+
 def check_names(entries, table):
-    """(names to drop, warnings): exact ItemLib names only; protected ones only when forced."""
+    """(names to drop, warnings): exact ItemLib names only; protected ones only when forced. @kind lines = a whole kind."""
     by_name = {}
     for i, it in table.items():
         by_name.setdefault(it.name, []).append((i, it))
     names, warn = set(), []
     for name, forced in entries:
+        if name.startswith('@'):
+            if name in KINDS:
+                names.add(name)
+            else:
+                warn.append(f'「{name}」不认识；可用的整类写法: {sorted(KINDS)}')
+            continue
         hits = by_name.get(name)
         if not hits:
             warn.append(f'「{name}」物品表里没有（错别字？），不丢')
@@ -115,11 +133,14 @@ def names(path=None, say=None):
 
 def is_named(it):
     """In data/drop_names.txt (junk_watch.py: every role, no 整人道具 by type)."""
-    return it is not None and it.name in names()
+    if it is None:
+        return False
+    got = names()
+    return it.name in got or ('@技能石' in got and is_stone(it))
 
 
 def is_trash(it):
-    return it is not None and (it.type in PRANK or it.name in names())
+    return it is not None and (it.type in PRANK or is_named(it))
 
 
 def log_drops(role, map_id, rows, path=None):

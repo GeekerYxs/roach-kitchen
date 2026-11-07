@@ -432,6 +432,9 @@ def drop_order(bag, items):
         it = items.get(s.item_id)
         if not it or it.important:
             return None
+        import keep_items                # user 2026-11-07: 御温泉消费券 (not marked important) was dropped here
+        if keep_items.kept(it):
+            return None
         if it.type == JUNK and it.quality == 0:
             return 0
         if it.type in PRANK:
