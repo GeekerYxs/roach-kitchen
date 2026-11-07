@@ -21,6 +21,7 @@
 | 答题器 | 普通战斗题 + boss 开打题，解锁游戏自带辅助工具的战斗辅助、自动采集、自动任务三页；**自动发现并注入每个新开的游戏窗口**。一台电脑开一个，所有产线共用；**每条产线启动时 `provisioner.quizbot.ensure()` 检查，没开才启动**（启动会先关掉已有的，所以不能多开） | `大冒险2_自动答题器_原生无感关窗版/`，启动逻辑 `batch_provision/provisioner/quizbot.py` |
 | 战斗记录 | 每场战斗一行进 SQLite，报表 | `batch_provision/battlelog/`，[BATTLELOG.md](BATTLELOG.md) |
 | 经验监测 | 每场经验、各级速度 | `batch_provision/expwatch/` |
+| 丢垃圾工具 | 所有游戏窗口每打完一场丢 `drop_names.txt` 里的东西（不碰 `drop_skip_roles.txt` 的角色），记录 `logs/drop_log.tsv`；一台电脑一个，双击开 | `batch_provision/丢垃圾.bat` → `research/shitu/junk_watch.py` |
 
 ## 2. 分层：谁能用谁
 
@@ -63,6 +64,8 @@
 | | 掉线检测（30 秒读不到人物就报错）、答题弹窗 90 秒没人答就报错 | `trial_run.Gone` | 师徒、满爆方士 |
 | | 队员本地卡在旧战斗（队长又打完 3 场它还在战斗中）：关它的窗口、报错，重跑时重登 | `trial_run.StuckBattle` | 师徒（古井、轮回、迷宫、通天塔） |
 | | 关掉开着的对话框（回城 / 离队前） | `r4_util.close_dialogs` | 师徒、满爆方士 |
+| | 丢垃圾工具：双击 `batch_provision/丢垃圾.bat`，一台电脑一个，盯所有游戏窗口，每打完一场按 `drop_names.txt` 丢，`drop_skip_roles.txt` 里的角色不碰；`--check` 试运行 | `research/shitu/junk_watch.py` | 全部（不用接，开着就生效） |
+| | 调游戏函数（DLL 命令 106）每个窗口一把跨进程锁 `CallLock`：产线、丢垃圾工具同时发包不会误报「调用计数异常」 | `provisioner/native.py` | 全部 |
 | | 确保答题器在运行（没开就启动，加锁防两条线同时启动） | `provisioner/quizbot.py` | 全部（料理总大脑、师徒总控、满爆方士、抓宠） |
 | | 登录 / 建角 / 进角色 / 新手出村 | `provisioner/`、`research/shitu/make_apprentices.py`、`master_login.py` | 料理、师徒 |
 | **移动** | 坐 PP鸡（按目的地找路线） | `pp_chain.py` | 师徒、满爆方士 |
@@ -94,7 +97,7 @@
 | | 放弃任务（发包 0xA0 `<I 0><I 任务号>`，客户端任务窗口「放弃」同一个调用）；全队进度不一致时全员放弃、队长重接（只放弃给定的任务号，不碰剧情任务） | `projects/boss_gear_5/reset_quest.py`（`reset`、`same_progress`、`start_of_run`、`check_same`） | 5 人打 boss（6 个 `round_*.py` 开跑前和每轮开头） |
 | **背包** | 物品分类（能不能卖、是不是任务品） | `factory/items.py`、`factory/data/items.csv` | 全部 |
 | | 腾空格（杂物 → 整人道具 → 其他杂物） | `r4_util.space_one`、`r4_util.drop_order` | 师徒 |
-| | 定时丢葫芦 / 特赦令 / 整人道具，回城卖武器 | `trash.py` | 师徒 |
+| | 按名单 `research/shitu/data/drop_names.txt`（名称完全一样才丢，受保护的要写 `!`）加整人道具定时丢，回城卖武器；`--check` 试运行，`logs/drop_log.tsv` 记录 | `trash.py` | 师徒 |
 | | 开礼包、穿装备、吃东西、丢整人道具、取邮件 | `open_packs.py`、`wear_best.py`、`eat_items.py`、`drop_prank.py`、`mail_sell.py` | 师徒 |
 | | 交易（给东西、给金币） | `supply_go.trade_until` | 师徒 |
 

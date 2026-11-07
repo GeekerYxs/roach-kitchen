@@ -1,6 +1,7 @@
 """trash.py (user 2026-11-05): the apprentices drop 碧玉 / 黄玉 / 紫金红葫芦, 特赦令 and 整人道具 out of battle (every 20
 min in the loops, after each opened pack, at every home), and the 勇者 line sells its weapons at home; the master's
 胡萝卜汁 is not bought any more."""
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -11,6 +12,9 @@ HERE = Path(__file__).resolve().parent.parent / 'research' / 'shitu'
 sys.path.insert(0, str(HERE))
 
 import trash  # noqa: E402
+import tempfile  # noqa: E402
+
+LOG = Path(tempfile.mkdtemp()) / 'drop_log.tsv'
 
 ITEMS = {
     31801: NS(name='紫金红葫芦', type=0x400, tradable=True), 31802: NS(name='黄玉葫芦', type=0x400, tradable=True),
@@ -32,7 +36,7 @@ class Role:
 
 
 def patched():
-    return mock.patch.dict(trash.os.environ, {'SHITU_TRASH': '1'}), mock.patch.multiple(trash, _items=ITEMS), mock.patch.object(trash.w, 'read_bag', lambda m: m.bag), \
+    return mock.patch.dict(trash.os.environ, {'SHITU_TRASH': '1'}), mock.patch.multiple(trash, _items=ITEMS, _names=(None, frozenset()), DROP_LOG=LOG), mock.patch.object(trash.w, 'read_bag', lambda m: m.bag), \
         mock.patch.object(trash.t, 'say', lambda s: None), mock.patch.object(trash.time, 'sleep', lambda s: None), \
         mock.patch.object(trash.w, 'read_equipment', lambda m: m.worn)
 
@@ -58,6 +62,53 @@ class Drop(unittest.TestCase):
         c = Role('a', [31801], battle=True)
         self.assertEqual(self.run_drop(c), [])
         self.assertEqual(c.sent, [])
+
+
+    def test_log_written(self):
+        self.run_drop(Role('a', [31801, 9801]))
+        rows = LOG.read_text(encoding='utf-8').splitlines()
+        self.assertEqual(rows[0].split('\t')[1], '角色')
+        self.assertIn('\ta\t1\t0\t31801\t紫金红葫芦\t1\t', rows[-1])
+
+
+class NameFile(unittest.TestCase):
+    """data/drop_names.txt (user 2026-11-07): exact names, protected ones only with !, typos warned."""
+    TABLE = {
+        32068: NS(name='特赦令', type=0x400, important=True), 32069: NS(name='超级特赦令', type=0x400, important=True),
+        31800: NS(name='锁住的藏宝盒', type=0x400, important=False), 9801: NS(name='回城卷', type=0x400, important=False),
+        10043: NS(name='葫芦娃的尾巴', type=0x2000, important=False), 8315: NS(name='滑溜之葫芦', type=0x105, important=False),
+        40089: NS(name='笨呆葫芦娃', type=0x820, important=True),
+    }
+
+    def test_parse(self):
+        self.assertEqual(trash.parse('# x\n 锁住的藏宝盒  # 周六\n\n!特赦令\n'), [('锁住的藏宝盒', False), ('特赦令', True)])
+
+    def test_exact_only(self):
+        got, warn = trash.check_names([('特赦令', True), ('葫芦', False)], self.TABLE)
+        self.assertEqual(got, {'特赦令'})                      # not 超级特赦令
+        self.assertIn('物品表里没有', warn[0])
+
+    def test_protected_need_bang(self):
+        for name in ('特赦令', '回城卷', '葫芦娃的尾巴', '滑溜之葫芦', '笨呆葫芦娃'):
+            got, warn = trash.check_names([(name, False)], self.TABLE)
+            self.assertEqual((got, len(warn)), (set(), 1), name)
+            self.assertIn('!' + name, warn[0])
+        self.assertEqual(trash.check_names([('锁住的藏宝盒', False)], self.TABLE), ({'锁住的藏宝盒'}, []))
+
+    def test_real_file(self):
+        from factory.items import load_items
+        got, warn = trash.check_names(trash.parse(trash.NAMES_FILE.read_text(encoding='utf-8')), load_items())
+        self.assertEqual(warn, [])
+        self.assertTrue({'锁住的藏宝盒', '特赦令', '碧玉葫芦', '黄玉葫芦', '紫金红葫芦'} <= got)
+
+    def test_reread_on_edit(self):
+        f = Path(tempfile.mkdtemp()) / 'names.txt'
+        with mock.patch.multiple(trash, _items=self.TABLE, _names=(None, frozenset())):
+            f.write_text('锁住的藏宝盒\n', encoding='utf-8')
+            self.assertEqual(trash.names(f, say=lambda m: None), {'锁住的藏宝盒'})
+            f.write_text('锁住的藏宝盒\n!特赦令\n', encoding='utf-8')
+            os.utime(f, (1, 1))
+            self.assertEqual(trash.names(f, say=lambda m: None), {'锁住的藏宝盒', '特赦令'})
 
 
 class TrasherEvery(unittest.TestCase):

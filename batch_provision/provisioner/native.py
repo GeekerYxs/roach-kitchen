@@ -87,6 +87,9 @@ _k.CloseHandle.argtypes = [W.HANDLE]
 _k.OpenFileMappingW.argtypes = [W.DWORD, W.BOOL, W.LPCWSTR]
 _k.OpenFileMappingW.restype = W.HANDLE
 _k.GlobalMemoryStatusEx.argtypes = [ctypes.c_void_p]
+_k.CreateMutexW.argtypes = [ctypes.c_void_p, W.BOOL, W.LPCWSTR]
+_k.CreateMutexW.restype = W.HANDLE
+_k.ReleaseMutex.argtypes = [W.HANDLE]
 
 
 def describe(result):
@@ -202,13 +205,42 @@ def call(session, rva, *args, eax=0, ecx=0, edx=0, ebx=0, esi=0, edi=0):
     words = [v & 0xFFFFFFFF for v in args] + [0] * (8 - len(args))
     req = struct.pack('<7I I 8I', rva, eax & 0xFFFFFFFF, ecx & 0xFFFFFFFF, edx & 0xFFFFFFFF,
                       ebx & 0xFFFFFFFF, esi & 0xFFFFFFFF, edi & 0xFFFFFFFF, len(args), *words)
-    before = read_status(session.pid)['call_count']
-    if not _command(session, CMD_CALL, req):
-        raise RuntimeError(f'DLL 拒绝调用 RVA {rva:#x}（不在游戏世界中 / 参数非法 / 旧版 DLL）')
-    st = read_status(session.pid)
+    with CallLock(session.pid):
+        before = read_status(session.pid)['call_count']
+        if not _command(session, CMD_CALL, req):
+            raise RuntimeError(f'DLL 拒绝调用 RVA {rva:#x}（不在游戏世界中 / 参数非法 / 旧版 DLL）')
+        st = read_status(session.pid)
     if st['call_count'] != before + 1:
         raise RuntimeError(f'调用计数异常 {before}->{st["call_count"]}（可能有并发调用）')
     return st['call_result']
+
+
+CALL_WAIT_MS = 10000
+_call_mutex = {}
+
+
+class CallLock:
+    """One command-106 call per game process at a time, across our processes (user 2026-11-07: a separate junk-drop
+    tool sends 0x48 next to the running lines). The DLL runs calls one by one on the window thread anyway; what two
+    callers broke was the call_count / call_result check above (2026-11-05 '调用计数异常' when a probe ran beside a
+    script). A named mutex per pid: the threads of one process and other processes all wait their turn."""
+
+    def __init__(self, pid):
+        h = _call_mutex.get(pid)
+        if h is None:
+            h = _call_mutex[pid] = _k.CreateMutexW(None, False, f'Local\\smsm2_call_{pid}')
+        self.h, self.held = h, False
+
+    def __enter__(self):
+        r = _k.WaitForSingleObject(self.h, CALL_WAIT_MS) if self.h else None
+        if r == 0x102:                                    # WAIT_TIMEOUT; 0x80 = the holder died: ours now
+            raise RuntimeError(f'等别的程序调用游戏函数超时 {CALL_WAIT_MS} ms')
+        self.held = r in (0, 0x80)
+        return self
+
+    def __exit__(self, *exc):
+        if self.held:
+            _k.ReleaseMutex(self.h)
 
 
 def window_title(hwnd):
