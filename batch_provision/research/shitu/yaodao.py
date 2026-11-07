@@ -24,7 +24,10 @@ t = m.t
 NEED = 5
 QUEST, PAST = 187, 6         # 虫洞法师 took the kills: 187 has 6 steps (route y_yaodao's `U need 187 6`)
 PATROL = ((414, 4893), (106, 4467))          # tower28.py's 通天塔一区 points
-COUNT = re.compile(r'(\d+)\s*[个只]\s*色妖道')
+# only the kill report「你已经杀死了N个色妖道，需要5个」/「…可以回去找虫洞法师了」(logs 2026-11-03 / 11-07). 2026-11-07
+# r4ys29: the looser (\d+)[个只]色妖道 also matched the order's「…5只色妖道…」in the tap history (c19f839 reads it), so
+# all four were marked yaodao5 23 s after taking the order, never went to the tower and 虫洞法师 refused every rerun
+COUNT = re.compile(r'杀死了\s*(\d+)\s*个\s*色妖道')
 COLOR = re.compile(r'#[0-9A-Fa-f]{6}#')
 
 

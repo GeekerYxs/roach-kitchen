@@ -213,6 +213,14 @@ class KillCounters(unittest.TestCase):
             quests['c'][187] = DONE
             self.assertTrue(yaodao.Kills(apps)())
 
+    def test_yaodao_counts_only_the_kill_report(self):
+        """2026-11-07 r4ys29: the order's text named「5只色妖道」and was taken for 5 kills."""
+        import yaodao
+        self.assertIsNone(yaodao.kill_count('我早告诉过你真正的毕业考试没那么容易混，5只色妖道并不是用豆腐做成的！'))
+        self.assertIsNone(yaodao.kill_count('接受了任务：术士的试炼 去通天塔杀死5只色妖道'))
+        self.assertEqual(yaodao.kill_count('你已经杀死了3个色妖道，需要5个'), 3)
+        self.assertEqual(yaodao.kill_count('你已经杀死了5个色妖道，可以回去找虫洞法师了'), 5)
+
     def test_yaodao_reads_the_kills_already_in_the_tap_file(self):
         import yaodao
 
