@@ -49,3 +49,16 @@ class StoneKind(unittest.TestCase):
             self.assertTrue(trash.is_named(a))
             self.assertFalse(trash.is_named(b))
             self.assertFalse(trash.is_named(c))
+
+
+class RecipeKind(unittest.TestCase):
+    def test_at_recipe(self):
+        import trash
+        from unittest import mock
+        a = it('影·猛袭头罩'); a.type = 0x823
+        b = it('某配方', important=True); b.type = 0x823
+        g = it('影·猛袭头罩', type_=0x101)               # real gear with the same name: never
+        with mock.patch.object(trash, 'names', lambda *x, **k: frozenset({'@配方'})):
+            self.assertTrue(trash.is_named(a))
+            self.assertFalse(trash.is_named(b))
+            self.assertFalse(trash.is_named(g))

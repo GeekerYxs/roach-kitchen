@@ -79,12 +79,18 @@ def guard(item_id, it):
 
 
 STONE_TYPE = 2081                 # ItemLib type of the 技能石-xx系-yyyN级 stones (499 of them; 混沌技能石 is another type)
-KINDS = {'@技能石': '所有技能石（技能石-开头，不含标了重要的）'}
+RECIPE_TYPE = 0x823                # 配方: 848 of them, named like gear (影·猛袭头罩 ...), so matched by TYPE only
+KINDS = {'@技能石': '所有技能石（技能石-开头，不含标了重要的）', '@配方': '所有配方（物品类型 配方，不含标了重要的）'}
 
 
 def is_stone(it):
     """A skill stone by type + name prefix, not an important one (user 2026-11-07: write @技能石 to drop all)."""
     return it.type == STONE_TYPE and it.name.startswith('技能石-') and not getattr(it, 'important', False)
+
+
+def is_recipe(it):
+    """A recipe item by type (user 2026-11-07: write @配方 to drop all), not an important one."""
+    return it.type == RECIPE_TYPE and not getattr(it, 'important', False)
 
 
 def check_names(entries, table):
@@ -136,7 +142,7 @@ def is_named(it):
     if it is None:
         return False
     got = names()
-    return it.name in got or ('@技能石' in got and is_stone(it))
+    return it.name in got or ('@技能石' in got and is_stone(it)) or ('@配方' in got and is_recipe(it))
 
 
 def is_trash(it):
